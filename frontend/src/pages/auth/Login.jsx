@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: '',
-    remember_me: false,
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,22 +18,10 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await api.post('/api/auth/login', formData);
-      const { token, user } = response.data;
-
-      // Store auth data
-      if (formData.remember_me) {
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-      } else {
-        sessionStorage.setItem('auth_token', token);
-        sessionStorage.setItem('user', JSON.stringify(user));
-      }
-
-      // Redirect based on role
-      if (user.role === 'resident') {
-        navigate('/resident/dashboard');
-      } else {
+      const success = await login(formData);
+      
+      if (success) {
+        // Navigation will be handled by AuthContext/ProtectedRoute
         navigate('/admin/dashboard');
       }
     } catch (err) {
@@ -79,9 +67,9 @@ export default function Login() {
                 ชื่อผู้ใช้ / Username
               </label>
               <input
-                type="text"
-                name="username"
-                value={formData.username}
+                type="email"
+                name="email"
+                value={formData.email}
                 onChange={handleChange}
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter username"

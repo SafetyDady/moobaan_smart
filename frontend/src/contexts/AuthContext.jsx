@@ -15,27 +15,18 @@ export function AuthProvider({ children }) {
 
   const checkAuth = async () => {
     try {
-      // Check localStorage first (remember me)
+      // Check localStorage first 
       let storedToken = localStorage.getItem('auth_token');
-      let storedUser = localStorage.getItem('user');
-
-      // If not in localStorage, check sessionStorage
-      if (!storedToken) {
-        storedToken = sessionStorage.getItem('auth_token');
-        storedUser = sessionStorage.getItem('user');
-      }
-
-      if (storedToken && storedUser) {
-        // Verify token is still valid
+      
+      if (storedToken) {
+        // Set Authorization header
+        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        
+        // Verify token is still valid using /auth/me endpoint
         try {
-          const response = await api.get(`/api/auth/verify?token=${storedToken}`);
-          if (response.data.valid) {
-            setToken(storedToken);
-            setUser(response.data.user);
-          } else {
-            // Token invalid, clear storage
-            clearAuth();
-          }
+          const response = await api.get('/api/auth/me');
+          setToken(storedToken);
+          setUser(response.data);
         } catch (error) {
           // Token expired or invalid
           clearAuth();
@@ -48,26 +39,33 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = (authToken, userData, rememberMe = false) => {
-    setToken(authToken);
-    setUser(userData);
+  const login = async (formData) => {
+    try {
+      const response = await api.post('/api/auth/login', formData);
+      const { access_token } = response.data;
 
-    // Store in appropriate storage
-    if (rememberMe) {
-      localStorage.setItem('auth_token', authToken);
-      localStorage.setItem('user', JSON.stringify(userData));
-    } else {
-      sessionStorage.setItem('auth_token', authToken);
-      sessionStorage.setItem('user', JSON.stringify(userData));
+      setToken(access_token);
+      
+      // Set Authorization header for future requests
+      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      
+      // Get user info
+      const userResponse = await api.get('/api/auth/me');
+      setUser(userResponse.data);
+
+      // Store token in localStorage
+      localStorage.setItem('auth_token', access_token);
+
+      return true;
+    } catch (error) {
+      throw error;
     }
   };
 
   const logout = async () => {
     try {
       if (token) {
-        await api.post('/api/auth/logout', null, {
-          params: { token }
-        });
+        await api.post('/api/auth/logout');
       }
     } catch (error) {
       console.error('Logout failed:', error);
@@ -80,9 +78,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-    sessionStorage.removeItem('auth_token');
-    sessionStorage.removeItem('user');
+    delete api.defaults.headers.common['Authorization'];
   };
 
   const value = {

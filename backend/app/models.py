@@ -4,6 +4,35 @@ from datetime import datetime, date
 from enum import Enum
 
 
+# Authentication models
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    house_id: Optional[int] = None
+
+
+class UserCreate(BaseModel):
+    email: str
+    full_name: str
+    password: str
+    phone: Optional[str] = None
+    role: str = "resident"
+
+
+# Existing enums
 class UserRole(str, Enum):
     RESIDENT = "resident"
     ACCOUNTING = "accounting"
