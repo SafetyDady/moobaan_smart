@@ -43,22 +43,36 @@
 - [x] Edit Pay-in (Only when REJECTED)
 
 ## Phase 5: Integration & Testing
-- [ ] Test all pages with mock data
-- [ ] Test role-based UI gating
-- [ ] Test all action buttons call endpoints
-- [ ] Test CORS with Vercel domain
-- [ ] Verify mobile responsive
+- [x] Test all pages with mock data
+- [x] Test role-based UI gating
+- [x] Test all action buttons call endpoints
+- [x] Test CORS with Vercel domain
+- [x] Verify mobile responsive
 
 ## Phase 6: Documentation & Deployment
-- [ ] Update README.md
-- [ ] Push to GitHub
-- [ ] Verify Vercel auto-deploy
-- [ ] Test production URLs
+- [x] Update README.md
+- [x] Push to GitHub
+- [ ] Verify Vercel auto-deploy (waiting for auto-deploy)
+- [ ] Test production URLs (after deploy)
 
 ## Core Rules Checklist
-- [ ] House-centric design (1 house ≤ 3 members)
-- [ ] Pay-in lifecycle: SUBMITTED → REJECTED → MATCHED → ACCEPTED
-- [ ] Resident can edit only REJECTED pay-ins
-- [ ] Invoice: Auto-gen + Manual
-- [ ] Bank Statement: Upload → Table → Matching UI
-- [ ] Role-based access (Resident vs Accounting vs Super Admin)
+- [x] House-centric design (1 house ≤ 3 members)
+- [x] Pay-in lifecycle: SUBMITTED → REJECTED → MATCHED → ACCEPTED
+- [x] Resident can edit only REJECTED pay-ins
+- [x] Invoice: Auto-gen + Manual
+- [x] Bank Statement: Upload → Table → Matching UI
+- [x] Role-based access (Resident vs Accounting vs Super Admin)
+
+## Phase 7: Authentication (Login/Register)
+- [x] Backend: Create POST /api/auth/login endpoint (hardcoded users)
+- [x] Backend: Create POST /api/auth/register endpoint (mock)
+- [x] Backend: Mock JWT token generation
+- [x] Frontend: Create Login page (Username/Password + Remember Me)
+- [x] Frontend: Create Register page
+- [x] Frontend: Create AuthContext for authentication state
+- [x] Frontend: Implement Protected Routes
+- [x] Frontend: Add logout functionality
+- [x] Frontend: Persist auth state with localStorage (Remember Me)
+- [x] Test login flow with all 3 roles
+- [x] Test protected routes redirect to login
+- [ ] Push to GitHub

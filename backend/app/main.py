@@ -8,6 +8,7 @@ from app.api.invoices import router as invoices_router
 from app.api.payins import router as payins_router
 from app.api.expenses import router as expenses_router
 from app.api.bank_statements import router as bank_statements_router
+from app.api.auth import router as auth_router
 from app.core.config import settings
 
 app = FastAPI(title=settings.APP_NAME)
@@ -25,6 +26,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(health_router)
 app.include_router(dashboard_router)
 app.include_router(houses_router)

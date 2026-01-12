@@ -1,34 +1,65 @@
-import { Link, useLocation } from 'react-router-dom';
-import { useRole, ROLES } from '../contexts/RoleContext';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const { currentRole, setCurrentRole, isAdmin, isAccounting, isResident } = useRole();
+  const navigate = useNavigate();
+  const { user, logout, isAdmin, isAccounting, isResident } = useAuth();
 
-  const navigation = {
-    [ROLES.SUPER_ADMIN]: [
-      { name: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
-      { name: 'Houses', path: '/admin/houses', icon: '🏠' },
-      { name: 'Members', path: '/admin/members', icon: '👥' },
-      { name: 'Invoices', path: '/admin/invoices', icon: '📄' },
-      { name: 'Pay-ins', path: '/admin/payins', icon: '💰' },
-      { name: 'Expenses', path: '/admin/expenses', icon: '💸' },
-      { name: 'Bank Statements', path: '/admin/statements', icon: '🏦' },
-    ],
-    [ROLES.ACCOUNTING]: [
-      { name: 'Dashboard', path: '/accounting/dashboard', icon: '📊' },
-      { name: 'Invoices', path: '/accounting/invoices', icon: '📄' },
-      { name: 'Pay-ins', path: '/accounting/payins', icon: '💰' },
-      { name: 'Expenses', path: '/accounting/expenses', icon: '💸' },
-      { name: 'Bank Statements', path: '/accounting/statements', icon: '🏦' },
-    ],
-    [ROLES.RESIDENT]: [
-      { name: 'Dashboard', path: '/resident/dashboard', icon: '📊' },
-      { name: 'Submit Payment', path: '/resident/submit', icon: '💳' },
-    ],
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
-  const currentNav = navigation[currentRole] || [];
+  // Navigation based on user role
+  const getNavigation = () => {
+    if (!user) return [];
+
+    if (user.role === 'super_admin') {
+      return [
+        { name: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
+        { name: 'Houses', path: '/admin/houses', icon: '🏠' },
+        { name: 'Members', path: '/admin/members', icon: '👥' },
+        { name: 'Invoices', path: '/admin/invoices', icon: '📄' },
+        { name: 'Pay-ins', path: '/admin/payins', icon: '💰' },
+        { name: 'Expenses', path: '/admin/expenses', icon: '💸' },
+        { name: 'Bank Statements', path: '/admin/statements', icon: '🏦' },
+      ];
+    } else if (user.role === 'accounting') {
+      return [
+        { name: 'Dashboard', path: '/accounting/dashboard', icon: '📊' },
+        { name: 'Invoices', path: '/accounting/invoices', icon: '📄' },
+        { name: 'Pay-ins', path: '/accounting/payins', icon: '💰' },
+        { name: 'Expenses', path: '/accounting/expenses', icon: '💸' },
+        { name: 'Bank Statements', path: '/accounting/statements', icon: '🏦' },
+      ];
+    } else if (user.role === 'resident') {
+      return [
+        { name: 'Dashboard', path: '/resident/dashboard', icon: '📊' },
+        { name: 'Submit Payment', path: '/resident/submit', icon: '💳' },
+      ];
+    }
+
+    return [];
+  };
+
+  const currentNav = getNavigation();
+
+  // Role badge color
+  const getRoleBadgeColor = () => {
+    if (user?.role === 'super_admin') return 'bg-primary-600';
+    if (user?.role === 'accounting') return 'bg-blue-600';
+    if (user?.role === 'resident') return 'bg-gray-600';
+    return 'bg-gray-600';
+  };
+
+  // Role display name
+  const getRoleDisplayName = () => {
+    if (user?.role === 'super_admin') return 'Super Admin';
+    if (user?.role === 'accounting') return 'Accounting';
+    if (user?.role === 'resident') return 'Resident';
+    return 'Unknown';
+  };
 
   return (
     <div className="flex h-screen bg-slate-900">
@@ -37,25 +68,26 @@ export default function Layout({ children }) {
         {/* Logo */}
         <div className="p-6 border-b border-gray-700">
           <h1 className="text-2xl font-bold text-primary-500">
-            Moobaan Smart
+            🏘️ Moobaan Smart
           </h1>
           <p className="text-sm text-gray-400 mt-1">Village Accounting</p>
         </div>
 
-        {/* Role Selector (Mock) */}
+        {/* User Info */}
         <div className="p-4 border-b border-gray-700">
-          <label className="block text-xs text-gray-400 mb-2">
-            Current Role (Mock)
-          </label>
-          <select
-            value={currentRole}
-            onChange={(e) => setCurrentRole(e.target.value)}
-            className="w-full input text-sm"
-          >
-            <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
-            <option value={ROLES.ACCOUNTING}>Accounting</option>
-            <option value={ROLES.RESIDENT}>Resident</option>
-          </select>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold">
+              {user?.name?.charAt(0) || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">
+                {user?.name || 'User'}
+              </p>
+              <span className={`inline-block px-2 py-0.5 text-xs rounded ${getRoleBadgeColor()} text-white`}>
+                {getRoleDisplayName()}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Navigation */}
@@ -66,10 +98,10 @@ export default function Layout({ children }) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-primary-600 text-white'
-                    : 'text-gray-300 hover:bg-slate-700'
+                    : 'text-gray-300 hover:bg-slate-700 hover:text-white'
                 }`}
               >
                 <span className="text-xl">{item.icon}</span>
@@ -79,12 +111,15 @@ export default function Layout({ children }) {
           })}
         </nav>
 
-        {/* Footer */}
+        {/* Logout Button */}
         <div className="p-4 border-t border-gray-700">
-          <div className="text-xs text-gray-400">
-            <div>Phase 1 - UI/UX Demo</div>
-            <div className="mt-1">Mock Data Only</div>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            <span>🚪</span>
+            <span className="font-medium">Logout</span>
+          </button>
         </div>
       </aside>
 
