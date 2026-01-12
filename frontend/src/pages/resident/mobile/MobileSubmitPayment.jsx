@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { payinsAPI } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
+import { isIOS } from '../../../utils/deviceDetect';
 import MobileLayout from './MobileLayout';
 
 export default function MobileSubmitPayment() {
@@ -18,18 +19,57 @@ export default function MobileSubmitPayment() {
     slip_preview: editPayin?.slip_image_url || null,
   });
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  // File size limit: 8MB
+  const MAX_FILE_SIZE = 8 * 1024 * 1024;
+
+  // Handle iOS keyboard overlap
+  useEffect(() => {
+    if (!isIOS()) return;
+
+    const handleResize = () => {
+      // On iOS, when keyboard opens, visualViewport.height < window.innerHeight
+      if (window.visualViewport) {
+        const isOpen = window.visualViewport.height < window.innerHeight * 0.75;
+        setKeyboardOpen(isOpen);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      return () => window.visualViewport.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   const handleCameraCapture = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(file);
-      setFormData({ 
-        ...formData, 
-        slip_image: file,
-        slip_preview: previewUrl
-      });
+    if (!file) return;
+
+    // Clear previous error
+    setError(null);
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      return;
     }
+
+    // Validate file size (max 8MB)
+    if (file.size > MAX_FILE_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      setError(`ไฟล์ใหญ่เกินไป (${sizeMB}MB) กรุณาเลือกไฟล์ที่เล็กกว่า 8MB`);
+      return;
+    }
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setFormData({ 
+      ...formData, 
+      slip_image: file,
+      slip_preview: previewUrl
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -68,7 +108,7 @@ export default function MobileSubmitPayment() {
 
   return (
     <MobileLayout>
-      <div className="p-4">
+      <div className={`p-4 ${keyboardOpen ? 'pb-96' : ''}`}>
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white mb-2">
@@ -78,6 +118,16 @@ export default function MobileSubmitPayment() {
             บ้านเลขที่ #{currentHouseId}
           </p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-900 bg-opacity-30 border border-red-600 rounded-lg p-4">
+            <p className="text-sm text-red-300">
+              <strong>⚠️ ข้อผิดพลาด:</strong>
+            </p>
+            <p className="text-red-200">{error}</p>
+          </div>
+        )}
 
         {/* Rejection Notice */}
         {editPayin && editPayin.reject_reason && (

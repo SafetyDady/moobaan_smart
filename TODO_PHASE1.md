@@ -94,4 +94,4 @@
 - [x] Create mobile submit payment with camera integration
 - [x] Add mobile detection and auto-routing
 - [ ] Test mobile UI on different screen sizes
-- [ ] Push to GitHub
+- [ ] Push to GitHub (requires user credentials)
