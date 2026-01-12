@@ -1,0 +1,211 @@
+# Authentication System - Phase 1.1
+
+## 🔐 Overview
+
+Authentication system สำหรับ Village Accounting System ที่รองรับ 3 roles:
+- **Super Admin** - จัดการระบบทั้งหมด
+- **Accounting** - จัดการการเงินและบัญชี
+- **Resident** - ลูกบ้าน (ส่งสลิป ดูใบแจ้งหนี้)
+
+## 🎯 Features
+
+### Backend (FastAPI)
+- ✅ POST `/api/auth/login` - เข้าสู่ระบบ
+- ✅ POST `/api/auth/register` - สมัครสมาชิก
+- ✅ POST `/api/auth/logout` - ออกจากระบบ
+- ✅ GET `/api/auth/verify` - ตรวจสอบ token
+- ✅ Mock JWT token generation
+- ✅ Hardcoded users สำหรับ Phase 1
+
+### Frontend (React)
+- ✅ Login page (Username/Password + Remember Me)
+- ✅ Register page
+- ✅ AuthContext - จัดการ authentication state
+- ✅ ProtectedRoute - ป้องกัน unauthorized access
+- ✅ Role-based navigation
+- ✅ Logout functionality
+- ✅ Token persistence (localStorage/sessionStorage)
+
+## 👤 Demo Accounts (Phase 1)
+
+| Username | Password | Role | Access |
+|----------|----------|------|--------|
+| `admin` | `admin123` | Super Admin | ทุกฟีเจอร์ |
+| `accounting` | `acc123` | Accounting | การเงิน, บัญชี |
+| `resident` | `res123` | Resident | ส่งสลิป, ดูใบแจ้งหนี้ |
+
+## 🚀 Usage
+
+### 1. Login Flow
+
+```javascript
+// User เข้าสู่ระบบ
+POST /api/auth/login
+{
+  "username": "admin",
+  "password": "admin123",
+  "remember_me": true
+}
+
+// Response
+{
+  "token": "mock_jwt_token_...",
+  "user": {
+    "username": "admin",
+    "name": "Admin User",
+    "role": "super_admin"
+  }
+}
+```
+
+### 2. Register Flow
+
+```javascript
+// User สมัครสมาชิก
+POST /api/auth/register
+{
+  "username": "newuser",
+  "password": "password123",
+  "name": "New User",
+  "house_number": "A-101"
+}
+
+// Response
+{
+  "message": "Registration successful. Please wait for admin approval.",
+  "user": { ... }
+}
+```
+
+### 3. Protected Routes
+
+```javascript
+// Frontend automatically redirects to /login if not authenticated
+// Role-based access control:
+// - /admin/* → super_admin, accounting
+// - /accounting/* → accounting, super_admin
+// - /resident/* → resident only
+```
+
+### 4. Logout
+
+```javascript
+POST /api/auth/logout?token=xxx
+
+// Clears localStorage/sessionStorage
+// Redirects to /login
+```
+
+## 🔒 Security (Phase 1 - Mock)
+
+**⚠️ Note:** Phase 1 ใช้ mock authentication เท่านั้น
+
+- Hardcoded users (ไม่มี database)
+- Mock JWT tokens (ไม่ได้ sign จริง)
+- No password hashing
+- No token expiration
+- No refresh tokens
+
+**Phase 2 จะเพิ่ม:**
+- Database integration (PostgreSQL)
+- Real JWT with signing
+- Password hashing (bcrypt)
+- Token expiration & refresh
+- Email verification
+- Password reset
+
+## 📱 UI Screenshots
+
+### Login Page
+- Dark theme พร้อมสีเขียว
+- Username/Password fields
+- Remember Me checkbox
+- Link to Register
+- Demo accounts displayed
+
+### Register Page
+- Username, Name, House Number
+- Password & Confirm Password
+- Success message
+- Auto-redirect to login
+
+### Protected Routes
+- Automatic redirect to /login
+- Role-based navigation menu
+- User info in sidebar
+- Logout button
+
+## 🧪 Testing
+
+```bash
+# Test login
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123","remember_me":false}'
+
+# Test register
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"test","password":"test123","name":"Test User"}'
+
+# Test verify
+curl "http://localhost:8000/api/auth/verify?token=mock_jwt_token_admin"
+```
+
+## 📝 Implementation Details
+
+### AuthContext
+```javascript
+// Provides authentication state to entire app
+const { user, token, login, logout, isAuthenticated } = useAuth();
+```
+
+### ProtectedRoute
+```javascript
+// Wraps protected pages
+<ProtectedRoute allowedRoles={['super_admin', 'accounting']}>
+  <AdminDashboard />
+</ProtectedRoute>
+```
+
+### Token Storage
+- **Remember Me = true** → localStorage (persistent)
+- **Remember Me = false** → sessionStorage (session only)
+
+## 🔄 Next Steps (Phase 2)
+
+1. Database integration
+   - User table
+   - Password hashing
+   - User management
+
+2. Real JWT
+   - Secret key
+   - Token signing
+   - Expiration
+   - Refresh tokens
+
+3. Security enhancements
+   - Rate limiting
+   - CSRF protection
+   - XSS prevention
+
+4. Features
+   - Email verification
+   - Password reset
+   - Profile management
+   - Session management
+
+## 📚 Related Files
+
+- `backend/app/api/auth.py` - Auth API endpoints
+- `frontend/src/contexts/AuthContext.jsx` - Auth state management
+- `frontend/src/components/ProtectedRoute.jsx` - Route protection
+- `frontend/src/pages/auth/Login.jsx` - Login page
+- `frontend/src/pages/auth/Register.jsx` - Register page
+- `frontend/src/components/Layout.jsx` - Logout functionality
+
+---
+
+**Status:** ✅ Phase 1.1 Complete (Authentication System)
+**Last Updated:** 2025-01-12

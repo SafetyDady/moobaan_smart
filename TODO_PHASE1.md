@@ -75,4 +75,4 @@
 - [x] Frontend: Persist auth state with localStorage (Remember Me)
 - [x] Test login flow with all 3 roles
 - [x] Test protected routes redirect to login
-- [ ] Push to GitHub
+- [x] Push to GitHub
