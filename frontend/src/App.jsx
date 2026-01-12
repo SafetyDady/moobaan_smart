@@ -15,9 +15,8 @@ import PayIns from './pages/admin/PayIns';
 import Expenses from './pages/admin/Expenses';
 import BankStatements from './pages/admin/BankStatements';
 
-// Resident pages
-import ResidentDashboard from './pages/resident/Dashboard';
-import SubmitPayment from './pages/resident/SubmitPayment';
+// Resident pages (with mobile detection)
+import { ResidentDashboardWrapper, ResidentSubmitPaymentWrapper } from './pages/resident/ResidentRouteWrapper';
 
 function App() {
   return (
@@ -72,8 +71,8 @@ function App() {
               <ProtectedRoute allowedRoles={['resident']}>
                 <Layout>
                   <Routes>
-                    <Route path="dashboard" element={<ResidentDashboard />} />
-                    <Route path="submit" element={<SubmitPayment />} />
+                    <Route path="dashboard" element={<ResidentDashboardWrapper />} />
+                    <Route path="submit" element={<ResidentSubmitPaymentWrapper />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
