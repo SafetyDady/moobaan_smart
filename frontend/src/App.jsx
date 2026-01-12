@@ -1,69 +1,77 @@
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { RoleProvider, useRole, ROLES } from './contexts/RoleContext';
+import Layout from './components/Layout';
 
-function App() {
-  const [healthStatus, setHealthStatus] = useState(null)
-  const [loading, setLoading] = useState(false)
+// Admin pages
+import AdminDashboard from './pages/admin/Dashboard';
+import Houses from './pages/admin/Houses';
+import Members from './pages/admin/Members';
+import Invoices from './pages/admin/Invoices';
+import PayIns from './pages/admin/PayIns';
+import Expenses from './pages/admin/Expenses';
+import BankStatements from './pages/admin/BankStatements';
 
-  // Use environment variable for API base URL with fallback
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// Resident pages
+import ResidentDashboard from './pages/resident/Dashboard';
+import SubmitPayment from './pages/resident/SubmitPayment';
 
-  const checkBackendHealth = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/health`)
-      const data = await response.json()
-      setHealthStatus(data)
-    } catch (error) {
-      setHealthStatus({ error: error.message })
-    } finally {
-      setLoading(false)
+function AppRoutes() {
+  const { currentRole } = useRole();
+
+  // Redirect to appropriate dashboard based on role
+  const getDefaultRoute = () => {
+    switch (currentRole) {
+      case ROLES.SUPER_ADMIN:
+        return '/admin/dashboard';
+      case ROLES.ACCOUNTING:
+        return '/accounting/dashboard';
+      case ROLES.RESIDENT:
+        return '/resident/dashboard';
+      default:
+        return '/admin/dashboard';
     }
-  }
+  };
 
   return (
-    <div style={{ 
-      padding: '2rem', 
-      fontFamily: 'Arial, sans-serif',
-      maxWidth: '600px',
-      margin: '0 auto'
-    }}>
-      <h1>Moobaan Smart</h1>
-      <p>Welcome to the Moobaan Smart application.</p>
+    <Routes>
+      <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
       
-      <div style={{ marginTop: '2rem' }}>
-        <button 
-          onClick={checkBackendHealth} 
-          disabled={loading}
-          style={{
-            padding: '10px 20px',
-            fontSize: '16px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading ? 'Checking...' : 'Check Backend Health'}
-        </button>
-      </div>
+      {/* Admin Routes */}
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/houses" element={<Houses />} />
+      <Route path="/admin/members" element={<Members />} />
+      <Route path="/admin/invoices" element={<Invoices />} />
+      <Route path="/admin/payins" element={<PayIns />} />
+      <Route path="/admin/expenses" element={<Expenses />} />
+      <Route path="/admin/statements" element={<BankStatements />} />
 
-      {healthStatus && (
-        <div style={{
-          marginTop: '1rem',
-          padding: '1rem',
-          backgroundColor: '#f8f9fa',
-          border: '1px solid #dee2e6',
-          borderRadius: '4px'
-        }}>
-          <h3>Backend Status:</h3>
-          <pre style={{ margin: 0 }}>
-            {JSON.stringify(healthStatus, null, 2)}
-          </pre>
-        </div>
-      )}
-    </div>
-  )
+      {/* Accounting Routes (reuse admin components) */}
+      <Route path="/accounting/dashboard" element={<AdminDashboard />} />
+      <Route path="/accounting/invoices" element={<Invoices />} />
+      <Route path="/accounting/payins" element={<PayIns />} />
+      <Route path="/accounting/expenses" element={<Expenses />} />
+      <Route path="/accounting/statements" element={<BankStatements />} />
+
+      {/* Resident Routes */}
+      <Route path="/resident/dashboard" element={<ResidentDashboard />} />
+      <Route path="/resident/submit" element={<SubmitPayment />} />
+
+      {/* 404 */}
+      <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
+    </Routes>
+  );
 }
 
-export default App
+function App() {
+  return (
+    <BrowserRouter>
+      <RoleProvider>
+        <Layout>
+          <AppRoutes />
+        </Layout>
+      </RoleProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;
