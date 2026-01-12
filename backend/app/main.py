@@ -1,5 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+
+# Configure logging EARLY
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import and validate config FIRST - FAIL FAST
+try:
+    from app.core.config import settings
+    logger.info(f"✅ Configuration loaded successfully for {settings.APP_NAME}")
+except Exception as e:
+    logger.error(f"❌ Configuration validation failed: {e}")
+    raise
+
 from app.api.health import router as health_router
 from app.api.dashboard import router as dashboard_router
 from app.api.houses import router as houses_router
@@ -9,7 +23,6 @@ from app.api.payins import router as payins_router
 from app.api.expenses import router as expenses_router
 from app.api.bank_statements import router as bank_statements_router
 from app.api.auth import router as auth_router
-from app.core.config import settings
 
 app = FastAPI(title=settings.APP_NAME)
 
