@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { RoleProvider } from './contexts/RoleContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 
@@ -22,7 +23,8 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
+        <RoleProvider>
+          <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
 
@@ -84,7 +86,8 @@ function App() {
 
           {/* 404 - redirect to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+          </Routes>
+        </RoleProvider>
       </AuthProvider>
     </BrowserRouter>
   );
