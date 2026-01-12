@@ -40,13 +40,6 @@ class LoginRequest(BaseModel):
     remember_me: bool = False
 
 
-class RegisterRequest(BaseModel):
-    username: str
-    password: str
-    name: str
-    house_number: str | None = None
-
-
 class AuthResponse(BaseModel):
     token: str
     user: dict
@@ -92,25 +85,6 @@ async def login(request: LoginRequest):
         user=user_data,
         expires_at=expires_at.isoformat(),
     )
-
-
-@router.post("/register")
-async def register(request: RegisterRequest):
-    """
-    Register endpoint (mock for Phase 1).
-    Phase 1: Just return success message
-    Phase 2: Actually create user in database
-    """
-    # Check if username already exists
-    if request.username in USERS_DB:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    # Mock registration (don't actually store for Phase 1)
-    return {
-        "success": True,
-        "message": "Registration successful! Please contact admin to activate your account.",
-        "username": request.username,
-    }
 
 
 @router.post("/logout")

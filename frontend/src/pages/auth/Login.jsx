@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 
 export default function Login() {
@@ -130,22 +130,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="my-6 border-t border-gray-700"></div>
-
-          {/* Register Link */}
-          <div className="text-center">
-            <p className="text-gray-400 text-sm mb-2">
-              ยังไม่มีบัญชี? / Don't have an account?
-            </p>
-            <Link
-              to="/register"
-              className="text-primary-400 hover:text-primary-300 font-medium"
-            >
-              สมัครสมาชิก / Register
-            </Link>
-          </div>
-
           {/* Demo Credentials */}
           <div className="mt-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
             <p className="text-xs text-gray-400 mb-2 font-semibold">Demo Accounts:</p>
@@ -159,7 +143,10 @@ export default function Login() {
           {/* Contact Admin */}
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-500">
-              ลืมรหัสผ่าน? ติดต่อ Admin ผ่าน LINE
+              ต้องการบัญชีใหม่หรือลืมรหัสผ่าน? ติดต่อ Admin ผ่าน LINE
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Need new account or forgot password? Contact Admin via LINE
             </p>
           </div>
         </div>

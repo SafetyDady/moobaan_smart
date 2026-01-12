@@ -76,3 +76,13 @@
 - [x] Test login flow with all 3 roles
 - [x] Test protected routes redirect to login
 - [x] Push to GitHub
+
+## Phase 1.2 - Remove Registration Feature
+
+- [x] Backend: Remove `/api/auth/register` endpoint
+- [x] Frontend: Delete Register.jsx page
+- [x] Frontend: Remove register link from Login page
+- [x] Frontend: Remove register route from App.jsx
+- [x] Documentation: Update README_AUTH.md
+- [x] Documentation: Update PHASE1_SUMMARY.md
+- [ ] Push changes to GitHub

@@ -1,4 +1,4 @@
-# Authentication System - Phase 1.1
+# Authentication System - Phase 1.2
 
 ## 🔐 Overview
 
@@ -7,11 +7,12 @@ Authentication system สำหรับ Village Accounting System ที่ร�
 - **Accounting** - จัดการการเงินและบัญชี
 - **Resident** - ลูกบ้าน (ส่งสลิป ดูใบแจ้งหนี้)
 
+**Note:** ระบบไม่มีหน้าสมัครสมาชิก - ผู้ใช้ทั้งหมดจะถูกสร้างโดย Admin เท่านั้น
+
 ## 🎯 Features
 
 ### Backend (FastAPI)
 - ✅ POST `/api/auth/login` - เข้าสู่ระบบ
-- ✅ POST `/api/auth/register` - สมัครสมาชิก
 - ✅ POST `/api/auth/logout` - ออกจากระบบ
 - ✅ GET `/api/auth/verify` - ตรวจสอบ token
 - ✅ Mock JWT token generation
@@ -19,7 +20,6 @@ Authentication system สำหรับ Village Accounting System ที่ร�
 
 ### Frontend (React)
 - ✅ Login page (Username/Password + Remember Me)
-- ✅ Register page
 - ✅ AuthContext - จัดการ authentication state
 - ✅ ProtectedRoute - ป้องกัน unauthorized access
 - ✅ Role-based navigation
@@ -58,26 +58,7 @@ POST /api/auth/login
 }
 ```
 
-### 2. Register Flow
-
-```javascript
-// User สมัครสมาชิก
-POST /api/auth/register
-{
-  "username": "newuser",
-  "password": "password123",
-  "name": "New User",
-  "house_number": "A-101"
-}
-
-// Response
-{
-  "message": "Registration successful. Please wait for admin approval.",
-  "user": { ... }
-}
-```
-
-### 3. Protected Routes
+### 2. Protected Routes
 
 ```javascript
 // Frontend automatically redirects to /login if not authenticated
@@ -87,7 +68,7 @@ POST /api/auth/register
 // - /resident/* → resident only
 ```
 
-### 4. Logout
+### 3. Logout
 
 ```javascript
 POST /api/auth/logout?token=xxx
@@ -105,14 +86,15 @@ POST /api/auth/logout?token=xxx
 - No password hashing
 - No token expiration
 - No refresh tokens
+- **No user registration** - Admin creates all users
 
 **Phase 2 จะเพิ่ม:**
 - Database integration (PostgreSQL)
 - Real JWT with signing
 - Password hashing (bcrypt)
 - Token expiration & refresh
-- Email verification
-- Password reset
+- Admin panel for user management
+- Email verification (optional)
 
 ## 📱 UI Screenshots
 
@@ -120,14 +102,8 @@ POST /api/auth/logout?token=xxx
 - Dark theme พร้อมสีเขียว
 - Username/Password fields
 - Remember Me checkbox
-- Link to Register
 - Demo accounts displayed
-
-### Register Page
-- Username, Name, House Number
-- Password & Confirm Password
-- Success message
-- Auto-redirect to login
+- Contact admin message (for new accounts/password reset)
 
 ### Protected Routes
 - Automatic redirect to /login
@@ -143,13 +119,11 @@ curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123","remember_me":false}'
 
-# Test register
-curl -X POST http://localhost:8000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"test","password":"test123","name":"Test User"}'
-
 # Test verify
 curl "http://localhost:8000/api/auth/verify?token=mock_jwt_token_admin"
+
+# Test logout
+curl -X POST "http://localhost:8000/api/auth/logout?token=mock_jwt_token_admin"
 ```
 
 ## 📝 Implementation Details
@@ -172,12 +146,17 @@ const { user, token, login, logout, isAuthenticated } = useAuth();
 - **Remember Me = true** → localStorage (persistent)
 - **Remember Me = false** → sessionStorage (session only)
 
+### User Management
+- **Phase 1:** Hardcoded users only
+- **Phase 2:** Admin panel to create/edit/delete users
+- **Contact:** Users contact admin via LINE for new accounts or password reset
+
 ## 🔄 Next Steps (Phase 2)
 
 1. Database integration
    - User table
    - Password hashing
-   - User management
+   - User management CRUD
 
 2. Real JWT
    - Secret key
@@ -190,11 +169,11 @@ const { user, token, login, logout, isAuthenticated } = useAuth();
    - CSRF protection
    - XSS prevention
 
-4. Features
-   - Email verification
-   - Password reset
-   - Profile management
-   - Session management
+4. Admin Features
+   - User management panel
+   - Create/Edit/Delete users
+   - Reset passwords
+   - View user activity
 
 ## 📚 Related Files
 
@@ -202,10 +181,10 @@ const { user, token, login, logout, isAuthenticated } = useAuth();
 - `frontend/src/contexts/AuthContext.jsx` - Auth state management
 - `frontend/src/components/ProtectedRoute.jsx` - Route protection
 - `frontend/src/pages/auth/Login.jsx` - Login page
-- `frontend/src/pages/auth/Register.jsx` - Register page
 - `frontend/src/components/Layout.jsx` - Logout functionality
 
 ---
 
-**Status:** ✅ Phase 1.1 Complete (Authentication System)
+**Status:** ✅ Phase 1.2 Complete (Login/Logout Only)
 **Last Updated:** 2025-01-12
+**Changes:** Removed registration feature - Admin creates all users

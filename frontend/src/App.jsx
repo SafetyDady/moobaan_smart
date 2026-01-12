@@ -5,7 +5,6 @@ import Layout from './components/Layout';
 
 // Auth pages
 import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
 
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -27,7 +26,6 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
 
           {/* Protected Routes - Admin/Accounting */}
           <Route

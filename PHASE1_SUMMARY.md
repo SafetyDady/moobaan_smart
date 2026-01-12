@@ -4,7 +4,7 @@
 
 **GitHub Repository:** https://github.com/SafetyDady/moobaan_smart  
 **Last Updated:** 2025-01-12  
-**Phase:** 1.1 (Authentication Complete)
+**Phase:** 1.2 (Login/Logout Only)
 
 ---
 
@@ -13,7 +13,7 @@
 ### 1. Backend (FastAPI)
 - ✅ **15+ Mock API Endpoints** - Complete CRUD operations
 - ✅ **8 Pydantic Models** - User, House, Member, Invoice, PayInReport, Expense, BankStatement, Transaction
-- ✅ **Authentication System** - Login, Register, Logout, Verify (Mock JWT)
+- ✅ **Authentication System** - Login, Logout, Verify (Mock JWT)
 - ✅ **CORS Configuration** - Ready for Vercel deployment
 - ✅ **Hardcoded Demo Users** - 3 roles (Super Admin, Accounting, Resident)
 
@@ -22,7 +22,7 @@
 - ✅ **Dark & Elegant Theme** - Green primary color
 - ✅ **Sidebar Navigation** - Mobile responsive
 - ✅ **Bilingual Support** - Thai/English
-- ✅ **Authentication Flow** - Login, Register, Protected Routes
+- ✅ **Authentication Flow** - Login, Protected Routes
 - ✅ **Role-Based Access Control** - 3 roles with different permissions
 - ✅ **Table-Heavy UI** - Beautiful data tables with filters
 
@@ -39,7 +39,7 @@
 ### Core Features
 | Feature | Status | Description |
 |---------|--------|-------------|
-| **Authentication** | ✅ Complete | Login, Register, Logout with mock JWT |
+| **Authentication** | ✅ Complete | Login, Logout with mock JWT (No registration) |
 | **Dashboard** | ✅ Complete | Role-based dashboard (Admin/Accounting/Resident) |
 | **Houses Management** | ✅ Complete | CRUD operations with 3-member limit |
 | **Members Management** | ✅ Complete | Member CRUD with house association |
@@ -51,11 +51,11 @@
 ### Authentication System
 - ✅ Username/Password login
 - ✅ Remember Me functionality
-- ✅ Registration page
 - ✅ Protected routes
 - ✅ Role-based navigation
 - ✅ Token persistence (localStorage/sessionStorage)
 - ✅ Logout functionality
+- ℹ️ No registration - Admin creates all users
 
 ### UI/UX
 - ✅ Dark theme with green accent
@@ -107,8 +107,8 @@ moobaan_smart_phase1/
 │           └── auth.py         # Authentication endpoints
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/              # 10+ page components
-│   │   │   ├── auth/           # Login, Register
+  │   │   ├── pages/              # 10+ page components
+  │   │   │   ├── auth/           # Login
 │   │   │   ├── Dashboard.jsx
 │   │   │   ├── Houses.jsx
 │   │   │   ├── Members.jsx
@@ -153,7 +153,6 @@ moobaan_smart_phase1/
 
 ### Authentication
 - `POST /api/auth/login` - Login with username/password
-- `POST /api/auth/register` - Register new user
 - `POST /api/auth/logout` - Logout
 - `GET /api/auth/verify` - Verify token
 
@@ -309,9 +308,8 @@ npm run dev
    - accounting/acc123
    - resident/res123
 3. Test Remember Me checkbox
-4. Test registration
-5. Test protected routes
-6. Test logout
+4. Test protected routes
+5. Test logout
 
 ### Making Changes
 
@@ -355,4 +353,4 @@ npm run dev
 ---
 
 *Generated: 2025-01-12*  
-*Version: 1.1 (Authentication Complete)*
+*Version: 1.2 (Login/Logout Only - No Registration)*
