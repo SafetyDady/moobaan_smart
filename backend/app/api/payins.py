@@ -52,8 +52,8 @@ async def list_payin_reports(
         "transfer_minute": payin.transfer_minute,
         "slip_image_url": payin.slip_url,  # Map database field to frontend expectation
         "status": payin.status,
-        "reject_reason": payin.reject_reason,
-        "matched_statement_row_id": payin.matched_statement_row_id,
+        "reject_reason": payin.rejection_reason,
+
         "created_at": payin.created_at,
         "updated_at": payin.updated_at
     } for payin in payins]
@@ -89,8 +89,8 @@ async def get_payin_report(
         "transfer_minute": payin.transfer_minute,
         "slip_image_url": payin.slip_url,  # Map database field to frontend expectation
         "status": payin.status,
-        "reject_reason": payin.reject_reason,
-        "matched_statement_row_id": payin.matched_statement_row_id,
+        "reject_reason": payin.rejection_reason,
+
         "created_at": payin.created_at,
         "updated_at": payin.updated_at
     }
@@ -210,7 +210,7 @@ async def update_payin_report(payin_id: int, payin: PayInReportUpdate, db: Sessi
     
     # Reset to PENDING after edit
     existing.status = "PENDING"  # Use correct enum value
-    existing.reject_reason = None
+    existing.rejection_reason = None
     existing.updated_at = datetime.now()
     
     db.commit()
@@ -226,8 +226,8 @@ async def update_payin_report(payin_id: int, payin: PayInReportUpdate, db: Sessi
         "transfer_minute": existing.transfer_minute,
         "slip_image_url": existing.slip_url,  # Map database field to frontend expectation
         "status": existing.status,
-        "reject_reason": existing.reject_reason,
-        "matched_statement_row_id": existing.matched_statement_row_id,
+        "reject_reason": existing.rejection_reason,
+
         "created_at": existing.created_at,
         "updated_at": existing.updated_at
     }
@@ -252,8 +252,7 @@ async def reject_payin_report(
         )
     
     payin.status = "REJECTED"
-    payin.reject_reason = request.reason
-    payin.matched_statement_row_id = None
+    payin.rejection_reason = request.reason
     payin.updated_at = datetime.now()
     
     db.commit()
@@ -284,7 +283,6 @@ async def match_payin_report(
         )
     
     payin.status = "MATCHED"
-    payin.matched_statement_row_id = statement_row_id
     payin.updated_at = datetime.now()
     
     db.commit()
