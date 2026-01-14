@@ -40,8 +40,9 @@ app.add_middleware(
         "https://localhost:5174", 
         "http://127.0.0.1:5174",
         "https://127.0.0.1:5174",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
         "https://moobaan-smart.vercel.app",
-        "*"  # Allow all origins for development
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
