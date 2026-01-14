@@ -14,6 +14,17 @@ export default function Members() {
     temporaryPassword: ''
   });
   
+  // Error/Warning modal state
+  const [messageModal, setMessageModal] = useState({
+    show: false,
+    type: 'warning', // 'warning' or 'error'
+    title: '',
+    message_th: '',
+    message_en: '',
+    showDetails: false,
+    errorDetails: null
+  });
+  
   // Edit modal state
   const [editModal, setEditModal] = useState({
     show: false,
@@ -43,6 +54,29 @@ export default function Members() {
   const getMemberCount = (houseId) => {
     // Count only active members
     return residents.filter(r => r.house && r.house.id === houseId && r.is_active).length;
+  };
+
+  const canReactivateResident = (resident) => {
+    // Can reactivate if resident is inactive AND house has less than 3 active members
+    if (resident.is_active) return true; // Already active, show deactivate
+    if (!resident.house) return false; // No house mapping
+    
+    const activeCount = getMemberCount(resident.house.id);
+    return activeCount < 3;
+  };
+
+  const getReactivateTooltip = (resident) => {
+    if (resident.is_active) return null;
+    if (!resident.house) return 'No house assigned';
+    
+    const activeCount = getMemberCount(resident.house.id);
+    if (activeCount >= 3) {
+      return {
+        th: 'บ้านนี้มีสมาชิกใช้งานครบ 3 คนแล้ว',
+        en: 'This house already has 3 active members'
+      };
+    }
+    return null;
   };
 
   const handleEdit = (resident) => {
@@ -113,10 +147,26 @@ export default function Members() {
     try {
       if (resident.is_active) {
         await usersAPI.deactivateResident(resident.id);
-        alert('Resident deactivated successfully');
+        setMessageModal({
+          show: true,
+          type: 'success',
+          title: '✅ Success',
+          message_th: 'ปิดใช้งานสมาชิกเรียบร้อยแล้ว',
+          message_en: 'Resident deactivated successfully',
+          showDetails: false,
+          errorDetails: null
+        });
       } else {
         await usersAPI.reactivateResident(resident.id);
-        alert('Resident reactivated successfully');
+        setMessageModal({
+          show: true,
+          type: 'success',
+          title: '✅ Success',
+          message_th: 'เปิดใช้งานสมาชิกเรียบร้อยแล้ว',
+          message_en: 'Resident reactivated successfully',
+          showDetails: false,
+          errorDetails: null
+        });
       }
       loadData(); // Refresh list
     } catch (error) {
@@ -126,10 +176,17 @@ export default function Members() {
         
         // Handle HOUSE_MEMBER_LIMIT_REACHED as warning
         if (detail?.code === 'HOUSE_MEMBER_LIMIT_REACHED') {
-          // Show bilingual warning message (Thai + English)
-          const message = `${detail.message_th}\n\n${detail.message_en}`;
-          alert(message);
-          return; // Return early - DO NOT console.error, DO NOT show "Failed to reactivate"
+          // Show bilingual warning modal (not alert)
+          setMessageModal({
+            show: true,
+            type: 'warning',
+            title: '⚠️ Cannot Reactivate',
+            message_th: detail.message_th || 'บ้านนี้มีสมาชิกใช้งานครบ 3 คนแล้ว',
+            message_en: detail.message_en || 'This house already has 3 active members',
+            showDetails: false,
+            errorDetails: null
+          });
+          return; // Return early - no console.error
         }
         
         // Handle other 409 cases
@@ -313,16 +370,34 @@ export default function Members() {
                         >
                           Reset Password
                         </button>
-                        <button
-                          onClick={() => handleDeactivate(resident)}
-                          className={`text-sm ${
-                            resident.is_active 
-                              ? "text-orange-400 hover:text-orange-300" 
-                              : "text-green-400 hover:text-green-300"
-                          }`}
-                        >
-                          {resident.is_active ? 'Deactivate' : 'Reactivate'}
-                        </button>
+                        {resident.is_active ? (
+                          <button
+                            onClick={() => handleDeactivate(resident)}
+                            className="text-orange-400 hover:text-orange-300 text-sm"
+                          >
+                            Deactivate
+                          </button>
+                        ) : (
+                          <div className="relative group">
+                            <button
+                              onClick={() => canReactivateResident(resident) && handleDeactivate(resident)}
+                              disabled={!canReactivateResident(resident)}
+                              className={`text-sm ${
+                                canReactivateResident(resident)
+                                  ? "text-green-400 hover:text-green-300 cursor-pointer" 
+                                  : "text-gray-500 cursor-not-allowed"
+                              }`}
+                            >
+                              Reactivate
+                            </button>
+                            {!canReactivateResident(resident) && getReactivateTooltip(resident) && (
+                              <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10 pointer-events-none">
+                                <div>{getReactivateTooltip(resident).th}</div>
+                                <div className="text-gray-300">{getReactivateTooltip(resident).en}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -507,6 +582,54 @@ export default function Members() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Message Modal (Success/Warning/Error) */}
+      {messageModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`rounded-lg p-6 w-full max-w-md ${
+            messageModal.type === 'success' ? 'bg-green-800' :
+            messageModal.type === 'warning' ? 'bg-yellow-800' : 
+            'bg-red-800'
+          }`}>
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-white mb-2">{messageModal.title}</h3>
+              <div className="space-y-2">
+                <p className="text-gray-100">{messageModal.message_th}</p>
+                <p className="text-gray-300 text-sm">{messageModal.message_en}</p>
+              </div>
+            </div>
+
+            {messageModal.showDetails && messageModal.errorDetails && (
+              <div className="mb-4">
+                <button
+                  onClick={() => setMessageModal(prev => ({ ...prev, showDetails: !prev.showDetails }))}
+                  className="text-sm text-gray-300 hover:text-white mb-2"
+                >
+                  🔍 Show Technical Details
+                </button>
+                {messageModal.showDetails && (
+                  <div className="bg-gray-900 p-3 rounded text-xs text-gray-300 max-h-32 overflow-y-auto">
+                    <div>Status: {messageModal.errorDetails.status}</div>
+                    <div>Message: {messageModal.errorDetails.message}</div>
+                    {messageModal.errorDetails.detail && (
+                      <div>Detail: {messageModal.errorDetails.detail}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setMessageModal({ show: false, type: 'warning', title: '', message_th: '', message_en: '', showDetails: false, errorDetails: null })}
+                className="btn-primary flex-1"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}

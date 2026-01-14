@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -8,6 +8,57 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Request interceptor to add JWT token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for handling authentication errors and business rule warnings
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle 401 authentication errors
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth_token');
+      window.location.href = '/auth/login';
+      return Promise.reject(error);
+    }
+    
+    // Handle 409 business rule warnings (don't log to console)
+    if (error.response?.status === 409) {
+      const detail = error.response.data?.detail;
+      
+      // Silent reject for expected business rule violations
+      if (detail?.code === 'HOUSE_MEMBER_LIMIT_REACHED') {
+        // Don't console.error for this expected business logic case
+        return Promise.reject(error);
+      }
+      
+      // Other 409 cases might be unexpected, so we can log them
+      console.warn('Conflict error (409):', error.response.data);
+      return Promise.reject(error);
+    }
+    
+    // Log all other errors normally (500, network, etc.)
+    if (error.response?.status >= 500) {
+      console.error('Server error:', error.response.status, error.response.data);
+    } else if (!error.response) {
+      console.error('Network error:', error.message);
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 // Dashboard API
 export const dashboardAPI = {
@@ -21,15 +72,6 @@ export const housesAPI = {
   create: (data) => apiClient.post('/api/houses', data),
   update: (id, data) => apiClient.put(`/api/houses/${id}`, data),
   delete: (id) => apiClient.delete(`/api/houses/${id}`),
-};
-
-// Members API
-export const membersAPI = {
-  list: (params) => apiClient.get('/api/members', { params }),
-  get: (id) => apiClient.get(`/api/members/${id}`),
-  create: (data) => apiClient.post('/api/members', data),
-  update: (id, data) => apiClient.put(`/api/members/${id}`, data),
-  delete: (id) => apiClient.delete(`/api/members/${id}`),
 };
 
 // Invoices API
@@ -86,4 +128,26 @@ export const bankStatementsAPI = {
   delete: (id) => apiClient.delete(`/api/bank-statements/${id}`),
 };
 
+// Users API
+export const usersAPI = {
+  createResident: (data) => apiClient.post('/api/users/residents', data),
+  listResidents: (params) => apiClient.get('/api/users/residents', { params }),
+  getHouseMemberCount: (houseId) => apiClient.get(`/api/users/houses/${houseId}/member-count`),
+  updateResident: (id, data) => apiClient.patch(`/api/users/${id}`, data),
+  resetPassword: (id) => apiClient.post(`/api/users/${id}/reset-password`),
+  deactivateResident: (id) => apiClient.post(`/api/users/${id}/deactivate`),
+  reactivateResident: (id) => apiClient.post(`/api/users/${id}/reactivate`),
+};
+
+// Members API (DEPRECATED - use usersAPI instead)
+export const membersAPI = {
+  list: (params) => apiClient.get('/api/members', { params }),
+  // create: DEPRECATED - use usersAPI.createResident instead
+  update: (id, data) => apiClient.put(`/api/members/${id}`, data),
+  delete: (id) => apiClient.delete(`/api/members/${id}`),
+};
+
 export default apiClient;
+
+// Export alias for AuthContext compatibility
+export const api = apiClient;

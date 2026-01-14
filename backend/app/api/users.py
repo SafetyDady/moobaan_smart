@@ -507,8 +507,10 @@ async def reactivate_resident(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
                     "code": "HOUSE_MEMBER_LIMIT_REACHED",
-                    "message_th": f"บ้าน {house_code} มีสมาชิก Active ครบ 3 คนแล้ว กรุณา Deactivate คนอื่นก่อนจึงจะ Reactivate ได้",
-                    "message_en": f"House {house_code} already has the maximum 3 active members. Please deactivate another member first before reactivating."
+                    "message_th": f"ไม่สามารถเปิดใช้งานสมาชิกได้ เนื่องจากบ้าน {house_code} มีสมาชิกใช้งานครบ 3 คนแล้ว",
+                    "message_en": f"Cannot reactivate resident: house {house_code} already has 3 active members",
+                    "house_code": house_code,
+                    "max_active_members": 3
                 }
             )
         
