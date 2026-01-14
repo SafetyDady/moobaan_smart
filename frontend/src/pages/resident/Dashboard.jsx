@@ -8,6 +8,7 @@ export default function ResidentDashboard() {
   const [invoices, setInvoices] = useState([]);
   const [payins, setPayins] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingStatement, setDownloadingStatement] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -25,6 +26,48 @@ export default function ResidentDashboard() {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadStatement = async (format = 'pdf') => {
+    setDownloadingStatement(true);
+    try {
+      // Get current month/year
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+
+      const response = await fetch(
+        `/api/accounting/statement/${currentHouseId}?year=${year}&month=${month}&format=${format}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error_en || errorData.error || 'Download failed');
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `statement_${currentHouseId}_${year}_${month}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert(`Download failed: ${error.message}`);
+    } finally {
+      setDownloadingStatement(false);
     }
   };
 
@@ -72,11 +115,27 @@ export default function ResidentDashboard() {
         </div>
       </div>
 
-      {/* Quick Action */}
+      {/* Quick Actions */}
       <div className="mb-8">
-        <Link to="/resident/submit" className="btn-primary inline-block">
-          💳 Submit Payment Slip
-        </Link>
+        <div className="flex flex-wrap gap-4">
+          <Link to="/resident/submit" className="btn-primary">
+            💳 Submit Payment Slip
+          </Link>
+          <button 
+            onClick={() => downloadStatement('pdf')}
+            disabled={downloadingStatement}
+            className="btn-secondary"
+          >
+            {downloadingStatement ? '📄 Generating...' : '📄 ดาวน์โหลดใบแจ้งยอด / Download Statement (PDF)'}
+          </button>
+          <button 
+            onClick={() => downloadStatement('xlsx')}
+            disabled={downloadingStatement}
+            className="btn-outline"
+          >
+            {downloadingStatement ? '📊 Generating...' : '📊 Download Excel'}
+          </button>
+        </div>
       </div>
 
       {/* Invoices */}

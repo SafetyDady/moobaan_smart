@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str = "your-secret-key-here-change-in-production-use-openssl-rand-hex-32"
     
+    # Statement Configuration
+    PROJECT_NAME_TH: str = "หมู่บ้านสมาร์ท"
+    PROJECT_NAME_EN: str = "Smart Village"
+    ACCOUNTING_CONTACT: str = "Tel: 02-xxx-xxxx Email: accounting@village.com"
+    
     class Config:
         env_file = ".env"
 

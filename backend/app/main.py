@@ -23,6 +23,8 @@ from app.api.payins import router as payins_router
 from app.api.expenses import router as expenses_router
 from app.api.bank_statements import router as bank_statements_router
 from app.api.auth import router as auth_router
+from app.api.accounting import router as accounting_router
+from app.api.users import router as users_router
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -31,11 +33,31 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://moobaan-smart.vercel.app"
+        "https://localhost:5173", 
+        "http://127.0.0.1:5173",
+        "https://127.0.0.1:5173",
+        "http://localhost:5174",
+        "https://localhost:5174", 
+        "http://127.0.0.1:5174",
+        "https://127.0.0.1:5174",
+        "https://moobaan-smart.vercel.app",
+        "*"  # Allow all origins for development
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "accept",
+        "accept-encoding",
+        "authorization",
+        "content-type",
+        "dnt",
+        "origin",
+        "user-agent",
+        "x-csrftoken",
+        "x-requested-with"
+    ],
+    expose_headers=["*"],
+    max_age=86400,
 )
 
 # Include routers
@@ -48,6 +70,8 @@ app.include_router(invoices_router)
 app.include_router(payins_router)
 app.include_router(expenses_router)
 app.include_router(bank_statements_router)
+app.include_router(accounting_router)
+app.include_router(users_router)
 
 
 @app.get("/")

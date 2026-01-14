@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from app.models import Member as MemberSchema, MemberCreate
@@ -61,64 +61,16 @@ async def get_member(member_id: int, db: Session = Depends(get_db), current_user
 
 @router.post("", response_model=dict)
 async def create_member(member: MemberCreate, db: Session = Depends(get_db), current_user: UserModel = require_admin_or_accounting):
-    """Create a new member"""
-    from datetime import datetime
-    
-    # Check house exists
-    house = db.query(HouseModel).filter(HouseModel.id == member.house_id).first()
-    if not house:
-        raise HTTPException(status_code=404, detail="House not found")
-    
-    # Check member limit (max 3 per house)
-    member_count = db.query(HouseMemberModel).filter(HouseMemberModel.house_id == member.house_id).count()
-    if member_count >= 3:
-        raise HTTPException(status_code=400, detail="House already has maximum 3 members")
-    
-    # Create user first (if not exists)
-    existing_user = db.query(UserModel).filter(UserModel.email == member.email).first()
-    if existing_user:
-        # Check if user is already a member of this house
-        existing_membership = db.query(HouseMemberModel).filter(
-            HouseMemberModel.user_id == existing_user.id,
-            HouseMemberModel.house_id == member.house_id
-        ).first()
-        if existing_membership:
-            raise HTTPException(status_code=400, detail="User is already a member of this house")
-        user = existing_user
-    else:
-        user = UserModel(
-            email=member.email,
-            full_name=member.name,
-            phone=member.phone,
-            hashed_password="",  # Placeholder - actual auth would handle this
-            is_active=True,
-            created_at=datetime.now()
-        )
-        db.add(user)
-        db.flush()  # Get the user ID
-    
-    # Create house membership
-    house_member = HouseMemberModel(
-        house_id=member.house_id,
-        user_id=user.id,
-        member_role=member.role.value if hasattr(member.role, 'value') else member.role,
-        created_at=datetime.now()
+    """DEPRECATED: Use /api/users/residents instead"""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "error": "Endpoint deprecated",
+            "error_th": "API นี้ถูกยกเลิกแล้ว",
+            "error_en": "This endpoint is deprecated. Use /api/users/residents to create new residents.",
+            "redirect_to": "/api/users/residents"
+        }
     )
-    
-    db.add(house_member)
-    db.commit()
-    db.refresh(house_member)
-    
-    return {
-        "id": user.id,
-        "house_id": house_member.house_id,
-        "house_number": house.house_no,
-        "name": user.full_name,
-        "phone": user.phone,
-        "email": user.email,
-        "role": house_member.member_role,
-        "created_at": house_member.created_at
-    }
 
 
 @router.put("/{member_id}", response_model=dict)

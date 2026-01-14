@@ -10,6 +10,8 @@ import Login from './pages/auth/Login';
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard';
 import Houses from './pages/admin/Houses';
+import AddHouse from './pages/admin/AddHouse';
+import AddResident from './pages/admin/AddResident';
 import Members from './pages/admin/Members';
 import Invoices from './pages/admin/Invoices';
 import PayIns from './pages/admin/PayIns';
@@ -25,6 +27,9 @@ function App() {
       <AuthProvider>
         <RoleProvider>
           <Routes>
+          {/* Root path redirect */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
 
@@ -37,6 +42,8 @@ function App() {
                   <Routes>
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="houses" element={<Houses />} />
+                    <Route path="add-house" element={<AddHouse />} />
+                    <Route path="add-resident" element={<AddResident />} />
                     <Route path="members" element={<Members />} />
                     <Route path="invoices" element={<Invoices />} />
                     <Route path="payins" element={<PayIns />} />

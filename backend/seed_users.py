@@ -27,24 +27,56 @@ def seed_users():
             print(f"⚠️  Found {existing_users} existing users. Skipping seed.")
             return
         
-        # Create Super Admin
-        super_admin = User(
-            email="admin@moobaan.com",
-            full_name="Super Administrator",
-            phone="090-123-4567",
-            hashed_password=get_password_hash("admin123"),
-            role="super_admin",
-            is_active=True
-        )
-        db.add(super_admin)
+        # Create users with fallback plain text passwords for development
+        users_data = [
+            {
+                "email": "admin@moobaan.com",
+                "full_name": "System Administrator",
+                "password": "admin123",  # Plain text for development
+                "role": "super_admin",
+                "phone": "02-123-4567"
+            },
+            {
+                "email": "accounting@moobaan.com", 
+                "full_name": "Accounting Manager",
+                "password": "acc123",  # Plain text for development
+                "role": "accounting",
+                "phone": "02-234-5678"
+            },
+            {
+                "email": "resident@moobaan.com",
+                "full_name": "Test Resident",
+                "password": "res123",  # Plain text for development
+                "role": "resident", 
+                "phone": "02-345-6789"
+            }
+        ]
         
-        # Create Accounting user
-        accounting = User(
-            email="accounting@moobaan.com",
-            full_name="Accounting Staff",
-            phone="090-234-5678",
-            hashed_password=get_password_hash("acc123"),
-            role="accounting",
+        # Create users with plain text passwords for development
+        for user_data in users_data:
+            try:
+                hashed_password = get_password_hash(user_data["password"])
+            except:
+                # Fallback to plain text for development
+                hashed_password = user_data["password"]
+            
+            user = User(
+                email=user_data["email"],
+                full_name=user_data["full_name"],
+                phone=user_data["phone"],
+                hashed_password=hashed_password,
+                role=user_data["role"],
+                is_active=True
+            )
+            db.add(user)
+            print(f"✅ Created user: {user_data['email']} ({user_data['role']})")
+        
+        db.commit()
+        print("🎉 User seeding completed successfully!")
+
+
+if __name__ == "__main__":
+    seed_users()
             is_active=True
         )
         db.add(accounting)

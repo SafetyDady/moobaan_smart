@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql import func
 from app.db.session import Base
 
@@ -13,6 +13,12 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
     role = Column(String(50), nullable=False, default="resident")  # super_admin, accounting, resident
+    
+    # Password reset fields
+    must_change_password = Column(Boolean, nullable=False, default=False)
+    password_reset_at = Column(DateTime(timezone=True), nullable=True)
+    password_reset_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # admin who reset it
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
