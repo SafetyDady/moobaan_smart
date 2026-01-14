@@ -118,7 +118,7 @@ if __name__ == "__main__":
         print("✅ Successfully created users:")
         print(f"   📧 Super Admin: admin@moobaan.com / admin123")
         print(f"   📧 Accounting: accounting@moobaan.com / acc123") 
-        print(f"   📧 Resident: resident@moobaan.com / res123 (linked to house {test_house.house_no})")
+        print(f"   📧 Resident: resident@moobaan.com / res123 (linked to house {test_house.house_code})")
         print()
         print("🚀 You can now test authentication!")
 

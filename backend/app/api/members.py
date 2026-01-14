@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/members", tags=["members"])
 
 
 @router.get("", response_model=List[dict])
-async def list_members(house_id: Optional[int] = None, db: Session = Depends(get_db), current_user: UserModel = require_admin_or_accounting):
+async def list_members(house_id: Optional[int] = None, db: Session = Depends(get_db), current_user: UserModel = Depends(require_admin_or_accounting)):
     """List all members with optional house filter"""
     query = db.query(HouseMemberModel).options(
         joinedload(HouseMemberModel.house),
@@ -37,7 +37,7 @@ async def list_members(house_id: Optional[int] = None, db: Session = Depends(get
 
 
 @router.get("/{member_id}", response_model=dict)
-async def get_member(member_id: int, db: Session = Depends(get_db), current_user: UserModel = require_admin_or_accounting):
+async def get_member(member_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(require_admin_or_accounting)):
     """Get a specific member by ID"""
     house_member = db.query(HouseMemberModel).options(
         joinedload(HouseMemberModel.house),
@@ -60,7 +60,7 @@ async def get_member(member_id: int, db: Session = Depends(get_db), current_user
 
 
 @router.post("", response_model=dict)
-async def create_member(member: MemberCreate, db: Session = Depends(get_db), current_user: UserModel = require_admin_or_accounting):
+async def create_member(member: MemberCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(require_admin_or_accounting)):
     """DEPRECATED: Use /api/users/residents instead"""
     raise HTTPException(
         status_code=status.HTTP_410_GONE,
@@ -74,7 +74,7 @@ async def create_member(member: MemberCreate, db: Session = Depends(get_db), cur
 
 
 @router.put("/{member_id}", response_model=dict)
-async def update_member(member_id: int, member_update: MemberCreate, db: Session = Depends(get_db), current_user: UserModel = require_admin_or_accounting):
+async def update_member(member_id: int, member_update: MemberCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(require_admin_or_accounting)):
     """Update an existing member"""
     house_member = db.query(HouseMemberModel).options(
         joinedload(HouseMemberModel.house),
@@ -120,7 +120,7 @@ async def update_member(member_id: int, member_update: MemberCreate, db: Session
 
 
 @router.delete("/{member_id}")
-async def delete_member(member_id: int, db: Session = Depends(get_db), current_user: UserModel = require_admin_or_accounting):
+async def delete_member(member_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(require_admin_or_accounting)):
     """Delete a member"""
     house_member = db.query(HouseMemberModel).filter(HouseMemberModel.user_id == member_id).first()
     if not house_member:

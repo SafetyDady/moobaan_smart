@@ -49,12 +49,13 @@ def require_roles(allowed_roles: List[str]):
     return role_checker
 
 
-# Common role dependencies
-require_user = Depends(get_current_user)
-require_resident = Depends(require_roles(["resident"]))
-require_accounting = Depends(require_roles(["accounting", "super_admin"]))
-require_admin = Depends(require_roles(["super_admin"]))
-require_admin_or_accounting = Depends(require_roles(["accounting", "super_admin"]))
+# Common role dependencies - use with Depends() when calling
+# Example: current_user: User = Depends(require_user)
+require_user = get_current_user
+require_resident = require_roles(["resident"])
+require_accounting = require_roles(["accounting", "super_admin"])
+require_admin = require_roles(["super_admin"])
+require_admin_or_accounting = require_roles(["accounting", "super_admin"])
 
 
 def get_user_house_id(

@@ -893,3 +893,415 @@ class AccountingService:
         aging_data.sort(key=lambda x: x["total_outstanding"], reverse=True)
         
         return aging_data
+
+    @staticmethod
+    def calculate_month_end_snapshot(
+        db: Session,
+        house_id: int,
+        year: int,
+        month: int
+    ) -> Dict:
+        """
+        Calculate month-end financial snapshot for a specific house.
+        
+        This is a PURE, DERIVED calculation from the ledger (not persisted to DB).
+        All values are computed on-demand from invoice, payment, and credit note records.
+        
+        Calculation Logic:
+        ------------------
+        1. opening_balance = sum(invoices) - sum(payments) - sum(credit_notes)
+           for all transactions BEFORE the 1st day of target month
+           
+        2. invoice_total = sum(invoices issued in target month)
+        
+        3. payment_total = sum(payments received in target month)
+           Note: Uses received_at from income_transactions
+           
+        4. credit_total = sum(credit notes issued in target month)
+        
+        5. closing_balance = opening_balance + invoice_total - payment_total - credit_total
+        
+        Negative balances are ALLOWED (prepaid/overpayment).
+        
+        Args:
+            db: Database session
+            house_id: ID of house
+            year: Target year
+            month: Target month (1-12)
+            
+        Returns:
+            Dict with snapshot data
+            
+        Raises:
+            ValueError: If house not found or invalid month
+        """
+        # Validate inputs
+        if not (1 <= month <= 12):
+            raise ValueError("Month must be between 1 and 12")
+        if year < 2000 or year > 3000:
+            raise ValueError("Year must be between 2000 and 3000")
+        
+        # Verify house exists
+        house = db.query(House).filter(House.id == house_id).first()
+        if not house:
+            raise ValueError(f"House {house_id} not found")
+        
+        # Define cutoff datetime (last day of target month 23:59:59 local time)
+        last_day = monthrange(year, month)[1]
+        cutoff_datetime = datetime(year, month, last_day, 23, 59, 59)
+        
+        # Define period boundaries
+        period_start = datetime(year, month, 1, 0, 0, 0)
+        period_end = cutoff_datetime
+        
+        # Calculate opening_balance (all transactions BEFORE period start)
+        # Opening = (invoices before) - (payments before) - (credit notes before)
+        
+        opening_invoices = db.query(func.sum(Invoice.total_amount)).filter(
+            and_(
+                Invoice.house_id == house_id,
+                func.date(Invoice.issue_date) < period_start.date()
+            )
+        ).scalar() or Decimal("0")
+        
+        opening_payments = db.query(func.sum(IncomeTransaction.amount)).filter(
+            and_(
+                IncomeTransaction.house_id == house_id,
+                IncomeTransaction.received_at < period_start
+            )
+        ).scalar() or Decimal("0")
+        
+        opening_credits = db.query(func.sum(CreditNote.amount)).filter(
+            and_(
+                CreditNote.house_id == house_id,
+                CreditNote.created_at < period_start
+            )
+        ).scalar() or Decimal("0")
+        
+        opening_balance = opening_invoices - opening_payments - opening_credits
+        
+        # Calculate invoice_total (invoices issued in target month)
+        invoice_total = db.query(func.sum(Invoice.total_amount)).filter(
+            and_(
+                Invoice.house_id == house_id,
+                Invoice.cycle_year == year,
+                Invoice.cycle_month == month
+            )
+        ).scalar() or Decimal("0")
+        
+        # Calculate payment_total (payments received in target month)
+        payment_total = db.query(func.sum(IncomeTransaction.amount)).filter(
+            and_(
+                IncomeTransaction.house_id == house_id,
+                IncomeTransaction.received_at >= period_start,
+                IncomeTransaction.received_at <= period_end
+            )
+        ).scalar() or Decimal("0")
+        
+        # Calculate credit_total (credit notes issued in target month)
+        credit_total = db.query(func.sum(CreditNote.amount)).filter(
+            and_(
+                CreditNote.house_id == house_id,
+                CreditNote.created_at >= period_start,
+                CreditNote.created_at <= period_end
+            )
+        ).scalar() or Decimal("0")
+        
+        # Calculate closing_balance
+        closing_balance = opening_balance + invoice_total - payment_total - credit_total
+        
+        return {
+            "house_id": house_id,
+            "house_code": house.house_code,
+            "owner_name": house.owner_name,
+            "year": year,
+            "month": month,
+            "opening_balance": float(opening_balance),
+            "invoice_total": float(invoice_total),
+            "payment_total": float(payment_total),
+            "credit_total": float(credit_total),
+            "closing_balance": float(closing_balance)
+        }
+
+    @staticmethod
+    def calculate_aggregated_snapshot(
+        db: Session,
+        year: int,
+        month: int
+    ) -> Dict:
+        """
+        Calculate aggregated month-end snapshot for ALL houses.
+        
+        This reuses the per-house calculation logic to ensure consistency.
+        Admin-only endpoint for overall financial position.
+        
+        Args:
+            db: Database session
+            year: Target year
+            month: Target month (1-12)
+            
+        Returns:
+            Dict with aggregated snapshot data and per-house details
+            
+        Raises:
+            ValueError: If invalid month
+        """
+        # Validate inputs
+        if not (1 <= month <= 12):
+            raise ValueError("Month must be between 1 and 12")
+        if year < 2000 or year > 3000:
+            raise ValueError("Year must be between 2000 and 3000")
+        
+        # Get all houses
+        houses = db.query(House).all()
+        
+        # Calculate snapshot for each house
+        house_snapshots = []
+        total_opening = 0.0
+        total_invoices = 0.0
+        total_payments = 0.0
+        total_credits = 0.0
+        total_closing = 0.0
+        
+        for house in houses:
+            snapshot = AccountingService.calculate_month_end_snapshot(
+                db=db,
+                house_id=house.id,
+                year=year,
+                month=month
+            )
+            house_snapshots.append(snapshot)
+            
+            # Aggregate totals
+            total_opening += snapshot["opening_balance"]
+            total_invoices += snapshot["invoice_total"]
+            total_payments += snapshot["payment_total"]
+            total_credits += snapshot["credit_total"]
+            total_closing += snapshot["closing_balance"]
+        
+        return {
+            "year": year,
+            "month": month,
+            "total_houses": len(houses),
+            "opening_balance": total_opening,
+            "invoice_total": total_invoices,
+            "payment_total": total_payments,
+            "credit_total": total_credits,
+            "closing_balance": total_closing,
+            "houses": house_snapshots
+        }
+
+    @staticmethod
+    def generate_statement(
+        db: Session,
+        house_id: int,
+        start_date: date,
+        end_date: date
+    ) -> Dict:
+        """
+        Generate read-only financial statement for a house over a date range.
+        
+        PHASE 2.4 - PRESENTATION ONLY (No new accounting logic)
+        
+        Statement Structure:
+        --------------------
+        1. Opening Balance Row (from Phase 2.3 snapshot)
+        2. Transaction Rows (from ledger, sorted by date)
+           - Invoices → Debit column
+           - Payments → Credit column
+           - Credit Notes → Credit column
+        3. Running Balance (display-only, not persisted)
+        4. Footer Summary
+        5. Closing Balance (from Phase 2.3 snapshot)
+        
+        IMPORTANT RULES:
+        ----------------
+        - Opening balance comes from snapshot at (start_date - 1 day)
+        - Closing balance comes from snapshot at end_date
+        - DO NOT calculate opening/closing directly from ledger
+        - Ledger is used ONLY for transaction rows
+        - Running balance starts from opening_balance
+        - Running balance is NOT stored anywhere
+        
+        Args:
+            db: Database session
+            house_id: ID of house
+            start_date: Statement start date
+            end_date: Statement end date
+            
+        Returns:
+            Dict with statement data ready for JSON/HTML rendering
+            
+        Raises:
+            ValueError: If house not found or invalid dates
+        """
+        # Validate inputs
+        if start_date > end_date:
+            raise ValueError("start_date must be before or equal to end_date")
+        
+        # Verify house exists
+        house = db.query(House).filter(House.id == house_id).first()
+        if not house:
+            raise ValueError(f"House {house_id} not found")
+        
+        # Get opening balance from snapshot (last day BEFORE start_date)
+        # If start_date is 2024-12-01, we need snapshot for 2024-11-30
+        opening_date = start_date - timedelta(days=1)
+        opening_year = opening_date.year
+        opening_month = opening_date.month
+        
+        try:
+            opening_snapshot = AccountingService.calculate_month_end_snapshot(
+                db=db,
+                house_id=house_id,
+                year=opening_year,
+                month=opening_month
+            )
+            opening_balance = opening_snapshot["closing_balance"]
+        except:
+            # If no snapshot available (e.g., before first transaction), use 0
+            opening_balance = 0.0
+        
+        # Get closing balance from snapshot (at end_date)
+        closing_year = end_date.year
+        closing_month = end_date.month
+        
+        try:
+            closing_snapshot = AccountingService.calculate_month_end_snapshot(
+                db=db,
+                house_id=house_id,
+                year=closing_year,
+                month=closing_month
+            )
+            closing_balance = closing_snapshot["closing_balance"]
+        except:
+            closing_balance = opening_balance
+        
+        # Initialize statement rows with opening balance
+        rows = []
+        running_balance = opening_balance
+        
+        # Add opening balance row
+        rows.append({
+            "date": start_date,
+            "description": "Opening Balance",
+            "debit": None,
+            "credit": None,
+            "balance": running_balance,
+            "transaction_type": "opening",
+            "transaction_id": None
+        })
+        
+        # Collect all transactions in period
+        transactions = []
+        
+        # Get invoices in period
+        invoices = db.query(Invoice).filter(
+            and_(
+                Invoice.house_id == house_id,
+                func.date(Invoice.issue_date) >= start_date,
+                func.date(Invoice.issue_date) <= end_date
+            )
+        ).all()
+        
+        for invoice in invoices:
+            transactions.append({
+                "date": invoice.issue_date,
+                "description": f"Invoice {invoice.cycle_year}-{invoice.cycle_month:02d}",
+                "debit": float(invoice.total_amount),
+                "credit": None,
+                "transaction_type": "invoice",
+                "transaction_id": invoice.id,
+                "sort_order": 1  # Invoices first within same date
+            })
+        
+        # Get payments in period (via income_transactions)
+        income_transactions = db.query(IncomeTransaction).filter(
+            and_(
+                IncomeTransaction.house_id == house_id,
+                func.date(IncomeTransaction.received_at) >= start_date,
+                func.date(IncomeTransaction.received_at) <= end_date
+            )
+        ).all()
+        
+        for income in income_transactions:
+            transactions.append({
+                "date": income.received_at.date(),
+                "description": f"Payment (PayIn #{income.payin_id})",
+                "debit": None,
+                "credit": float(income.amount),
+                "transaction_type": "payment",
+                "transaction_id": income.id,
+                "sort_order": 2  # Payments second within same date
+            })
+        
+        # Get credit notes in period
+        credit_notes = db.query(CreditNote).filter(
+            and_(
+                CreditNote.house_id == house_id,
+                func.date(CreditNote.created_at) >= start_date,
+                func.date(CreditNote.created_at) <= end_date
+            )
+        ).all()
+        
+        for credit in credit_notes:
+            transactions.append({
+                "date": credit.created_at.date(),
+                "description": f"Credit Note: {credit.reason[:50]}",
+                "debit": None,
+                "credit": float(credit.amount),
+                "transaction_type": "credit_note",
+                "transaction_id": credit.id,
+                "sort_order": 3  # Credit notes third within same date
+            })
+        
+        # Sort transactions by date ASC, then by sort_order
+        transactions.sort(key=lambda x: (x["date"], x["sort_order"]))
+        
+        # Calculate running balance and build rows
+        invoice_total = 0.0
+        payment_total = 0.0
+        credit_total = 0.0
+        
+        for txn in transactions:
+            # Update running balance
+            if txn["debit"]:
+                running_balance += txn["debit"]
+                invoice_total += txn["debit"]
+            if txn["credit"]:
+                running_balance -= txn["credit"]
+                if txn["transaction_type"] == "payment":
+                    payment_total += txn["credit"]
+                elif txn["transaction_type"] == "credit_note":
+                    credit_total += txn["credit"]
+            
+            # Add transaction row
+            rows.append({
+                "date": txn["date"],
+                "description": txn["description"],
+                "debit": txn["debit"],
+                "credit": txn["credit"],
+                "balance": running_balance,
+                "transaction_type": txn["transaction_type"],
+                "transaction_id": txn["transaction_id"]
+            })
+        
+        # Build summary
+        summary = {
+            "invoice_total": invoice_total,
+            "payment_total": payment_total,
+            "credit_total": credit_total,
+            "closing_balance": closing_balance  # From snapshot, NOT calculated
+        }
+        
+        return {
+            "house_id": house_id,
+            "house_code": house.house_code,
+            "owner_name": house.owner_name,
+            "start_date": start_date,
+            "end_date": end_date,
+            "opening_balance": opening_balance,  # From snapshot
+            "closing_balance": closing_balance,  # From snapshot
+            "rows": rows,
+            "summary": summary
+        }

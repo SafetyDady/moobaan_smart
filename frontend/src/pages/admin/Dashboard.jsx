@@ -31,10 +31,10 @@ export default function AdminDashboard() {
 
   const stats = [
     {
-      name: 'Current Balance',
-      value: `฿${summary?.current_balance?.toLocaleString() || 0}`,
+      name: 'Total Outstanding',
+      value: `฿${summary?.total_outstanding?.toLocaleString() || 0}`,
       icon: '💰',
-      color: 'text-primary-400',
+      color: 'text-red-400',
     },
     {
       name: 'Total Income',
@@ -49,15 +49,15 @@ export default function AdminDashboard() {
       color: 'text-red-400',
     },
     {
-      name: 'Active Houses',
-      value: summary?.active_houses || 0,
+      name: 'Total Houses',
+      value: `${summary?.total_houses || 0} / ${summary?.active_houses || 0} Active`,
       icon: '🏠',
       color: 'text-blue-400',
     },
     {
-      name: 'Pending Pay-ins',
-      value: summary?.pending_payins || 0,
-      icon: '⏳',
+      name: 'Pending Invoices',
+      value: summary?.pending_invoices || 0,
+      icon: '📄',
       color: 'text-yellow-400',
     },
     {

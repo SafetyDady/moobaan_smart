@@ -692,3 +692,153 @@ async def get_aging_report(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+# Month-End Snapshot endpoints
+@router.get("/snapshot/{house_id}")
+async def get_house_snapshot(
+    house_id: int,
+    year: int = Query(..., ge=2000, le=3000),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get month-end financial snapshot for a specific house.
+    
+    Access Control:
+    - Residents: Can view own house only (if ACTIVE status)
+    - Accounting/Admin: Can view any house
+    
+    Returns:
+    - opening_balance: Balance at start of month
+    - invoice_total: Invoices issued in month
+    - payment_total: Payments received in month
+    - credit_total: Credit notes issued in month
+    - closing_balance: Final balance at month end
+    
+    Note: All values are computed on-demand (not stored in DB).
+    Negative closing_balance indicates prepayment/overpayment.
+    """
+    # Access control check
+    require_house_access(current_user, house_id, db)
+    
+    try:
+        from app.models import MonthEndSnapshot
+        
+        snapshot_data = AccountingService.calculate_month_end_snapshot(
+            db=db,
+            house_id=house_id,
+            year=year,
+            month=month
+        )
+        
+        return MonthEndSnapshot(**snapshot_data)
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.get("/snapshot", dependencies=[Depends(require_role(["accounting", "super_admin"]))])
+async def get_aggregated_snapshot(
+    year: int = Query(..., ge=2000, le=3000),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get aggregated month-end snapshot for ALL houses.
+    
+    Admin/Accounting only.
+    
+    Returns aggregated totals plus per-house breakdown:
+    - total_houses: Number of houses
+    - opening_balance: Total opening balance
+    - invoice_total: Total invoices issued
+    - payment_total: Total payments received
+    - credit_total: Total credit notes
+    - closing_balance: Total closing balance
+    - houses: Array of per-house snapshots
+    
+    Note: Reuses per-house calculation logic to ensure consistency.
+    No double counting - each transaction counted exactly once.
+    """
+    try:
+        from app.models import AggregatedSnapshot
+        
+        aggregated_data = AccountingService.calculate_aggregated_snapshot(
+            db=db,
+            year=year,
+            month=month
+        )
+        
+        return AggregatedSnapshot(**aggregated_data)
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+# Financial Statement endpoint (Phase 2.4 - Read-Only)
+@router.get("/statement/{house_id}")
+async def get_financial_statement(
+    house_id: int,
+    start_date: date = Query(..., description="Statement start date"),
+    end_date: date = Query(..., description="Statement end date"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get financial statement for a house over a date range.
+    
+    PHASE 2.4 - READ-ONLY PRESENTATION
+    
+    This endpoint combines:
+    - Opening balance from Phase 2.3 snapshot
+    - Ledger transactions in period (invoices, payments, credit notes)
+    - Running balance (display-only, not stored)
+    - Closing balance from Phase 2.3 snapshot
+    
+    Access Control:
+    - Residents: Can view own house only (if ACTIVE status)
+    - Accounting/Admin: Can view any house
+    
+    Statement Structure:
+    - Opening Balance row
+    - Transaction rows (sorted by date ASC)
+      * Invoices → Debit column
+      * Payments → Credit column
+      * Credit Notes → Credit column
+    - Running balance (calculated for display)
+    - Footer summary with totals
+    
+    Returns:
+    - Complete financial statement ready for HTML/JSON rendering
+    
+    Note: All balances are derived on-demand (nothing persisted).
+    """
+    # Access control check
+    require_house_access(current_user, house_id, db)
+    
+    try:
+        from app.models import FinancialStatement
+        
+        statement_data = AccountingService.generate_statement(
+            db=db,
+            house_id=house_id,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return FinancialStatement(**statement_data)
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )

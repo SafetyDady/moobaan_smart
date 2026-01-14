@@ -50,10 +50,9 @@ class MemberRole(str, Enum):
 
 
 class PayInStatus(str, Enum):
-    SUBMITTED = "submitted"
-    REJECTED = "rejected"
-    MATCHED = "matched"
-    ACCEPTED = "accepted"
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
 
 
 class InvoiceType(str, Enum):
@@ -75,12 +74,18 @@ class ExpenseStatus(str, Enum):
 
 # Dashboard Models
 class DashboardSummary(BaseModel):
-    current_balance: float
-    total_income: float
-    total_expenses: float
-    active_houses: int
-    pending_payins: int
-    overdue_invoices: int
+    current_balance: float = 0.0
+    total_income: float = 0.0
+    total_expenses: float = 0.0
+    total_houses: int = 0
+    active_houses: int = 0
+    total_residents: int = 0
+    pending_invoices: int = 0
+    total_outstanding: float = 0.0
+    pending_payins: int = 0
+    overdue_invoices: int = 0
+    recent_payments: int = 0
+    monthly_revenue: float = 0.0
 
 
 # House Models
@@ -167,10 +172,10 @@ class Invoice(BaseModel):
 class PayInReportBase(BaseModel):
     house_id: int
     amount: float
-    transfer_date: date
-    transfer_hour: int
-    transfer_minute: int
-    slip_image_url: Optional[str] = None
+    transfer_date: str  # Accept date string (YYYY-MM-DD)
+    transfer_hour: int  # 0-23
+    transfer_minute: int  # 0-59
+    slip_image_url: str  # Required - must attach slip
 
 
 class PayInReportCreate(PayInReportBase):
@@ -179,7 +184,7 @@ class PayInReportCreate(PayInReportBase):
 
 class PayInReportUpdate(BaseModel):
     amount: Optional[float] = None
-    transfer_date: Optional[date] = None
+    transfer_date: Optional[str] = None
     transfer_hour: Optional[int] = None
     transfer_minute: Optional[int] = None
     slip_image_url: Optional[str] = None
@@ -259,3 +264,85 @@ class BankStatementUploadResponse(BaseModel):
     filename: str
     total_rows: int
     message: str
+
+
+# Month-End Snapshot Models
+class MonthEndSnapshot(BaseModel):
+    """
+    Month-end financial snapshot for a single house.
+    All values are computed on-demand from ledger (not persisted).
+    """
+    house_id: int
+    house_code: Optional[str] = None
+    owner_name: Optional[str] = None
+    year: int
+    month: int
+    opening_balance: float  # Balance at start of month (before any transactions in target month)
+    invoice_total: float    # Sum of invoices issued in target month
+    payment_total: float    # Sum of payments received in target month
+    credit_total: float     # Sum of credit notes issued in target month
+    closing_balance: float  # opening + invoice - payment - credit
+
+
+class AggregatedSnapshot(BaseModel):
+    """
+    Aggregated month-end snapshot for all houses.
+    Admin-only view of overall financial position.
+    """
+    year: int
+    month: int
+    total_houses: int
+    opening_balance: float
+    invoice_total: float
+    payment_total: float
+    credit_total: float
+    closing_balance: float
+    houses: List[MonthEndSnapshot]  # Detail for each house
+
+
+# Financial Statement Models (Phase 2.4 - Read-Only Presentation)
+class StatementRow(BaseModel):
+    """
+    Single row in financial statement.
+    Running balance is display-only (not persisted).
+    """
+    date: date
+    description: str
+    debit: Optional[float] = None   # Invoices only
+    credit: Optional[float] = None  # Payments + Credit Notes
+    balance: float  # Running balance (display-only, not stored)
+    transaction_type: str  # "opening", "invoice", "payment", "credit_note"
+    transaction_id: Optional[int] = None  # Reference to source transaction
+
+
+class StatementSummary(BaseModel):
+    """
+    Footer summary for financial statement.
+    All values computed from ledger + snapshot.
+    """
+    invoice_total: float    # Sum of invoices in period
+    payment_total: float    # Sum of payments in period
+    credit_total: float     # Sum of credit notes in period
+    closing_balance: float  # From snapshot only (NOT calculated here)
+
+
+class FinancialStatement(BaseModel):
+    """
+    Complete financial statement for a house over a date range.
+    
+    IMPORTANT: This is a READ-ONLY presentation combining:
+    - Opening balance from Phase 2.3 snapshot
+    - Ledger transactions in period
+    - Closing balance from Phase 2.3 snapshot
+    
+    No data is stored - all values derived on-demand.
+    """
+    house_id: int
+    house_code: Optional[str] = None
+    owner_name: Optional[str] = None
+    start_date: date
+    end_date: date
+    opening_balance: float  # From snapshot (NOT calculated)
+    closing_balance: float  # From snapshot (NOT calculated)
+    rows: List[StatementRow]  # Transactions sorted by date ASC
+    summary: StatementSummary

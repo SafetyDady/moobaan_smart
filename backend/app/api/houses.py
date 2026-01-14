@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/houses", tags=["houses"])
 
 
 @router.get("", response_model=List[dict])
-async def list_houses(status: Optional[str] = None, search: Optional[str] = None, db: Session = Depends(get_db), current_user: User = require_admin_or_accounting):
+async def list_houses(status: Optional[str] = None, search: Optional[str] = None, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_accounting)):
     """List all houses with optional filters"""
     query = db.query(HouseModel)
     
@@ -30,7 +30,7 @@ async def list_houses(status: Optional[str] = None, search: Optional[str] = None
 
 
 @router.get("/{house_id}", response_model=dict)
-async def get_house(house_id: int, db: Session = Depends(get_db), current_user: User = require_admin_or_accounting):
+async def get_house(house_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_accounting)):
     """Get a specific house by ID"""
     house = db.query(HouseModel).filter(HouseModel.id == house_id).first()
     if not house:
@@ -39,7 +39,7 @@ async def get_house(house_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.post("", response_model=dict)
-async def create_house(house: dict, db: Session = Depends(get_db), current_user: User = require_admin_or_accounting):
+async def create_house(house: dict, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_accounting)):
     """Create a new house"""
     import re
     
@@ -120,7 +120,7 @@ async def create_house(house: dict, db: Session = Depends(get_db), current_user:
 
 
 @router.put("/{house_id}", response_model=dict)
-async def update_house(house_id: int, house_update: dict, db: Session = Depends(get_db), current_user: User = require_admin_or_accounting):
+async def update_house(house_id: int, house_update: dict, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_accounting)):
     """Update a house"""
     house = db.query(HouseModel).filter(HouseModel.id == house_id).first()
     if not house:
@@ -138,7 +138,7 @@ async def update_house(house_id: int, house_update: dict, db: Session = Depends(
 
 
 @router.delete("/{house_id}")
-async def delete_house(house_id: int, db: Session = Depends(get_db), current_user: User = require_admin_or_accounting):
+async def delete_house(house_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_accounting)):
     """Delete a house"""
     house = db.query(HouseModel).filter(HouseModel.id == house_id).first()
     if not house:

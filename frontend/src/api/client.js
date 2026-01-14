@@ -60,6 +60,14 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Auth API
+export const authAPI = {
+  login: (credentials) => apiClient.post('/api/auth/login', credentials),
+  logout: () => apiClient.post('/api/auth/logout'),
+  getMe: () => apiClient.get('/api/auth/me'),
+  changePassword: (data) => apiClient.post('/api/auth/change-password', data),
+};
+
 // Dashboard API
 export const dashboardAPI = {
   getSummary: () => apiClient.get('/api/dashboard/summary'),
@@ -89,6 +97,7 @@ export const payinsAPI = {
   list: (params) => apiClient.get('/api/payin-reports', { params }),
   get: (id) => apiClient.get(`/api/payin-reports/${id}`),
   create: (data) => apiClient.post('/api/payin-reports', data),
+  createFormData: (formData) => apiClient.post('/api/payin-reports', formData),
   update: (id, data) => apiClient.put(`/api/payin-reports/${id}`, data),
   delete: (id) => apiClient.delete(`/api/payin-reports/${id}`),
   reject: (id, reason) => apiClient.post(`/api/payin-reports/${id}/reject`, { reason }),

@@ -28,7 +28,7 @@ async def list_residents(
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
-    current_user: User = require_admin_or_accounting
+    current_user: User = Depends(require_admin_or_accounting)
 ):
     """List all resident users linked to houses"""
     import logging
@@ -100,7 +100,7 @@ async def list_residents(
 async def create_resident(
     user_data: dict, 
     db: Session = Depends(get_db), 
-    current_user: User = require_admin_or_accounting
+    current_user: User = Depends(require_admin_or_accounting)
 ):
     """Create a new resident user linked to a house"""
     
@@ -212,7 +212,7 @@ async def create_resident(
 async def get_house_member_count(
     house_id: int,
     db: Session = Depends(get_db),
-    current_user: User = require_admin_or_accounting
+    current_user: User = Depends(require_admin_or_accounting)
 ):
     """Get current member count for a house (active only)"""
     
@@ -241,7 +241,7 @@ async def update_resident(
     user_id: int,
     update_data: dict,
     db: Session = Depends(get_db),
-    current_user: User = require_admin_or_accounting
+    current_user: User = Depends(require_admin_or_accounting)
 ):
     """Update resident profile (admin/accounting only)"""
     import logging
@@ -390,7 +390,7 @@ async def update_resident(
 async def deactivate_resident(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = require_admin_or_accounting
+    current_user: User = Depends(require_admin_or_accounting)
 ):
     """Deactivate a resident (soft delete)"""
     import logging
@@ -454,7 +454,7 @@ async def deactivate_resident(
 async def reactivate_resident(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = require_admin_or_accounting
+    current_user: User = Depends(require_admin_or_accounting)
 ):
     """Reactivate a resident (restore from soft delete)"""
     import logging
@@ -551,7 +551,7 @@ async def reactivate_resident(
 async def reset_password(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = require_admin_or_accounting
+    current_user: User = Depends(require_admin_or_accounting)
 ):
     """Reset password for a resident (admin/accounting only)"""
     import logging

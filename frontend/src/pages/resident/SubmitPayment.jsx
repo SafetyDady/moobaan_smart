@@ -17,33 +17,119 @@ export default function SubmitPayment() {
     slip_image_url: editPayin?.slip_image_url || '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [slipFile, setSlipFile] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    console.log('🔍 DEBUG - currentHouseId:', currentHouseId, 'Type:', typeof currentHouseId);
+    console.log('🔍 DEBUG - formData:', formData);
+    console.log('🔍 DEBUG - slipFile:', slipFile);
+    
+    // Validate house ID
+    if (!currentHouseId) {
+      alert('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+      navigate('/auth/login');
+      return;
+    }
+    
+    // Validate all required fields
+    if (!formData.amount || !formData.transfer_date || !formData.transfer_hour || !formData.transfer_minute) {
+      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+    
+    // Validate slip is attached
+    if (!slipFile && !editPayin) {
+      alert('กรุณาแนบสลิปการโอนเงิน');
+      return;
+    }
+    
+    // Validate hour and minute ranges
+    const hour = parseInt(formData.transfer_hour);
+    const minute = parseInt(formData.transfer_minute);
+    if (isNaN(hour) || isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      alert('เวลาไม่ถูกต้อง (ชั่วโมง: 0-23, นาที: 0-59)');
+      return;
+    }
+    
     setSubmitting(true);
 
     try {
-      const submitData = {
-        house_id: currentHouseId,
-        amount: parseFloat(formData.amount),
-        transfer_date: formData.transfer_date,
-        transfer_hour: parseInt(formData.transfer_hour),
-        transfer_minute: parseInt(formData.transfer_minute),
-        slip_image_url: formData.slip_image_url || 'https://example.com/slips/mock.jpg',
-      };
+      // Create FormData for multipart/form-data submission
+      const submitFormData = new FormData();
+      
+      // Create ISO datetime from date + time
+      const paidAtDate = new Date(formData.transfer_date);
+      paidAtDate.setHours(hour, minute, 0, 0);
+      const paidAtISO = paidAtDate.toISOString();
+      
+      submitFormData.append('amount', parseFloat(formData.amount));
+      submitFormData.append('paid_at', paidAtISO);
+      submitFormData.append('note', `Transfer at ${hour}:${String(minute).padStart(2, '0')}`);
+      
+      if (slipFile) {
+        submitFormData.append('slip', slipFile);
+      }
+
+      console.log('📤 Submitting FormData fields:', {
+        amount: submitFormData.get('amount'),
+        paid_at: submitFormData.get('paid_at'),
+        note: submitFormData.get('note'),
+        slip: slipFile ? slipFile.name : 'none'
+      });
 
       if (editPayin) {
-        await payinsAPI.update(editPayin.id, submitData);
-        alert('Payment slip updated and resubmitted successfully');
+        // For edit, still use JSON (keep old behavior for now)
+        const jsonData = {
+          amount: parseFloat(formData.amount),
+          transfer_date: formData.transfer_date,
+          transfer_hour: hour,
+          transfer_minute: minute,
+          slip_image_url: formData.slip_image_url || `https://example.com/slips/${slipFile?.name || 'updated.jpg'}`
+        };
+        await payinsAPI.update(editPayin.id, jsonData);
+        alert('แก้ไขและส่งรายงานการชำระเงินเรียบร้อยแล้ว');
       } else {
-        await payinsAPI.create(submitData);
-        alert('Payment slip submitted successfully');
+        // For create, use FormData
+        const response = await payinsAPI.createFormData(submitFormData);
+        console.log('✅ Success response:', response);
+        alert('ส่งรายงานการชำระเงินเรียบร้อยแล้ว');
       }
       
       navigate('/resident/dashboard');
     } catch (error) {
-      console.error('Failed to submit:', error);
-      alert(error.response?.data?.detail || 'Failed to submit payment slip');
+      console.error('❌ Failed to submit:', error);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('❌ Error detail:', error.response?.data?.detail);
+      
+      // Show detailed error
+      let errorMsg = 'ไม่สามารถส่งรายงานการชำระเงินได้';
+      const errorData = error.response?.data;
+      
+      if (errorData?.detail) {
+        if (Array.isArray(errorData.detail)) {
+          // FastAPI/Pydantic validation errors
+          const errors = errorData.detail.map(e => {
+            const field = Array.isArray(e.loc) ? e.loc.join('.') : e.loc;
+            return `• ${field}: ${e.msg}`;
+          }).join('\n');
+          errorMsg = `ข้อมูลไม่ถูกต้อง:\n\n${errors}`;
+        } else if (typeof errorData.detail === 'string') {
+          errorMsg = errorData.detail;
+        } else {
+          // Handle object detail
+          errorMsg = JSON.stringify(errorData.detail, null, 2);
+        }
+      } else if (errorData?.message) {
+        errorMsg = errorData.message;
+      } else if (error.message) {
+        errorMsg = `Error: ${error.message}`;
+      }
+      
+      alert(errorMsg);
     } finally {
       setSubmitting(false);
     }
@@ -133,20 +219,22 @@ export default function SubmitPayment() {
 
           <div>
             <label className="block text-sm text-gray-400 mb-2">
-              Payment Slip Image
+              แนบสลิปการโอนเงิน *
             </label>
             <div className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center">
               <div className="text-4xl mb-2">📎</div>
               <p className="text-gray-400 text-sm mb-2">
-                Upload payment slip image
+                แนบรูปสลิปการโอนเงิน (บังคับ)
               </p>
               <input
                 type="file"
                 accept="image/*"
+                required={!editPayin}
                 onChange={(e) => {
-                  // Mock file upload - in production, upload to S3 and get URL
                   const file = e.target.files[0];
                   if (file) {
+                    setSlipFile(file);
+                    // Mock file upload - in production, upload to S3 and get URL
                     setFormData({ 
                       ...formData, 
                       slip_image_url: `https://example.com/slips/${file.name}` 
@@ -157,16 +245,21 @@ export default function SubmitPayment() {
                 id="slip-upload"
               />
               <label htmlFor="slip-upload" className="btn-secondary cursor-pointer inline-block">
-                Choose File
+                เลือกไฟล์
               </label>
-              {formData.slip_image_url && (
+              {slipFile && (
                 <p className="text-primary-400 text-sm mt-2">
-                  ✓ File selected
+                  ✓ เลือกไฟล์แล้ว: {slipFile.name}
+                </p>
+              )}
+              {formData.slip_image_url && !slipFile && (
+                <p className="text-primary-400 text-sm mt-2">
+                  ✓ มีไฟล์แนบอยู่แล้ว
                 </p>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Note: File upload is mocked in Phase 1
+            <p className="text-xs text-red-400 mt-2">
+              * ต้องแนบสลิปการโอนเงิน (Note: File upload is mocked in Phase 1)
             </p>
           </div>
 
