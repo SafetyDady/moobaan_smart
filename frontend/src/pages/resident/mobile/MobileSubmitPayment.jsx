@@ -75,32 +75,96 @@ export default function MobileSubmitPayment() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
 
     try {
-      // Parse time
+      // Validate house ID
+      if (!currentHouseId) {
+        setError('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        navigate('/auth/login');
+        return;
+      }
+
+      // Validate slip image for CREATE
+      if (!editPayin && !formData.slip_image) {
+        setError('กรุณาถ่ายรูปสลิปก่อนส่ง');
+        setSubmitting(false);
+        return;
+      }
+
+      // Parse time and build ISO datetime
       const [hour, minute] = formData.transfer_time.split(':');
-      
-      const submitData = {
-        house_id: currentHouseId,
-        amount: parseFloat(formData.amount),
-        transfer_date: formData.transfer_date,
-        transfer_hour: parseInt(hour),
-        transfer_minute: parseInt(minute),
-        slip_image_url: formData.slip_preview || 'https://example.com/slips/mock.jpg',
-      };
+      const paidAtDate = new Date(formData.transfer_date);
+      paidAtDate.setHours(parseInt(hour), parseInt(minute), 0, 0);
+      const paidAtISO = paidAtDate.toISOString();
+
+      console.log('📱 Mobile - Building FormData:', {
+        amount: formData.amount,
+        paid_at: paidAtISO,
+        slip: formData.slip_image?.name || 'none'
+      });
 
       if (editPayin) {
-        await payinsAPI.update(editPayin.id, submitData);
+        // For edit, use JSON (legacy behavior for Phase 1)
+        const jsonData = {
+          amount: parseFloat(formData.amount),
+          transfer_date: formData.transfer_date,
+          transfer_hour: parseInt(hour),
+          transfer_minute: parseInt(minute),
+          slip_image_url: formData.slip_preview || 'https://example.com/slips/updated.jpg'
+        };
+        await payinsAPI.update(editPayin.id, jsonData);
         alert('✅ แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
       } else {
-        await payinsAPI.create(submitData);
+        // For create, use FormData (same as Desktop)
+        const submitFormData = new FormData();
+        submitFormData.append('amount', parseFloat(formData.amount));
+        submitFormData.append('paid_at', paidAtISO);
+        submitFormData.append('note', `Mobile submit at ${hour}:${minute}`);
+        
+        if (formData.slip_image) {
+          submitFormData.append('slip', formData.slip_image);
+        }
+
+        console.log('📤 Mobile - Sending FormData');
+        await payinsAPI.createFormData(submitFormData);
         alert('✅ ส่งสลิปเรียบร้อยแล้ว');
       }
       
       navigate('/resident/dashboard');
     } catch (error) {
-      console.error('Failed to submit:', error);
-      alert('❌ ' + (error.response?.data?.detail || 'ส่งสลิปไม่สำเร็จ กรุณาลองใหม่'));
+      console.error('❌ Mobile submit failed:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      // Extract error message properly
+      let errorMsg = 'ส่งสลิปไม่สำเร็จ กรุณาลองใหม่';
+      const errorData = error.response?.data;
+      
+      if (errorData?.detail) {
+        if (Array.isArray(errorData.detail)) {
+          // FastAPI validation errors
+          const errors = errorData.detail.map(e => {
+            const field = Array.isArray(e.loc) ? e.loc.join('.') : String(e.loc || 'field');
+            const msg = e.msg || String(e);
+            return `• ${field}: ${msg}`;
+          }).join('\n');
+          errorMsg = `ข้อมูลไม่ถูกต้อง:\n\n${errors}`;
+        } else if (typeof errorData.detail === 'string') {
+          errorMsg = errorData.detail;
+        } else if (typeof errorData.detail === 'object') {
+          const detailStr = Object.entries(errorData.detail)
+            .map(([key, val]) => `${key}: ${String(val)}`)
+            .join('\n');
+          errorMsg = `Error details:\n${detailStr}`;
+        }
+      } else if (errorData?.message) {
+        errorMsg = errorData.message;
+      } else if (error.message) {
+        errorMsg = `Error: ${error.message}`;
+      }
+      
+      setError(errorMsg);
+      alert('❌ ' + errorMsg);
     } finally {
       setSubmitting(false);
     }
