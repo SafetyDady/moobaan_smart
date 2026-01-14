@@ -25,39 +25,36 @@ export function RoleProvider({ children }) {
         return;
       }
 
-      // Get user info from token or AuthContext
-      const userStr = localStorage.getItem('user');
-      if (!userStr) {
-        setLoading(false);
-        return;
-      }
-
-      const user = JSON.parse(userStr);
-
-      // If resident, get their house ID from members endpoint
-      if (user.role === 'resident') {
-        try {
-          const membersRes = await fetch('http://127.0.0.1:8000/api/members', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (membersRes.ok) {
-            const members = await membersRes.json();
-            
-            // Find member record for this user
-            const userMember = members.find(m => m.user_id === user.id);
-            if (userMember) {
-              setCurrentHouseId(userMember.house_id);
-            }
+      // Get user info from /api/auth/me endpoint
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
-        } catch (error) {
-          console.error('Failed to load house membership:', error);
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('✅ RoleContext - User data from /api/auth/me:', userData);
+          
+          // Set role
+          setCurrentRole(userData.role);
+          
+          // Set house_id if resident
+          if (userData.role === 'resident' && userData.house_id) {
+            setCurrentHouseId(userData.house_id);
+            console.log('✅ RoleContext - Set currentHouseId:', userData.house_id);
+          } else {
+            console.warn('⚠️ RoleContext - No house_id found for resident');
+          }
+        } else {
+          console.error('❌ RoleContext - Failed to fetch user data:', response.status);
         }
+      } catch (error) {
+        console.error('❌ RoleContext - Failed to load user data:', error);
       }
     } catch (error) {
-      console.error('Failed to load user house:', error);
+      console.error('❌ RoleContext - Outer error:', error);
     } finally {
       setLoading(false);
     }

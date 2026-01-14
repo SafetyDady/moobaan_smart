@@ -113,15 +113,19 @@ export default function SubmitPayment() {
         if (Array.isArray(errorData.detail)) {
           // FastAPI/Pydantic validation errors
           const errors = errorData.detail.map(e => {
-            const field = Array.isArray(e.loc) ? e.loc.join('.') : e.loc;
-            return `• ${field}: ${e.msg}`;
+            const field = Array.isArray(e.loc) ? e.loc.join('.') : String(e.loc || 'field');
+            const msg = e.msg || String(e);
+            return `• ${field}: ${msg}`;
           }).join('\n');
           errorMsg = `ข้อมูลไม่ถูกต้อง:\n\n${errors}`;
         } else if (typeof errorData.detail === 'string') {
           errorMsg = errorData.detail;
-        } else {
-          // Handle object detail
-          errorMsg = JSON.stringify(errorData.detail, null, 2);
+        } else if (typeof errorData.detail === 'object') {
+          // Handle object detail - extract meaningful message
+          const detailStr = Object.entries(errorData.detail)
+            .map(([key, val]) => `${key}: ${String(val)}`)
+            .join('\n');
+          errorMsg = `Error details:\n${detailStr}`;
         }
       } else if (errorData?.message) {
         errorMsg = errorData.message;
