@@ -79,15 +79,6 @@ export function RoleProvider({ children }) {
     isResident: currentRole === ROLES.RESIDENT,
     loading,
   };
-  
-  // Debug logging for troubleshooting
-  console.log('🔍 RoleContext Value:', {
-    currentRole,
-    isAdmin: currentRole === ROLES.SUPER_ADMIN,
-    isAccounting: currentRole === ROLES.ACCOUNTING,
-    isResident: currentRole === ROLES.RESIDENT,
-    ROLES
-  });
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
 }

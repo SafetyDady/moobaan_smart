@@ -6,7 +6,9 @@ from app.db.models import User, Invoice, HouseMember, House
 from app.db.models.invoice import InvoiceStatus
 from app.db.models.house import HouseStatus
 from app.db.models.income_transaction import IncomeTransaction
+from app.db.models.payin_report import PayinReport, PayinStatus
 from decimal import Decimal
+from datetime import datetime, date
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -83,17 +85,33 @@ async def get_dashboard_summary(
         invoices = db.query(Invoice).filter(Invoice.status != InvoiceStatus.PAID).all()
         total_outstanding = sum(float(inv.total_amount) for inv in invoices)
         
+        # Count overdue invoices (due_date < today and not paid)
+        today = date.today()
+        overdue_invoices = [inv for inv in invoices if inv.due_date and inv.due_date < today]
+        
+        # Get total income from all accepted payins
+        income_transactions = db.query(IncomeTransaction).all()
+        total_income = sum(float(inc.amount) for inc in income_transactions)
+        
+        # Count pending payins
+        pending_payins = db.query(PayinReport).filter(
+            PayinReport.status == PayinStatus.PENDING
+        ).count()
+        
+        # Calculate current balance
+        current_balance = total_income - total_outstanding
+        
         return DashboardSummary(
-            current_balance=0.0,
-            total_income=0.0,
+            current_balance=current_balance,
+            total_income=total_income,
             total_expenses=0.0,
             total_houses=len(houses),
             active_houses=len(active_houses),
             total_residents=db.query(HouseMember).count(),
             pending_invoices=len(invoices),
             total_outstanding=total_outstanding,
-            pending_payins=0,
-            overdue_invoices=0,
-            recent_payments=0,
+            pending_payins=pending_payins,
+            overdue_invoices=len(overdue_invoices),
+            recent_payments=len(income_transactions),
             monthly_revenue=0.0
         )

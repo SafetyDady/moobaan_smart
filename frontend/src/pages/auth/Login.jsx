@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -21,8 +22,15 @@ export default function Login() {
       const success = await login(formData);
       
       if (success) {
-        // Navigation will be handled by AuthContext/ProtectedRoute
-        navigate('/admin/dashboard');
+        // Redirect to the page user was trying to access, or default to dashboard
+        const from = location.state?.from?.pathname;
+        
+        // Don't redirect back to login page
+        if (from && from !== '/login') {
+          navigate(from, { replace: true });
+        } else {
+          navigate('/admin/dashboard', { replace: true });
+        }
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Login failed. Please try again.');

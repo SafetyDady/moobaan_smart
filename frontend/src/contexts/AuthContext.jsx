@@ -87,7 +87,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
-    isAuthenticated: !!user,
+    isAuthenticated: !!token || !!localStorage.getItem('auth_token'),
     isAdmin: user?.role === 'super_admin',
     isAccounting: user?.role === 'accounting',
     isResident: user?.role === 'resident',
