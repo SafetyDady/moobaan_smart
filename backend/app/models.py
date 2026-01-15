@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     house_id: Optional[int] = None
+    house_code: Optional[str] = None
 
 
 class UserCreate(BaseModel):

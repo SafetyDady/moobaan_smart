@@ -26,11 +26,29 @@ export default function SubmitPayment() {
     console.log('🔍 DEBUG - formData:', formData);
     console.log('🔍 DEBUG - slipFile:', slipFile);
     
-    // Validate house ID
+    // Validate house ID from context
     if (!currentHouseId) {
-      alert('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
-      navigate('/auth/login');
-      return;
+      console.error('❌ No house_id found in RoleContext');
+      
+      // Try to get user data directly from API
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch('http://127.0.0.1:8000/api/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const userData = await response.json();
+        console.log('🔍 Direct API check - userData:', userData);
+        
+        if (!userData.house_id) {
+          alert('ไม่พบข้อมูลบ้าน: บัญชีของคุณยังไม่ได้เชื่อมโยงกับบ้าน\n\nกรุณาติดต่อแอดมินเพื่อเพิ่มข้อมูลของคุณในระบบ HouseMember');
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Failed to fetch user data:', error);
+        alert('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        navigate('/auth/login');
+        return;
+      }
     }
     
     // Validate all required fields
@@ -89,21 +107,35 @@ export default function SubmitPayment() {
           slip_image_url: formData.slip_image_url || `https://example.com/slips/${slipFile?.name || 'updated.jpg'}`
         };
         await payinsAPI.update(editPayin.id, jsonData);
-        alert('แก้ไขและส่งรายงานการชำระเงินเรียบร้อยแล้ว');
+        alert('✅ แก้ไขและส่งรายงานการชำระเงินเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
       } else {
         // For create, use FormData
         const response = await payinsAPI.createFormData(submitFormData);
         console.log('✅ Success response:', response);
-        alert('ส่งรายงานการชำระเงินเรียบร้อยแล้ว');
+        alert('✅ ส่งรายงานการชำระเงินเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
       }
       
-      navigate('/resident/dashboard');
+      // Use window.location for full page reload to avoid auth state issues
+      setTimeout(() => {
+        window.location.href = '/resident/dashboard';
+      }, 300);
     } catch (error) {
       console.error('❌ Failed to submit:', error);
       console.error('❌ Error status:', error.response?.status);
       console.error('❌ Error response:', error.response);
       console.error('❌ Error data:', JSON.stringify(error.response?.data, null, 2));
       console.error('❌ Error detail:', error.response?.data?.detail);
+      
+      // Handle 409 duplicate submission gracefully
+      if (error.response?.status === 409) {
+        const errorData = error.response?.data;
+        if (errorData?.detail?.code === 'PAYIN_PENDING_EXISTS') {
+          const msg = errorData.detail.message || 'มีรายการรอตรวจสอบอยู่แล้ว กรุณารอสักครู่ก่อนส่งใหม่';
+          alert('⚠️ ' + msg);
+          setSubmitting(false);
+          return;
+        }
+      }
       
       // Show detailed error
       let errorMsg = 'ไม่สามารถส่งรายงานการชำระเงินได้';
@@ -271,16 +303,17 @@ export default function SubmitPayment() {
             <button
               type="submit"
               disabled={submitting}
-              className="btn-primary flex-1"
+              className="btn-primary flex-1 disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Submitting...' : (editPayin ? 'Update & Resubmit' : 'Submit')}
+              {submitting ? '⏳ กำลังส่ง...' : (editPayin ? '✅ แก้ไขและส่งใหม่' : '✅ ส่งสลิป')}
             </button>
             <button
               type="button"
-              onClick={() => navigate('/resident/dashboard')}
-              className="btn-secondary flex-1"
+              onClick={() => window.location.href = '/resident/dashboard'}
+              disabled={submitting}
+              className="btn-secondary flex-1 disabled:bg-gray-700 disabled:cursor-not-allowed"
             >
-              Cancel
+              ยกเลิก
             </button>
           </div>
         </form>

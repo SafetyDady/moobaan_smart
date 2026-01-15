@@ -11,6 +11,7 @@ export const ROLES = {
 export function RoleProvider({ children }) {
   const [currentRole, setCurrentRole] = useState(ROLES.SUPER_ADMIN);
   const [currentHouseId, setCurrentHouseId] = useState(null);
+  const [currentHouseCode, setCurrentHouseCode] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,12 +41,18 @@ export function RoleProvider({ children }) {
           // Set role
           setCurrentRole(userData.role);
           
-          // Set house_id if resident
-          if (userData.role === 'resident' && userData.house_id) {
-            setCurrentHouseId(userData.house_id);
-            console.log('✅ RoleContext - Set currentHouseId:', userData.house_id);
-          } else {
-            console.warn('⚠️ RoleContext - No house_id found for resident');
+          // Set house_id and house_code if resident
+          if (userData.role === 'resident') {
+            if (userData.house_id) {
+              setCurrentHouseId(userData.house_id);
+              setCurrentHouseCode(userData.house_code || null);
+              console.log('✅ RoleContext - Set currentHouseId:', userData.house_id);
+              console.log('✅ RoleContext - Set currentHouseCode:', userData.house_code);
+            } else {
+              console.warn('⚠️ RoleContext - Resident has no house_id!');
+              console.warn('⚠️ This user may not be linked to a house via HouseMember table');
+              console.warn('⚠️ User data:', userData);
+            }
           }
         } else {
           console.error('❌ RoleContext - Failed to fetch user data:', response.status);
@@ -65,11 +72,22 @@ export function RoleProvider({ children }) {
     setCurrentRole,
     currentHouseId,
     setCurrentHouseId,
+    currentHouseCode,
+    setCurrentHouseCode,
     isAdmin: currentRole === ROLES.SUPER_ADMIN,
     isAccounting: currentRole === ROLES.ACCOUNTING,
     isResident: currentRole === ROLES.RESIDENT,
     loading,
   };
+  
+  // Debug logging for troubleshooting
+  console.log('🔍 RoleContext Value:', {
+    currentRole,
+    isAdmin: currentRole === ROLES.SUPER_ADMIN,
+    isAccounting: currentRole === ROLES.ACCOUNTING,
+    isResident: currentRole === ROLES.RESIDENT,
+    ROLES
+  });
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
 }

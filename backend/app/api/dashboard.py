@@ -5,6 +5,7 @@ from app.core.deps import get_db, get_current_user
 from app.db.models import User, Invoice, HouseMember, House
 from app.db.models.invoice import InvoiceStatus
 from app.db.models.house import HouseStatus
+from app.db.models.income_transaction import IncomeTransaction
 from decimal import Decimal
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -49,9 +50,19 @@ async def get_dashboard_summary(
         
         total_outstanding = sum(float(inv.total_amount) for inv in invoices)
         
+        # Get total income (payments received)
+        income_transactions = db.query(IncomeTransaction).filter(
+            IncomeTransaction.house_id == membership.house_id
+        ).all()
+        
+        total_income = sum(float(inc.amount) for inc in income_transactions)
+        
+        # Calculate current balance (negative = house owes, positive = overpaid)
+        current_balance = total_income - total_outstanding
+        
         return DashboardSummary(
-            current_balance=0.0,  # TODO: Calculate from actual transactions
-            total_income=0.0,      # TODO: Calculate from payments
+            current_balance=current_balance,
+            total_income=total_income,
             total_expenses=0.0,    # TODO: Calculate from expense records
             total_houses=1,
             active_houses=1,
@@ -60,7 +71,7 @@ async def get_dashboard_summary(
             total_outstanding=total_outstanding,
             pending_payins=0,      # TODO: Get from payin_reports
             overdue_invoices=0,    # TODO: Filter by due_date
-            recent_payments=0,
+            recent_payments=len(income_transactions),
             monthly_revenue=0.0
         )
     

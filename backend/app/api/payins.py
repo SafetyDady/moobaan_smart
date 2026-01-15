@@ -9,6 +9,7 @@ from app.models import (
 from app.db.models.payin_report import PayinReport as PayinReportModel
 from app.db.models.house import House as HouseModel
 from app.db.models.user import User
+from app.db.models.income_transaction import IncomeTransaction
 from app.db.session import get_db
 from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_user_house_id
 
@@ -119,6 +120,26 @@ async def create_payin_report(
         house = db.query(HouseModel).filter(HouseModel.id == user_house_id).first()
         if not house:
             raise HTTPException(status_code=404, detail="House not found")
+        
+        # Soft duplicate prevention: check for recent PENDING payins (within 5 minutes)
+        from datetime import datetime, timedelta, timezone
+        five_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
+        recent_pending = db.query(PayinReportModel).filter(
+            PayinReportModel.house_id == user_house_id,
+            PayinReportModel.status == "PENDING",
+            PayinReportModel.created_at >= five_minutes_ago
+        ).first()
+        
+        if recent_pending:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "PAYIN_PENDING_EXISTS",
+                    "message": "มีรายการรอตรวจสอบอยู่แล้ว กรุณารอสักครู่ก่อนส่งใหม่",
+                    "existing_payin_id": recent_pending.id,
+                    "created_at": recent_pending.created_at.isoformat()
+                }
+            )
         
         # Validate amount
         if amount <= 0:
@@ -240,57 +261,42 @@ async def reject_payin_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_accounting)
 ):
-    """Reject a pay-in report (Accounting/Admin)"""
-    payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
+    """Reject a pay-in report (Admin or Accounting)"""
+    payin = db.query(PayinReportModel).options(
+        joinedload(PayinReportModel.house)
+    ).filter(PayinReportModel.id == payin_id).first()
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    if payin.status == "ACCEPTED":
+    if payin.status != "PENDING":
         raise HTTPException(
             status_code=400,
-            detail="Cannot reject an accepted pay-in report"
+            detail=f"Can only reject PENDING pay-in reports (current status: {payin.status})"
         )
+    
+    if not request.reason or not request.reason.strip():
+        raise HTTPException(status_code=400, detail="Rejection reason is required")
     
     payin.status = "REJECTED"
     payin.rejection_reason = request.reason
     payin.updated_at = datetime.now()
     
     db.commit()
+    db.refresh(payin)
     
     return {
-        "message": "Pay-in report rejected",
-        "payin_id": payin_id,
-        "reason": request.reason
-    }
-
-
-@router.post("/{payin_id}/match")
-async def match_payin_report(
-    payin_id: int, 
-    statement_row_id: int, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_accounting)
-):
-    """Match a pay-in report with a bank statement row (Accounting)"""
-    payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
-    if not payin:
-        raise HTTPException(status_code=404, detail="Pay-in report not found")
-    
-    if payin.status not in ["SUBMITTED", "MATCHED"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Can only match SUBMITTED or MATCHED pay-in reports"
-        )
-    
-    payin.status = "MATCHED"
-    payin.updated_at = datetime.now()
-    
-    db.commit()
-    
-    return {
-        "message": "Pay-in report matched with statement row",
-        "payin_id": payin_id,
-        "statement_row_id": statement_row_id
+        "id": payin.id,
+        "house_id": payin.house_id,
+        "house_number": payin.house.house_code,
+        "amount": float(payin.amount),
+        "transfer_date": payin.transfer_date.isoformat() if payin.transfer_date else None,
+        "transfer_hour": payin.transfer_hour,
+        "transfer_minute": payin.transfer_minute,
+        "slip_image_url": payin.slip_url,
+        "status": payin.status.value if hasattr(payin.status, 'value') else payin.status,
+        "rejection_reason": payin.rejection_reason,
+        "created_at": payin.created_at.isoformat() if payin.created_at else None,
+        "updated_at": payin.updated_at.isoformat() if payin.updated_at else None
     }
 
 
@@ -298,33 +304,109 @@ async def match_payin_report(
 async def accept_payin_report(
     payin_id: int, 
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_admin_or_accounting)
 ):
-    """Accept a pay-in report (Super Admin only - final confirmation)"""
-    payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
+    """Accept a pay-in report and create immutable ledger entry (Admin or Accounting)"""
+    from app.db.models.payin_report import PayinStatus
+    
+    payin = db.query(PayinReportModel).options(
+        joinedload(PayinReportModel.house)
+    ).filter(PayinReportModel.id == payin_id).first()
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    if payin.status == "ACCEPTED":
+    # Compare using Enum objects
+    if payin.status == PayinStatus.ACCEPTED:
         raise HTTPException(
             status_code=400,
             detail="Pay-in report is already accepted"
         )
     
-    if payin.status != "MATCHED":
+    if payin.status != PayinStatus.PENDING:
         raise HTTPException(
             status_code=400,
-            detail="Can only accept MATCHED pay-in reports"
+            detail=f"Can only accept PENDING pay-in reports (current status: {payin.status.value})"
         )
     
-    payin.status = "ACCEPTED"
+    # Check if IncomeTransaction already exists (safety check)
+    existing_income = db.query(IncomeTransaction).filter(
+        IncomeTransaction.payin_id == payin_id
+    ).first()
+    if existing_income:
+        raise HTTPException(
+            status_code=400,
+            detail="Income transaction already exists for this payin"
+        )
+    
+    # Update payin status to ACCEPTED
+    payin.status = PayinStatus.ACCEPTED
+    payin.accepted_by = current_user.id
+    payin.accepted_at = datetime.now()
     payin.updated_at = datetime.now()
     
+    # Create immutable ledger entry (IncomeTransaction)
+    income_transaction = IncomeTransaction(
+        house_id=payin.house_id,
+        payin_id=payin.id,
+        amount=payin.amount,
+        received_at=payin.transfer_date
+    )
+    
+    db.add(income_transaction)
+    db.commit()
+    db.refresh(payin)
+    db.refresh(income_transaction)
+    
+    return {
+        "id": payin.id,
+        "house_id": payin.house_id,
+        "house_number": payin.house.house_code,
+        "amount": float(payin.amount),
+        "transfer_date": payin.transfer_date.isoformat() if payin.transfer_date else None,
+        "transfer_hour": payin.transfer_hour,
+        "transfer_minute": payin.transfer_minute,
+        "slip_image_url": payin.slip_url,
+        "status": payin.status.value if hasattr(payin.status, 'value') else payin.status,
+        "rejection_reason": payin.rejection_reason,
+        "accepted_by": payin.accepted_by,
+        "accepted_at": payin.accepted_at.isoformat() if payin.accepted_at else None,
+        "created_at": payin.created_at.isoformat() if payin.created_at else None,
+        "updated_at": payin.updated_at.isoformat() if payin.updated_at else None,
+        "income_transaction_id": income_transaction.id
+    }
+
+
+@router.post("/{payin_id}/cancel")
+async def cancel_payin_report(
+    payin_id: int,
+    request: RejectPayInRequest,  # Reuse same schema (has 'reason' field)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting)
+):
+    """Cancel a pay-in report for test cleanup (Admin or Accounting)"""
+    payin = db.query(PayinReportModel).options(
+        joinedload(PayinReportModel.house)
+    ).filter(PayinReportModel.id == payin_id).first()
+    if not payin:
+        raise HTTPException(status_code=404, detail="Pay-in report not found")
+    
+    if payin.status not in ["PENDING", "REJECTED"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only cancel PENDING or REJECTED pay-in reports (current status: {payin.status})"
+        )
+    
+    if not request.reason or not request.reason.strip():
+        raise HTTPException(status_code=400, detail="Cancellation reason is required")
+    
+    # Delete the payin report
+    db.delete(payin)
     db.commit()
     
     return {
-        "message": "Pay-in report accepted and locked",
-        "payin_id": payin_id
+        "message": "Pay-in report cancelled and deleted",
+        "payin_id": payin_id,
+        "reason": request.reason
     }
 
 

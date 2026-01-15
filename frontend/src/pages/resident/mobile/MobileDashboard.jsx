@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { invoicesAPI, payinsAPI } from '../../../api/client';
+import { invoicesAPI, payinsAPI, api } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 
@@ -8,6 +8,7 @@ export default function MobileDashboard() {
   const { currentHouseId } = useRole();
   const [invoices, setInvoices] = useState([]);
   const [payins, setPayins] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,12 +17,14 @@ export default function MobileDashboard() {
 
   const loadData = async () => {
     try {
-      const [invoicesRes, payinsRes] = await Promise.all([
+      const [invoicesRes, payinsRes, summaryRes] = await Promise.all([
         invoicesAPI.list({ house_id: currentHouseId }),
         payinsAPI.list({ house_id: currentHouseId }),
+        api.get('/api/dashboard/summary'),
       ]);
       setInvoices(invoicesRes.data);
       setPayins(payinsRes.data);
+      setSummary(summaryRes.data);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -29,9 +32,10 @@ export default function MobileDashboard() {
     }
   };
 
-  const outstandingBalance = invoices
-    .filter(inv => inv.status === 'pending' || inv.status === 'overdue')
-    .reduce((sum, inv) => sum + inv.total, 0);
+  // Get balance from summary API (negative = owe, positive = overpaid)
+  const currentBalance = summary?.current_balance || 0;
+  const isOverpaid = currentBalance > 0;
+  const displayAmount = Math.abs(currentBalance);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -76,17 +80,27 @@ export default function MobileDashboard() {
     <MobileLayout>
       {/* Sticky Balance Card */}
       <div className="sticky top-0 z-10 bg-gray-900 p-4">
-        <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-xl p-5 shadow-lg">
-          <p className="text-sm text-red-100 mb-1">ยอดค้างชำระ</p>
-          <p className="text-4xl font-bold text-white mb-4">
-            ฿{outstandingBalance.toLocaleString()}
+        <div className={`rounded-xl p-5 shadow-lg ${
+          isOverpaid 
+            ? 'bg-gradient-to-br from-green-600 to-green-700' 
+            : 'bg-gradient-to-br from-red-600 to-red-700'
+        }`}>
+          <p className={`text-sm mb-1 ${
+            isOverpaid ? 'text-green-100' : 'text-red-100'
+          }`}>
+            {isOverpaid ? 'ชำระเกิน' : 'ยอดค้างชำระ'}
           </p>
-          <Link 
-            to="/resident/submit" 
-            className="block w-full bg-white text-red-600 font-semibold py-3 rounded-lg text-center active:bg-red-50 transition-colors"
-          >
-            💳 ชำระเงินเลย
-          </Link>
+          <p className="text-4xl font-bold text-white mb-4">
+            ฿{displayAmount.toLocaleString()}
+          </p>
+          {!isOverpaid && (
+            <Link 
+              to="/resident/submit" 
+              className="block w-full bg-white text-red-600 font-semibold py-3 rounded-lg text-center active:bg-red-50 transition-colors"
+            >
+              💳 ชำระเงินเลย
+            </Link>
+          )}
         </div>
       </div>
 

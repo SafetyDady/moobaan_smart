@@ -87,7 +87,7 @@ export default function MobileSubmitPayment() {
 
       // Validate slip image for CREATE
       if (!editPayin && !formData.slip_image) {
-        setError('กรุณาถ่ายรูปสลิปก่อนส่ง');
+        setError('กรุณาแนบสลิปก่อนส่ง');
         setSubmitting(false);
         return;
       }
@@ -127,14 +127,39 @@ export default function MobileSubmitPayment() {
         }
 
         console.log('📤 Mobile - Sending FormData');
-        await payinsAPI.createFormData(submitFormData);
-        alert('✅ ส่งสลิปเรียบร้อยแล้ว');
+        const response = await payinsAPI.createFormData(submitFormData);
+        console.log('✅ Mobile - Success:', response.data);
+        
+        // Show success message
+        alert('✅ ส่งสลิปเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
+        
+        // Use window.location for full page reload to avoid auth state issues
+        setTimeout(() => {
+          window.location.href = '/resident/dashboard';
+        }, 300);
+        return; // Prevent double navigation
       }
       
-      navigate('/resident/dashboard');
+      // For edit flow - also use window.location
+      alert('✅ แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
+      setTimeout(() => {
+        window.location.href = '/resident/dashboard';
+      }, 300);
     } catch (error) {
       console.error('❌ Mobile submit failed:', error);
       console.error('❌ Error response:', error.response?.data);
+      
+      // Handle 409 duplicate submission gracefully
+      if (error.response?.status === 409) {
+        const errorData = error.response?.data;
+        if (errorData?.detail?.code === 'PAYIN_PENDING_EXISTS') {
+          const msg = errorData.detail.message || 'มีรายการรอตรวจสอบอยู่แล้ว กรุณารอสักครู่ก่อนส่งใหม่';
+          setError(msg);
+          alert('⚠️ ' + msg);
+          setSubmitting(false);
+          return;
+        }
+      }
       
       // Extract error message properly
       let errorMsg = 'ส่งสลิปไม่สำเร็จ กรุณาลองใหม่';
@@ -254,7 +279,7 @@ export default function MobileSubmitPayment() {
           {/* Camera Capture */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              ถ่ายรูปสลิป
+              แนบสลิป
             </label>
             <div className="relative">
               <input
@@ -279,7 +304,7 @@ export default function MobileSubmitPayment() {
                     className="absolute bottom-4 right-4 bg-primary-600 text-white px-4 py-2 rounded-lg shadow-lg cursor-pointer active:bg-primary-700 flex items-center gap-2"
                   >
                     <span>📸</span>
-                    <span className="font-medium">ถ่ายใหม่</span>
+                    <span className="font-medium">แนบใหม่</span>
                   </label>
                 </div>
               ) : (
@@ -289,8 +314,8 @@ export default function MobileSubmitPayment() {
                   className="block w-full bg-gray-800 border-2 border-dashed border-gray-600 rounded-lg p-12 text-center cursor-pointer active:bg-gray-750 transition-colors"
                 >
                   <div className="text-5xl mb-3">📸</div>
-                  <p className="text-white font-medium text-lg mb-1">ถ่ายรูปสลิป</p>
-                  <p className="text-sm text-gray-400">แตะเพื่อเปิดกล้อง</p>
+                  <p className="text-white font-medium text-lg mb-1">แนบสลิป</p>
+                  <p className="text-sm text-gray-400">แตะเพื่อเลือกหรือถ่ายรูป</p>
                 </label>
               )}
             </div>

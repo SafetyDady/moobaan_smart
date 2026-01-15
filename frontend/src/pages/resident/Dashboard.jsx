@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { invoicesAPI, payinsAPI } from '../../api/client';
+import { invoicesAPI, payinsAPI, api } from '../../api/client';
 import { useRole } from '../../contexts/RoleContext';
 
 export default function ResidentDashboard() {
-  const { currentHouseId } = useRole();
+  const { currentHouseId, currentHouseCode } = useRole();
   const [invoices, setInvoices] = useState([]);
   const [payins, setPayins] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloadingStatement, setDownloadingStatement] = useState(false);
 
@@ -16,12 +17,14 @@ export default function ResidentDashboard() {
 
   const loadData = async () => {
     try {
-      const [invoicesRes, payinsRes] = await Promise.all([
+      const [invoicesRes, payinsRes, summaryRes] = await Promise.all([
         invoicesAPI.list({ house_id: currentHouseId }),
         payinsAPI.list({ house_id: currentHouseId }),
+        api.get('/api/dashboard/summary'),
       ]);
       setInvoices(invoicesRes.data);
       setPayins(payinsRes.data);
+      setSummary(summaryRes.data);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -71,9 +74,14 @@ export default function ResidentDashboard() {
     }
   };
 
-  const outstandingBalance = invoices
-    .filter(inv => inv.status === 'pending' || inv.status === 'overdue')
-    .reduce((sum, inv) => sum + inv.total, 0);
+  // Get balance from summary API (negative = owe, positive = overpaid)
+  const currentBalance = summary?.current_balance || 0;
+  const totalOutstanding = summary?.total_outstanding || 0;
+  const totalIncome = summary?.total_income || 0;
+  
+  // Calculate display values
+  const isOverpaid = currentBalance > 0;
+  const displayAmount = Math.abs(currentBalance);
 
   const getStatusBadge = (status) => {
     const badges = {
@@ -95,22 +103,24 @@ export default function ResidentDashboard() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">My Dashboard</h1>
-        <p className="text-gray-400">House #{currentHouseId} - View your invoices and payment history</p>
+        <h1 className="text-3xl font-bold text-white mb-2">แดชบอร์ด</h1>
+        <p className="text-gray-400">บ้านเลขที่ {currentHouseCode || `#${currentHouseId}`} - ดูใบแจ้งหนี้และประวัติการชำระเงิน</p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="card p-6">
-          <p className="text-gray-400 text-sm mb-1">Outstanding Balance</p>
-          <p className="text-3xl font-bold text-red-400">฿{outstandingBalance.toLocaleString()}</p>
+        <div className={`border-2 rounded-lg p-6 ${isOverpaid ? 'bg-green-900 bg-opacity-50 border-green-600' : 'bg-red-900 bg-opacity-50 border-red-600'}`}>
+          <p className={`text-sm mb-1 font-medium ${isOverpaid ? 'text-green-300' : 'text-red-300'}`}>
+            {isOverpaid ? 'ชำระเกิน' : 'ยอดค้างชำระ'}
+          </p>
+          <p className="text-4xl font-bold text-white">฿{displayAmount.toLocaleString()}</p>
         </div>
         <div className="card p-6">
-          <p className="text-gray-400 text-sm mb-1">Total Invoices</p>
+          <p className="text-gray-400 text-sm mb-1">ใบแจ้งหนี้ทั้งหมด</p>
           <p className="text-3xl font-bold text-white">{invoices.length}</p>
         </div>
         <div className="card p-6">
-          <p className="text-gray-400 text-sm mb-1">Payment Submissions</p>
+          <p className="text-gray-400 text-sm mb-1">ยอดชำระ</p>
           <p className="text-3xl font-bold text-white">{payins.length}</p>
         </div>
       </div>
@@ -119,21 +129,21 @@ export default function ResidentDashboard() {
       <div className="mb-8">
         <div className="flex flex-wrap gap-4">
           <Link to="/resident/submit" className="btn-primary">
-            💳 Submit Payment Slip
+            💳 ชำระเงิน
           </Link>
           <button 
             onClick={() => downloadStatement('pdf')}
             disabled={downloadingStatement}
             className="btn-secondary"
           >
-            {downloadingStatement ? '📄 Generating...' : '📄 ดาวน์โหลดใบแจ้งยอด / Download Statement (PDF)'}
+            {downloadingStatement ? '📄 กำลังสร้าง...' : '📄 ดาวน์โหลดใบแจ้งยอด / Download Statement (PDF)'}
           </button>
           <button 
             onClick={() => downloadStatement('xlsx')}
             disabled={downloadingStatement}
             className="btn-outline"
           >
-            {downloadingStatement ? '📊 Generating...' : '📊 Download Excel'}
+            {downloadingStatement ? '📊 กำลังสร้าง...' : '📊 Download Excel'}
           </button>
         </div>
       </div>
@@ -141,7 +151,7 @@ export default function ResidentDashboard() {
       {/* Invoices */}
       <div className="card mb-6">
         <div className="p-4 border-b border-gray-700">
-          <h2 className="text-xl font-bold text-white">My Invoices</h2>
+          <h2 className="text-xl font-bold text-white">ใบแจ้งหนี้</h2>
         </div>
         <div className="table-container">
           <table className="table">
@@ -176,22 +186,22 @@ export default function ResidentDashboard() {
       {/* Payment History */}
       <div className="card">
         <div className="p-4 border-b border-gray-700">
-          <h2 className="text-xl font-bold text-white">Payment Submission History</h2>
+          <h2 className="text-xl font-bold text-white">ประวัติการชำระเงิน</h2>
         </div>
         <div className="table-container">
           <table className="table">
             <thead>
               <tr>
-                <th>Amount</th>
-                <th>Transfer Date/Time</th>
-                <th>Status</th>
-                <th>Submitted</th>
-                <th>Actions</th>
+                <th>จำนวนเงิน</th>
+                <th>วันที่/เวลาโอน</th>
+                <th>สถานะ</th>
+                <th>วันที่ส่ง</th>
+                <th>การดำเนินการ</th>
               </tr>
             </thead>
             <tbody>
               {payins.length === 0 ? (
-                <tr><td colSpan="5" className="text-center py-8 text-gray-400">No payment submissions</td></tr>
+                <tr><td colSpan="5" className="text-center py-8 text-gray-400">ยังไม่มีการชำระเงิน</td></tr>
               ) : (
                 payins.map((payin) => (
                   <tr key={payin.id}>
@@ -209,7 +219,7 @@ export default function ResidentDashboard() {
                     <td>
                       {payin.status === 'rejected' && (
                         <Link to="/resident/submit" state={{ editPayin: payin }} className="text-primary-400 hover:text-primary-300 text-sm">
-                          Edit & Resubmit
+                          แก้ไขและส่งใหม่
                         </Link>
                       )}
                     </td>

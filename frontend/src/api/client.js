@@ -107,10 +107,8 @@ export const payinsAPI = {
   update: (id, data) => apiClient.put(`/api/payin-reports/${id}`, data),
   delete: (id) => apiClient.delete(`/api/payin-reports/${id}`),
   reject: (id, reason) => apiClient.post(`/api/payin-reports/${id}/reject`, { reason }),
-  match: (id, statementRowId) => apiClient.post(`/api/payin-reports/${id}/match`, null, {
-    params: { statement_row_id: statementRowId }
-  }),
   accept: (id) => apiClient.post(`/api/payin-reports/${id}/accept`),
+  cancel: (id, reason) => apiClient.post(`/api/payin-reports/${id}/cancel`, { reason }),
 };
 
 // Expenses API

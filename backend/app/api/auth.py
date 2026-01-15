@@ -60,11 +60,16 @@ async def get_current_user_info(
     db: Session = Depends(get_db)
 ):
     """Get current user information"""
-    # Get house_id for resident users
+    # Get house_id and house_code for resident users
     house_id = None
+    house_code = None
     if current_user.role == "resident":
         house_member = db.query(HouseMember).filter(HouseMember.user_id == current_user.id).first()
-        house_id = house_member.house_id if house_member else None
+        if house_member:
+            house_id = house_member.house_id
+            from app.db.models.house import House
+            house = db.query(House).filter(House.id == house_id).first()
+            house_code = house.house_code if house else None
     
     return UserResponse(
         id=current_user.id,
@@ -72,7 +77,8 @@ async def get_current_user_info(
         full_name=current_user.full_name,
         role=current_user.role,
         is_active=current_user.is_active,
-        house_id=house_id
+        house_id=house_id,
+        house_code=house_code
     )
 
 

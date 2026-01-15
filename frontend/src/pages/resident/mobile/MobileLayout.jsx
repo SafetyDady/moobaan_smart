@@ -1,10 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useRole } from '../../../contexts/RoleContext';
 
 export default function MobileLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { currentHouseCode } = useRole();
 
   const handleLogout = async () => {
     if (confirm('ต้องการออกจากระบบหรือไม่?')) {
@@ -37,7 +39,7 @@ export default function MobileLayout({ children }) {
             🏘️ Moobaan Smart
           </h1>
           <p className="text-xs text-gray-400">
-            {user?.name || 'Resident'}
+            {currentHouseCode ? `บ้านเลขที่ ${currentHouseCode}` : (user?.name || 'Resident')}
           </p>
         </div>
         <button
