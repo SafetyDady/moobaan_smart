@@ -21,7 +21,9 @@ from app.api.members import router as members_router
 from app.api.invoices import router as invoices_router
 from app.api.payins import router as payins_router
 from app.api.expenses import router as expenses_router
+from app.api.bank_accounts import router as bank_accounts_router
 from app.api.bank_statements import router as bank_statements_router
+from app.api.bank_reconciliation import router as bank_reconciliation_router
 from app.api.auth import router as auth_router
 from app.api.accounting import router as accounting_router
 from app.api.users import router as users_router
@@ -70,7 +72,9 @@ app.include_router(members_router)
 app.include_router(invoices_router)
 app.include_router(payins_router)
 app.include_router(expenses_router)
+app.include_router(bank_accounts_router)
 app.include_router(bank_statements_router)
+app.include_router(bank_reconciliation_router)
 app.include_router(accounting_router)
 app.include_router(users_router)
 

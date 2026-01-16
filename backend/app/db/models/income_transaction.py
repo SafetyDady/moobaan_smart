@@ -16,7 +16,7 @@ class IncomeTransaction(Base):
 
     # Relationships
     house = relationship("House")
-    payin = relationship("PayinReport")
+    payin = relationship("PayinReport", back_populates="income_transaction")
     invoice_payments = relationship("InvoicePayment", back_populates="income_transaction")
 
     def to_dict(self):

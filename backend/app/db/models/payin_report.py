@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Text, Enum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.session import Base
@@ -26,6 +27,10 @@ class PayinReport(Base):
     rejection_reason = Column(Text, nullable=True)
     accepted_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # SUPER_ADMIN who accepted
     accepted_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Reconciliation: 1:1 match with bank_transaction
+    matched_statement_txn_id = Column(UUID(as_uuid=True), ForeignKey("bank_transactions.id", ondelete="SET NULL"), nullable=True, unique=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -33,7 +38,9 @@ class PayinReport(Base):
     house = relationship("House")
     submitted_by = relationship("User", foreign_keys=[submitted_by_user_id])
     accepted_by_user = relationship("User", foreign_keys=[accepted_by])
-    income_transaction = relationship("IncomeTransaction", uselist=False)
+    income_transaction = relationship("IncomeTransaction", uselist=False, back_populates="payin")
+    # 1:1 with BankTransaction - ONLY declare on PayinReport side (has the FK)
+    matched_statement_txn = relationship("BankTransaction", foreign_keys=[matched_statement_txn_id], uselist=False)
 
     def to_dict(self):
         """Convert model to dictionary matching frontend expectations"""
@@ -48,6 +55,8 @@ class PayinReport(Base):
             "transfer_hour": self.transfer_hour,
             "transfer_minute": self.transfer_minute,
             "slip_url": self.slip_url,
+            "matched_statement_txn_id": str(self.matched_statement_txn_id) if self.matched_statement_txn_id else None,
+            "is_matched": self.matched_statement_txn_id is not None,
             "status": self.status.value if self.status else None,
             "rejection_reason": self.rejection_reason,
             "accepted_by": self.accepted_by,
