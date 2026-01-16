@@ -32,6 +32,20 @@ export default function MobileDashboard() {
     }
   };
 
+  const handleDeletePayin = async (payinId) => {
+    if (!confirm('คุณต้องการลบรายการชำระเงินนี้ใช่หรือไม่?')) {
+      return;
+    }
+    try {
+      await payinsAPI.delete(payinId);
+      alert('ลบรายการสำเร็จ');
+      loadData();
+    } catch (error) {
+      console.error('Failed to delete payin:', error);
+      alert(error.response?.data?.detail || 'ลบรายการไม่สำเร็จ');
+    }
+  };
+
   // Get balance from summary API (negative = owe, positive = overpaid)
   const currentBalance = summary?.current_balance || 0;
   const isOverpaid = currentBalance > 0;
@@ -182,63 +196,97 @@ export default function MobileDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {payins.map(payin => (
-              <div 
-                key={payin.id} 
-                className="bg-gray-800 rounded-lg p-4 border border-gray-700"
-              >
-                {/* Header */}
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <span className="text-xs text-gray-400">จำนวนเงิน</span>
-                    <p className="text-xl font-bold text-white">
-                      ฿{payin.amount.toLocaleString()}
-                    </p>
+            {payins.map(payin => {
+              const submittedAt = new Date(payin.created_at);
+              const submittedDate = submittedAt.toLocaleDateString('th-TH', { 
+                day: 'numeric',
+                month: 'short',
+                year: '2-digit'
+              });
+              const submittedTime = submittedAt.toLocaleTimeString('th-TH', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+              });
+              
+              return (
+                <div 
+                  key={payin.id} 
+                  className="bg-gray-800 rounded-lg p-4 border border-gray-700"
+                >
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span className="text-xs text-gray-400">จำนวนเงิน</span>
+                      <p className="text-xl font-bold text-white">
+                        ฿{payin.amount.toLocaleString()}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(payin.status)}`}>
+                      {getStatusText(payin.status)}
+                    </span>
                   </div>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(payin.status)}`}>
-                    {getStatusText(payin.status)}
-                  </span>
-                </div>
-                
-                {/* Transfer Info */}
-                <div className="text-sm text-gray-400 mb-2">
-                  โอนเมื่อ: {new Date(payin.transfer_date).toLocaleDateString('th-TH', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: '2-digit'
-                  })} เวลา {payin.transfer_hour}:{String(payin.transfer_minute).padStart(2, '0')} น.
-                </div>
-
-                {/* Rejection Reason */}
-                {payin.reject_reason && (
-                  <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-2 mb-2">
-                    <p className="text-xs text-red-300">
-                      <strong>เหตุผล:</strong> {payin.reject_reason}
-                    </p>
+                  
+                  {/* Transfer Info */}
+                  <div className="text-sm text-gray-400 mb-2">
+                    โอนเมื่อ: {new Date(payin.transfer_date).toLocaleDateString('th-TH', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: '2-digit'
+                    })} เวลา {String(payin.transfer_hour).padStart(2, '0')}:{String(payin.transfer_minute).padStart(2, '0')} น.
                   </div>
-                )}
 
-                {/* Actions */}
-                {payin.status === 'rejected' && (
-                  <Link 
-                    to="/resident/submit" 
-                    state={{ editPayin: payin }}
-                    className="block w-full bg-primary-600 text-white text-center font-medium py-2 rounded mt-3 active:bg-primary-700"
-                  >
-                    แก้ไขและส่งใหม่
-                  </Link>
-                )}
+                  {/* Submitted Date/Time */}
+                  <div className="text-xs text-gray-500 mb-2">
+                    ส่งข้อมูลเมื่อ: {submittedDate} เวลา {submittedTime}
+                  </div>
 
-                {/* Submitted Date */}
-                <div className="text-xs text-gray-500 mt-2">
-                  ส่งเมื่อ: {new Date(payin.created_at).toLocaleDateString('th-TH', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
-                  })}
+                  {/* Rejection Reason */}
+                  {payin.reject_reason && (
+                    <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-2 mb-2">
+                      <p className="text-xs text-red-300">
+                        <strong>เหตุผล:</strong> {payin.reject_reason}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 mt-3">
+                    {payin.status === 'PENDING' && (
+                      <>
+                        <Link 
+                          to="/resident/submit" 
+                          state={{ editPayin: payin }}
+                          className="flex-1 bg-blue-600 text-white text-center font-medium py-2 rounded active:bg-blue-700"
+                        >
+                          ✏️ แก้ไข
+                        </Link>
+                        <button
+                          onClick={() => handleDeletePayin(payin.id)}
+                          className="flex-1 bg-red-600 text-white font-medium py-2 rounded active:bg-red-700"
+                        >
+                          🗑️ ลบ
+                        </button>
+                      </>
+                    )}
+                    {payin.status === 'REJECTED' && (
+                      <Link 
+                        to="/resident/submit" 
+                        state={{ editPayin: payin }}
+                        className="flex-1 bg-primary-600 text-white text-center font-medium py-2 rounded active:bg-primary-700"
+                      >
+                        แก้ไขและส่งใหม่
+                      </Link>
+                    )}
+                    {payin.status === 'ACCEPTED' && (
+                      <div className="flex-1 text-center text-green-400 py-2">
+                        ✓ รับแล้ว
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

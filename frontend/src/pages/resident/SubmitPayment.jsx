@@ -77,14 +77,20 @@ export default function SubmitPayment() {
       // Create FormData for multipart/form-data submission
       const submitFormData = new FormData();
       
-      // Create ISO datetime from date + time
+      // Create ISO datetime from date + time (local timezone)
       const paidAtDate = new Date(formData.transfer_date);
       paidAtDate.setHours(hour, minute, 0, 0);
-      const paidAtISO = paidAtDate.toISOString();
+      
+      // Format as ISO string but preserve local time (don't convert to UTC)
+      const year = paidAtDate.getFullYear();
+      const month = String(paidAtDate.getMonth() + 1).padStart(2, '0');
+      const day = String(paidAtDate.getDate()).padStart(2, '0');
+      const hourStr = String(paidAtDate.getHours()).padStart(2, '0');
+      const minuteStr = String(paidAtDate.getMinutes()).padStart(2, '0');
+      const paidAtISO = `${year}-${month}-${day}T${hourStr}:${minuteStr}:00`;
       
       submitFormData.append('amount', parseFloat(formData.amount));
       submitFormData.append('paid_at', paidAtISO);
-      submitFormData.append('note', `Transfer at ${hour}:${String(minute).padStart(2, '0')}`);
       
       if (slipFile) {
         submitFormData.append('slip', slipFile);
@@ -93,7 +99,8 @@ export default function SubmitPayment() {
       console.log('📤 Submitting FormData fields:', {
         amount: submitFormData.get('amount'),
         paid_at: submitFormData.get('paid_at'),
-        note: submitFormData.get('note'),
+        hour: hourStr,
+        minute: minuteStr,
         slip: slipFile ? slipFile.name : 'none'
       });
 
@@ -175,15 +182,22 @@ export default function SubmitPayment() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">
-          {editPayin ? 'Edit & Resubmit Payment' : 'Submit Payment Slip'}
+          {editPayin ? 'แก้ไขข้อมูลการชำระเงิน' : 'ส่งสลิปการชำระเงิน'}
         </h1>
         <p className="text-gray-400">
-          House #{currentHouseId} - Upload your payment slip details
+          บ้านเลขที่ #{currentHouseId} - อัพโหลดข้อมูลการชำระเงิน
         </p>
-        {editPayin && (
+        {editPayin && editPayin.status === 'REJECTED' && (
           <div className="mt-4 p-4 bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg">
             <p className="text-yellow-300 text-sm">
-              <strong>Rejection Reason:</strong> {editPayin.reject_reason}
+              <strong>เหตุผลที่ปฏิเสธ:</strong> {editPayin.reject_reason}
+            </p>
+          </div>
+        )}
+        {editPayin && editPayin.status === 'PENDING' && (
+          <div className="mt-4 p-4 bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg">
+            <p className="text-blue-300 text-sm">
+              📝 กำลังแก้ไขรายการที่รอตรวจสอบ - คุณสามารถปรับปรุงข้อมูลได้
             </p>
           </div>
         )}

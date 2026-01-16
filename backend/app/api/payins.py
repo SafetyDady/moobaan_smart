@@ -101,7 +101,6 @@ async def get_payin_report(
 async def create_payin_report(
     amount: float = Form(...),
     paid_at: str = Form(...),
-    note: Optional[str] = Form(None),
     slip: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
@@ -149,6 +148,13 @@ async def create_payin_report(
         from dateutil import parser as date_parser
         try:
             paid_at_datetime = date_parser.isoparse(paid_at)
+            
+            # Debug logging
+            print(f"🔍 DEBUG - Received paid_at: {paid_at}")
+            print(f"🔍 DEBUG - Parsed datetime: {paid_at_datetime}")
+            print(f"🔍 DEBUG - Hour: {paid_at_datetime.hour}, Minute: {paid_at_datetime.minute}")
+            print(f"🔍 DEBUG - Timezone info: {paid_at_datetime.tzinfo}")
+            
         except (ValueError, TypeError) as e:
             raise HTTPException(status_code=400, detail=f"Invalid paid_at format: {str(e)}")
         
@@ -168,7 +174,7 @@ async def create_payin_report(
             transfer_minute=paid_at_datetime.minute,
             slip_url=slip_url,
             status="PENDING",
-            rejection_reason=note,  # Store note as rejection_reason field
+            rejection_reason=None,
             accepted_by=None,
             accepted_at=None
         )
@@ -411,17 +417,36 @@ async def cancel_payin_report(
 
 
 @router.delete("/{payin_id}")
-async def delete_payin_report(payin_id: int, db: Session = Depends(get_db)):
-    """Delete a pay-in report"""
+async def delete_payin_report(
+    payin_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_user),
+    user_house_id: Optional[int] = Depends(get_user_house_id)
+):
+    """Delete a pay-in report (residents can only delete their own PENDING/REJECTED pay-ins)"""
     payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    if payin.status == "ACCEPTED":
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot delete an accepted pay-in report"
-        )
+    # Role-based access control
+    if current_user.role == "resident":
+        if user_house_id != payin.house_id:
+            raise HTTPException(status_code=403, detail="Access denied to this house's data")
+        # Residents can only delete PENDING or REJECTED pay-ins
+        if payin.status not in ["PENDING", "REJECTED"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete accepted pay-in reports"
+            )
+    elif current_user.role in ["accounting", "super_admin"]:
+        # Admins can delete any non-accepted pay-in
+        if payin.status == "ACCEPTED":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete an accepted pay-in report"
+            )
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     db.delete(payin)
     db.commit()

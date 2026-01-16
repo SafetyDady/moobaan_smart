@@ -92,15 +92,24 @@ export default function MobileSubmitPayment() {
         return;
       }
 
-      // Parse time and build ISO datetime
+      // Parse time and build ISO datetime (local timezone)
       const [hour, minute] = formData.transfer_time.split(':');
       const paidAtDate = new Date(formData.transfer_date);
       paidAtDate.setHours(parseInt(hour), parseInt(minute), 0, 0);
-      const paidAtISO = paidAtDate.toISOString();
+      
+      // Format as ISO string but remove 'Z' to preserve local time
+      const year = paidAtDate.getFullYear();
+      const month = String(paidAtDate.getMonth() + 1).padStart(2, '0');
+      const day = String(paidAtDate.getDate()).padStart(2, '0');
+      const hourStr = String(paidAtDate.getHours()).padStart(2, '0');
+      const minuteStr = String(paidAtDate.getMinutes()).padStart(2, '0');
+      const paidAtISO = `${year}-${month}-${day}T${hourStr}:${minuteStr}:00`;
 
       console.log('📱 Mobile - Building FormData:', {
         amount: formData.amount,
         paid_at: paidAtISO,
+        hour: hourStr,
+        minute: minuteStr,
         slip: formData.slip_image?.name || 'none'
       });
 
@@ -120,7 +129,6 @@ export default function MobileSubmitPayment() {
         const submitFormData = new FormData();
         submitFormData.append('amount', parseFloat(formData.amount));
         submitFormData.append('paid_at', paidAtISO);
-        submitFormData.append('note', `Mobile submit at ${hour}:${minute}`);
         
         if (formData.slip_image) {
           submitFormData.append('slip', formData.slip_image);
@@ -219,12 +227,21 @@ export default function MobileSubmitPayment() {
         )}
 
         {/* Rejection Notice */}
-        {editPayin && editPayin.reject_reason && (
+        {editPayin && editPayin.status === 'REJECTED' && editPayin.reject_reason && (
           <div className="mb-6 bg-red-900 bg-opacity-30 border border-red-600 rounded-lg p-4">
             <p className="text-sm text-red-300 mb-1">
               <strong>⚠️ เหตุผลที่ถูกปฏิเสธ:</strong>
             </p>
             <p className="text-red-200">{editPayin.reject_reason}</p>
+          </div>
+        )}
+
+        {/* PENDING Edit Notice */}
+        {editPayin && editPayin.status === 'PENDING' && (
+          <div className="mb-6 bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4">
+            <p className="text-sm text-blue-300">
+              📝 กำลังแก้ไขรายการที่รอตรวจสอบ - คุณสามารถปรับปรุงข้อมูลได้
+            </p>
           </div>
         )}
 
