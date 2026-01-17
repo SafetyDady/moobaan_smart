@@ -186,6 +186,20 @@ export const bankAccountsAPI = {
   delete: (id) => apiClient.delete(`/api/bank-accounts/${id}`),
 };
 
+// Bank Reconciliation API
+export const bankReconciliationAPI = {
+  listUnmatchedTransactions: (batchId) => 
+    apiClient.get('/api/bank-statements/transactions/unmatched', { 
+      params: batchId ? { batch_id: batchId } : {} 
+    }),
+  getCandidatesForPayin: (payinId) =>
+    apiClient.get(`/api/bank-statements/candidates/payin/${payinId}`),
+  matchTransaction: (txnId, payinId) => 
+    apiClient.post(`/api/bank-statements/transactions/${txnId}/match`, { payin_id: payinId }),
+  unmatchTransaction: (txnId) => 
+    apiClient.post(`/api/bank-statements/transactions/${txnId}/unmatch`),
+};
+
 // Users API
 export const usersAPI = {
   createResident: (data) => apiClient.post('/api/users/residents', data),

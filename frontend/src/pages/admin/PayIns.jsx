@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { payinsAPI } from '../../api/client';
+import { payinsAPI, bankReconciliationAPI } from '../../api/client';
 import { useRole } from '../../contexts/RoleContext';
 
 export default function PayIns() {
@@ -19,8 +19,11 @@ export default function PayIns() {
   const [selectedPayin, setSelectedPayin] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showMatchModal, setShowMatchModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [cancelReason, setCancelReason] = useState('');
+  const [bankTransactions, setBankTransactions] = useState([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
 
   useEffect(() => {
     if (!roleLoading) {
@@ -38,6 +41,58 @@ export default function PayIns() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadBankTransactions = async (payin) => {
+    setLoadingTransactions(true);
+    try {
+      // Use the new Pay-in Centric endpoint that returns pre-filtered candidates
+      const response = await bankReconciliationAPI.getCandidatesForPayin(payin.id);
+      const candidates = response.data.candidates || [];
+      
+      console.log(`Found ${candidates.length} candidate transactions for pay-in ${payin.id}`);
+      console.log('Matching criteria:', response.data.criteria);
+      
+      setBankTransactions(candidates);
+    } catch (error) {
+      console.error('Failed to load candidate bank transactions:', error);
+      alert(error.response?.data?.detail || 'Failed to load candidate bank transactions');
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
+  const handleMatch = async (txnId) => {
+    try {
+      await bankReconciliationAPI.matchTransaction(txnId, selectedPayin.id);
+      alert('Successfully matched with bank transaction');
+      setShowMatchModal(false);
+      setSelectedPayin(null);
+      loadPayins();
+    } catch (error) {
+      console.error('Failed to match:', error);
+      alert(error.response?.data?.detail || 'Failed to match transaction');
+    }
+  };
+
+  const handleUnmatch = async (payin) => {
+    if (!confirm(`Unmatch pay-in from bank transaction?\n\nThis will remove the reconciliation link.`)) {
+      return;
+    }
+    try {
+      await bankReconciliationAPI.unmatchTransaction(payin.matched_statement_txn_id);
+      alert('Successfully unmatched');
+      loadPayins();
+    } catch (error) {
+      console.error('Failed to unmatch:', error);
+      alert(error.response?.data?.detail || 'Failed to unmatch');
+    }
+  };
+
+  const openMatchModal = async (payin) => {
+    setSelectedPayin(payin);
+    setShowMatchModal(true);
+    await loadBankTransactions(payin);
   };
 
   const handleReject = async () => {
@@ -135,6 +190,7 @@ export default function PayIns() {
                 <th>Amount</th>
                 <th>Transfer Date/Time</th>
                 <th>Slip</th>
+                <th>Match Status</th>
                 <th>Status</th>
                 <th>Submitted</th>
                 <th>Actions</th>
@@ -142,9 +198,9 @@ export default function PayIns() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="7" className="text-center py-8">Loading...</td></tr>
+                <tr><td colSpan="8" className="text-center py-8">Loading...</td></tr>
               ) : payins.length === 0 ? (
-                <tr><td colSpan="7" className="text-center py-8 text-gray-400">
+                <tr><td colSpan="8" className="text-center py-8 text-gray-400">
                   {statusFilter === 'PENDING' ? 'No pending pay-ins to review' : 'No pay-ins found'}
                 </td></tr>
               ) : (
@@ -169,6 +225,13 @@ export default function PayIns() {
                         </button>
                       ) : (
                         <span className="text-gray-500 text-sm">No slip</span>
+                      )}
+                    </td>
+                    <td>
+                      {payin.is_matched ? (
+                        <span className="badge badge-success text-xs">✓ Matched</span>
+                      ) : (
+                        <span className="badge badge-warning text-xs">○ Unmatched</span>
                       )}
                     </td>
                     <td>
@@ -199,9 +262,33 @@ export default function PayIns() {
                         {/* Actions for PENDING status */}
                         {payin.status === 'PENDING' && canManagePayins && (
                           <>
+                            {/* Match/Unmatch button */}
+                            {!payin.is_matched ? (
+                              <button
+                                onClick={() => openMatchModal(payin)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded"
+                              >
+                                🔗 Match
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleUnmatch(payin)}
+                                className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-3 py-1 rounded"
+                              >
+                                🔓 Unmatch
+                              </button>
+                            )}
+                            
+                            {/* Accept button - disabled if not matched */}
                             <button
                               onClick={() => handleAccept(payin)}
-                              className="btn-primary text-sm px-3 py-1"
+                              disabled={!payin.is_matched}
+                              className={`text-sm px-3 py-1 rounded ${
+                                payin.is_matched 
+                                  ? 'btn-primary' 
+                                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                              }`}
+                              title={!payin.is_matched ? 'Must match with bank statement first' : 'Accept and create ledger entry'}
                             >
                               ✓ Accept
                             </button>
@@ -337,6 +424,125 @@ export default function PayIns() {
                 className="btn-secondary flex-1"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match Modal */}
+      {showMatchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="card p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-white mb-4">Match Pay-in with Bank Transaction</h2>
+            
+            {/* Pay-in Details */}
+            <div className="bg-blue-900 bg-opacity-20 border border-blue-600 rounded p-4 mb-4">
+              <h3 className="text-lg font-semibold text-blue-400 mb-2">Pay-in Details</h3>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="text-gray-400">House:</div>
+                <div className="text-white font-medium">{selectedPayin?.house_number}</div>
+                <div className="text-gray-400">Amount:</div>
+                <div className="text-primary-400 font-semibold">฿{selectedPayin?.amount?.toLocaleString()}</div>
+                <div className="text-gray-400">Transfer Time:</div>
+                <div className="text-white">
+                  {selectedPayin && new Date(selectedPayin.transfer_date).toLocaleDateString('th-TH')} {' '}
+                  {selectedPayin && String(selectedPayin.transfer_hour).padStart(2, '0')}:{String(selectedPayin.transfer_minute).padStart(2, '0')}
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Transactions List */}
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-white mb-3">
+                Select Matching Bank Transaction
+                {bankTransactions.length > 0 && (
+                  <span className="text-sm text-gray-400 ml-2">
+                    ({bankTransactions.length} candidates - Amount exact, Time ±1 min)
+                  </span>
+                )}
+              </h3>
+              
+              {loadingTransactions ? (
+                <div className="text-center py-8 text-gray-400">Loading candidate transactions...</div>
+              ) : bankTransactions.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-yellow-400 mb-2">⚠️ No matching bank transactions found</p>
+                  <p className="text-sm text-gray-400 mb-2">
+                    Matching criteria: Amount exactly ฿{selectedPayin?.amount?.toLocaleString()}, Time within ±1 minute
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Check if: (1) Bank statement imported, (2) Amount matches exactly, (3) Time within ±1 minute of transfer_datetime
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {bankTransactions.map((txn) => {
+                    // Use time_diff_seconds from backend response (already calculated)
+                    const timeDiffSeconds = txn.time_diff_seconds || 0;
+                    const amountDiff = txn.amount_diff || 0;
+                    const isPerfectMatch = txn.is_perfect_match || false;
+                    
+                    const txnDate = new Date(txn.effective_at);
+                    
+                    return (
+                      <div 
+                        key={txn.id} 
+                        className={`border rounded p-3 hover:bg-gray-800 transition ${
+                          isPerfectMatch ? 'border-green-500 bg-green-900 bg-opacity-10' : 'border-gray-600'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <div className="text-white font-medium mb-1">
+                              ฿{parseFloat(txn.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                              {isPerfectMatch && <span className="ml-2 text-green-400 text-xs font-semibold">✓ Perfect Match</span>}
+                              {amountDiff > 0 && <span className="ml-2 text-yellow-400 text-xs">Amount diff: ฿{amountDiff.toFixed(2)}</span>}
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              {txnDate.toLocaleDateString('th-TH')} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              <span className="ml-2 text-green-300">
+                                ({timeDiffSeconds < 60 ? `${Math.floor(timeDiffSeconds)}s` : `${Math.floor(timeDiffSeconds / 60)}m ${Math.floor(timeDiffSeconds % 60)}s`} diff)
+                              </span>
+                            </div>
+                            {txn.description && (
+                              <div className="text-xs text-gray-500 mt-1">{txn.description}</div>
+                            )}
+                            {txn.channel && (
+                              <div className="text-xs text-gray-600 mt-1">Channel: {txn.channel}</div>
+                            )}
+                            <div className="text-xs text-gray-600 mt-1">Txn ID: {txn.id.substring(0, 8)}...</div>
+                          </div>
+                          <button
+                            onClick={() => handleMatch(txn.id)}
+                            className={`px-4 py-2 rounded text-sm font-medium whitespace-nowrap ${
+                              isPerfectMatch 
+                                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                            }`}
+                            title={`Match with bank transaction (${Math.floor(timeDiffSeconds)}s time difference)`}
+                          >
+                            {isPerfectMatch ? '✓ Match (Perfect)' : '🔗 Match'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Close Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setShowMatchModal(false);
+                  setSelectedPayin(null);
+                  setBankTransactions([]);
+                }}
+                className="btn-secondary px-6"
+              >
+                Close
               </button>
             </div>
           </div>

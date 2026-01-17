@@ -2,8 +2,10 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, T
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.ext.hybrid import hybrid_property
 from app.db.session import Base
 import enum
+from datetime import datetime, timedelta
 
 
 class PayinStatus(enum.Enum):
@@ -65,6 +67,14 @@ class PayinReport(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+    @hybrid_property
+    def transfer_datetime(self):
+        """Compute complete transfer datetime from date + hour + minute (business truth)"""
+        if self.transfer_date and self.transfer_hour is not None and self.transfer_minute is not None:
+            # transfer_date is already datetime with timezone, just need to set hour/minute
+            return self.transfer_date.replace(hour=self.transfer_hour, minute=self.transfer_minute, second=0, microsecond=0)
+        return None
 
     def is_locked(self):
         """Check if payin is locked (accepted or rejected)"""

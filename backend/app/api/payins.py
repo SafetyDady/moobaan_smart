@@ -54,7 +54,8 @@ async def list_payin_reports(
         "slip_image_url": payin.slip_url,  # Map database field to frontend expectation
         "status": payin.status,
         "reject_reason": payin.rejection_reason,
-
+        "matched_statement_txn_id": str(payin.matched_statement_txn_id) if payin.matched_statement_txn_id else None,
+        "is_matched": payin.matched_statement_txn_id is not None,
         "created_at": payin.created_at,
         "updated_at": payin.updated_at
     } for payin in payins]
@@ -312,56 +313,87 @@ async def accept_payin_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_accounting)
 ):
-    """Accept a pay-in report and create immutable ledger entry (Admin or Accounting)"""
+    """
+    Accept a pay-in report and create immutable ledger entry (Admin or Accounting)
+    
+    STRICT REQUIREMENTS:
+    1. Pay-in must be PENDING status
+    2. Pay-in MUST be matched with bank statement first
+    3. Creates EXACTLY ONE immutable IncomeTransaction (ledger entry)
+    4. Locks pay-in to ACCEPTED status (irreversible)
+    5. All operations are ATOMIC (both succeed or both fail)
+    """
     from app.db.models.payin_report import PayinStatus
     
+    # Fetch payin with relationships
     payin = db.query(PayinReportModel).options(
-        joinedload(PayinReportModel.house)
+        joinedload(PayinReportModel.house),
+        joinedload(PayinReportModel.matched_statement_txn)
     ).filter(PayinReportModel.id == payin_id).first()
+    
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    # Compare using Enum objects
+    # PRECONDITION 1: Already accepted?
     if payin.status == PayinStatus.ACCEPTED:
         raise HTTPException(
             status_code=400,
             detail="Pay-in report is already accepted"
         )
     
+    # PRECONDITION 2: Must be PENDING
     if payin.status != PayinStatus.PENDING:
         raise HTTPException(
             status_code=400,
             detail=f"Can only accept PENDING pay-in reports (current status: {payin.status.value})"
         )
     
-    # Check if IncomeTransaction already exists (safety check)
+    # PRECONDITION 3: CRITICAL - Must be matched with bank statement
+    if payin.matched_statement_txn_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot accept pay-in: Must be matched with bank statement first. Please use Match function before accepting."
+        )
+    
+    # PRECONDITION 4: Check if IncomeTransaction already exists (safety check for idempotency)
     existing_income = db.query(IncomeTransaction).filter(
         IncomeTransaction.payin_id == payin_id
     ).first()
     if existing_income:
         raise HTTPException(
             status_code=400,
-            detail="Income transaction already exists for this payin"
+            detail=f"Income transaction already exists for this payin (ledger_id: {existing_income.id})"
         )
     
-    # Update payin status to ACCEPTED
-    payin.status = PayinStatus.ACCEPTED
-    payin.accepted_by = current_user.id
-    payin.accepted_at = datetime.now()
-    payin.updated_at = datetime.now()
-    
-    # Create immutable ledger entry (IncomeTransaction)
-    income_transaction = IncomeTransaction(
-        house_id=payin.house_id,
-        payin_id=payin.id,
-        amount=payin.amount,
-        received_at=payin.transfer_date
-    )
-    
-    db.add(income_transaction)
-    db.commit()
-    db.refresh(payin)
-    db.refresh(income_transaction)
+    # ATOMIC TRANSACTION: Update payin + Create ledger entry
+    try:
+        # 1. Update payin status to ACCEPTED (locks the pay-in)
+        payin.status = PayinStatus.ACCEPTED
+        payin.accepted_by = current_user.id
+        payin.accepted_at = datetime.now()
+        payin.updated_at = datetime.now()
+        
+        # 2. Create IMMUTABLE ledger entry (IncomeTransaction)
+        #    Uses bank transaction's effective_at as ledger_date (business truth)
+        income_transaction = IncomeTransaction(
+            house_id=payin.house_id,
+            payin_id=payin.id,
+            reference_bank_transaction_id=payin.matched_statement_txn_id,
+            amount=payin.amount,
+            received_at=payin.matched_statement_txn.effective_at if payin.matched_statement_txn else payin.transfer_date
+        )
+        
+        db.add(income_transaction)
+        db.commit()  # Atomic commit: both succeed or both fail
+        db.refresh(payin)
+        db.refresh(income_transaction)
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to accept payin and create ledger entry: {str(e)}"
+        )
     
     return {
         "id": payin.id,
@@ -376,9 +408,17 @@ async def accept_payin_report(
         "rejection_reason": payin.rejection_reason,
         "accepted_by": payin.accepted_by,
         "accepted_at": payin.accepted_at.isoformat() if payin.accepted_at else None,
+        "matched_statement_txn_id": str(payin.matched_statement_txn_id) if payin.matched_statement_txn_id else None,
         "created_at": payin.created_at.isoformat() if payin.created_at else None,
         "updated_at": payin.updated_at.isoformat() if payin.updated_at else None,
-        "income_transaction_id": income_transaction.id
+        "income_transaction_id": income_transaction.id,
+        "ledger": {
+            "id": income_transaction.id,
+            "reference_bank_transaction_id": str(income_transaction.reference_bank_transaction_id),
+            "amount": float(income_transaction.amount),
+            "received_at": income_transaction.received_at.isoformat(),
+            "created_at": income_transaction.created_at.isoformat()
+        }
     }
 
 
