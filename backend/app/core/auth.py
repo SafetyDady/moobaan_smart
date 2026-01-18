@@ -20,10 +20,20 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         # Truncate password to 72 bytes for bcrypt compatibility
         if len(plain_password.encode('utf-8')) > 72:
             plain_password = plain_password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
-        return pwd_context.verify(plain_password, hashed_password)
+        
+        # DEBUG: Log password verification attempt
+        print(f"[DEBUG] Verifying password...")
+        print(f"[DEBUG] Plain password length: {len(plain_password)}")
+        print(f"[DEBUG] Hash starts with: {hashed_password[:30]}...")
+        
+        result = pwd_context.verify(plain_password, hashed_password)
+        print(f"[DEBUG] Verification result: {result}")
+        return result
     except Exception as e:
         # Fallback: simple password comparison for development
-        print(f"Password verification error: {e}")
+        print(f"[ERROR] Password verification error: {e}")
+        import traceback
+        traceback.print_exc()
         # For testing purposes, check if it's a simple password
         if hashed_password.startswith('$'):  # It's actually hashed
             return False

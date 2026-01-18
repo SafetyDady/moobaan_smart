@@ -44,17 +44,18 @@ export function AuthProvider({ children }) {
       const response = await api.post('/api/auth/login', formData);
       const { access_token } = response.data;
 
-      setToken(access_token);
+      // Store token in localStorage FIRST before setting state
+      localStorage.setItem('auth_token', access_token);
       
       // Set Authorization header for future requests
       api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
       
       // Get user info
       const userResponse = await api.get('/api/auth/me');
+      
+      // Set both token and user in state together
+      setToken(access_token);
       setUser(userResponse.data);
-
-      // Store token in localStorage
-      localStorage.setItem('auth_token', access_token);
 
       return true;
     } catch (error) {
@@ -87,7 +88,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
-    isAuthenticated: !!token || !!localStorage.getItem('auth_token'),
+    isAuthenticated: !!user && (!!token || !!localStorage.getItem('auth_token')),
     isAdmin: user?.role === 'super_admin',
     isAccounting: user?.role === 'accounting',
     isResident: user?.role === 'resident',

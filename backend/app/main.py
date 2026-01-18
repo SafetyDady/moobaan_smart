@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import json
 
 # Configure logging EARLY
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +63,21 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=86400,
 )
+
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    # Log request details
+    logger.info(f"🔵 {request.method} {request.url.path}")
+    
+    # For POST requests to /login, log details
+    if request.method == "POST" and "/login" in str(request.url.path):
+        logger.info(f"   Content-Type: {request.headers.get('content-type')}")
+        logger.info(f"   Headers: {dict(request.headers)}")
+    
+    response = await call_next(request)
+    logger.info(f"   Response: {response.status_code}")
+    return response
 
 # Include routers
 app.include_router(auth_router)

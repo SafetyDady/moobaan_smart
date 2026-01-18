@@ -20,9 +20,16 @@ class ChangePasswordRequest(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate user and return access token"""
+    print(f"[LOGIN] Received login request")
+    print(f"[LOGIN] Email: {login_data.email}")
+    print(f"[LOGIN] Password length: {len(login_data.password)}")
+    print(f"[LOGIN] Password type: {type(login_data.password)}")
+    
     user = authenticate_user(login_data.email, login_data.password, db)
+    print(f"[LOGIN] authenticate_user result: {user}")
     
     if not user:
+        print(f"[LOGIN] Authentication FAILED - user is False/None")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",

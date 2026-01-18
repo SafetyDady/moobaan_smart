@@ -1,11 +1,19 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List
+from typing import List, Optional
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
 from app.models import Invoice as InvoiceSchema, InvoiceCreate, InvoiceType, InvoiceStatus, InvoiceItem
-from app.db.models import Invoice as InvoiceDB, House as HouseDB
-from app.core.deps import get_db
+from app.db.models import (
+    Invoice as InvoiceDB, 
+    House as HouseDB,
+    IncomeTransaction,
+    InvoicePayment,
+    PayinReport
+)
+from app.core.deps import get_db, require_admin_or_accounting
+from app.db.models.user import User
 from decimal import Decimal
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
@@ -229,6 +237,293 @@ async def generate_monthly_invoices(db: Session = Depends(get_db)):
             }
             for inv in generated
         ]
+    }
+
+
+# ==================== LEDGER → INVOICE APPLICATION ====================
+
+class ApplyPaymentRequest(BaseModel):
+    """Request to apply ledger (IncomeTransaction) to invoice"""
+    income_transaction_id: int = Field(..., description="ID of the ledger entry (IncomeTransaction)")
+    amount: Decimal = Field(..., gt=0, description="Amount to apply (must be > 0)")
+    note: Optional[str] = Field(None, description="Optional note for this application")
+
+
+@router.get("/{invoice_id}/detail")
+async def get_invoice_detail(
+    invoice_id: int, 
+    db: Session = Depends(get_db)
+):
+    """
+    Get invoice with full payment details including:
+    - Total amount
+    - Paid amount (sum of allocations)
+    - Outstanding amount
+    - Payment status
+    - Payment history
+    """
+    inv = db.query(InvoiceDB).filter(InvoiceDB.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    house = db.query(HouseDB).filter(HouseDB.id == inv.house_id).first()
+    
+    # Calculate payment totals
+    total_paid = inv.get_total_paid()
+    outstanding = inv.get_outstanding_amount()
+    
+    # Get payment history
+    payments = db.query(InvoicePayment).filter(
+        InvoicePayment.invoice_id == invoice_id
+    ).all()
+    
+    payment_history = []
+    for payment in payments:
+        income_txn = db.query(IncomeTransaction).filter(
+            IncomeTransaction.id == payment.income_transaction_id
+        ).first()
+        payin = db.query(PayinReport).filter(
+            PayinReport.id == income_txn.payin_id
+        ).first() if income_txn else None
+        
+        payment_history.append({
+            "id": payment.id,
+            "amount": float(payment.amount),
+            "applied_at": payment.applied_at.isoformat() if payment.applied_at else None,
+            "income_transaction_id": payment.income_transaction_id,
+            "ledger_date": income_txn.received_at.isoformat() if income_txn else None,
+            "payin_id": payin.id if payin else None
+        })
+    
+    return {
+        "id": inv.id,
+        "house_id": inv.house_id,
+        "house_code": house.house_code if house else None,
+        "owner_name": house.owner_name if house else None,
+        "cycle_year": inv.cycle_year,
+        "cycle_month": inv.cycle_month,
+        "issue_date": inv.issue_date.isoformat() if inv.issue_date else None,
+        "due_date": inv.due_date.isoformat() if inv.due_date else None,
+        "total_amount": float(inv.total_amount),
+        "paid_amount": total_paid,
+        "outstanding_amount": outstanding,
+        "status": inv.status.value if inv.status else None,
+        "notes": inv.notes,
+        "created_at": inv.created_at.isoformat() if inv.created_at else None,
+        "payments": payment_history
+    }
+
+
+@router.get("/allocatable-ledgers")
+async def get_allocatable_ledgers(
+    house_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of ledger entries (IncomeTransactions) that can be allocated to invoices.
+    
+    Criteria:
+    - Created from ACCEPTED pay-ins (recognized income)
+    - Has remaining amount > 0 (not fully allocated)
+    - Optionally filtered by house_id
+    """
+    query = db.query(IncomeTransaction).join(
+        PayinReport, IncomeTransaction.payin_id == PayinReport.id
+    ).filter(
+        PayinReport.status == "ACCEPTED"  # Only from accepted pay-ins
+    )
+    
+    if house_id:
+        query = query.filter(IncomeTransaction.house_id == house_id)
+    
+    ledgers = query.all()
+    
+    # Filter to only those with remaining amount
+    allocatable = []
+    for ledger in ledgers:
+        remaining = ledger.get_unallocated_amount()
+        if remaining > 0:
+            house = db.query(HouseDB).filter(HouseDB.id == ledger.house_id).first()
+            allocatable.append({
+                "id": ledger.id,
+                "house_id": ledger.house_id,
+                "house_code": house.house_code if house else None,
+                "payin_id": ledger.payin_id,
+                "amount": float(ledger.amount),
+                "allocated": ledger.get_total_applied(),
+                "remaining": remaining,
+                "received_at": ledger.received_at.isoformat() if ledger.received_at else None,
+                "created_at": ledger.created_at.isoformat() if ledger.created_at else None
+            })
+    
+    return {
+        "ledgers": allocatable,
+        "count": len(allocatable)
+    }
+
+
+@router.post("/{invoice_id}/apply-payment")
+async def apply_payment_to_invoice(
+    invoice_id: int,
+    request: ApplyPaymentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting)
+):
+    """
+    Apply ledger (IncomeTransaction) to invoice with strict validation.
+    
+    Preconditions:
+    1. Invoice must exist and not be fully paid
+    2. Ledger (IncomeTransaction) must exist and be from ACCEPTED pay-in
+    3. Ledger must have sufficient remaining amount
+    4. Amount to apply must not exceed invoice outstanding
+    
+    Creates immutable InvoicePayment record and updates invoice status atomically.
+    """
+    # 1. Validate invoice
+    invoice = db.query(InvoiceDB).filter(InvoiceDB.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    outstanding = invoice.get_outstanding_amount()
+    if outstanding <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot apply payment: Invoice is already fully paid"
+        )
+    
+    # 2. Validate ledger (IncomeTransaction)
+    ledger = db.query(IncomeTransaction).filter(
+        IncomeTransaction.id == request.income_transaction_id
+    ).first()
+    if not ledger:
+        raise HTTPException(status_code=404, detail="Ledger entry (IncomeTransaction) not found")
+    
+    # 3. Verify ledger is from ACCEPTED pay-in
+    payin = db.query(PayinReport).filter(PayinReport.id == ledger.payin_id).first()
+    if not payin or payin.status != "ACCEPTED":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot apply: Ledger entry must be from an ACCEPTED pay-in"
+        )
+    
+    # 4. Check ledger remaining amount
+    ledger_remaining = ledger.get_unallocated_amount()
+    if ledger_remaining <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot apply: Ledger entry is fully allocated"
+        )
+    
+    # 5. Validate amount to apply
+    amount_to_apply = float(request.amount)
+    
+    if amount_to_apply > outstanding:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot apply ฿{amount_to_apply:.2f}: Exceeds invoice outstanding ฿{outstanding:.2f}"
+        )
+    
+    if amount_to_apply > ledger_remaining:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot apply ฿{amount_to_apply:.2f}: Exceeds ledger remaining ฿{ledger_remaining:.2f}"
+        )
+    
+    # 6. ATOMIC TRANSACTION: Create payment record + Update invoice status
+    try:
+        # Create immutable payment record
+        payment = InvoicePayment(
+            invoice_id=invoice_id,
+            income_transaction_id=ledger.id,
+            amount=request.amount
+        )
+        db.add(payment)
+        
+        # Update invoice status based on new total paid
+        invoice.update_status()
+        
+        db.commit()
+        db.refresh(payment)
+        db.refresh(invoice)
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to apply payment: {str(e)}"
+        )
+    
+    # Return updated invoice state
+    new_outstanding = invoice.get_outstanding_amount()
+    
+    return {
+        "message": "Payment applied successfully",
+        "invoice_id": invoice_id,
+        "payment": {
+            "id": payment.id,
+            "amount": float(payment.amount),
+            "applied_at": payment.applied_at.isoformat() if payment.applied_at else None,
+            "ledger_id": ledger.id
+        },
+        "invoice": {
+            "id": invoice.id,
+            "total_amount": float(invoice.total_amount),
+            "paid_amount": invoice.get_total_paid(),
+            "outstanding_amount": new_outstanding,
+            "status": invoice.status.value if invoice.status else None
+        },
+        "ledger": {
+            "id": ledger.id,
+            "remaining_amount": ledger.get_unallocated_amount()
+        }
+    }
+
+
+@router.get("/{invoice_id}/payments")
+async def get_invoice_payments(
+    invoice_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get payment allocation history for an invoice (audit trail).
+    Shows all InvoicePayment records with ledger details.
+    """
+    invoice = db.query(InvoiceDB).filter(InvoiceDB.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    payments = db.query(InvoicePayment).filter(
+        InvoicePayment.invoice_id == invoice_id
+    ).order_by(InvoicePayment.applied_at.desc()).all()
+    
+    payment_records = []
+    for payment in payments:
+        ledger = db.query(IncomeTransaction).filter(
+            IncomeTransaction.id == payment.income_transaction_id
+        ).first()
+        payin = db.query(PayinReport).filter(
+            PayinReport.id == ledger.payin_id
+        ).first() if ledger else None
+        
+        payment_records.append({
+            "id": payment.id,
+            "amount": float(payment.amount),
+            "applied_at": payment.applied_at.isoformat() if payment.applied_at else None,
+            "ledger": {
+                "id": ledger.id if ledger else None,
+                "amount": float(ledger.amount) if ledger else 0,
+                "received_at": ledger.received_at.isoformat() if ledger else None,
+                "payin_id": payin.id if payin else None
+            } if ledger else None
+        })
+    
+    return {
+        "invoice_id": invoice_id,
+        "payments": payment_records,
+        "count": len(payment_records),
+        "total_paid": invoice.get_total_paid(),
+        "outstanding": invoice.get_outstanding_amount()
     }
 
 
