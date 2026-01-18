@@ -12,6 +12,7 @@ from app.db.models import (
     InvoicePayment,
     PayinReport
 )
+from app.db.models.payin_report import PayinStatus
 from app.core.deps import get_db, require_admin_or_accounting
 from app.db.models.user import User
 from decimal import Decimal
@@ -40,6 +41,17 @@ async def list_invoices(
     result = []
     for idx, inv in enumerate(invoices):
         house = db.query(HouseDB).filter(HouseDB.id == inv.house_id).first()
+        
+        # Calculate paid and outstanding
+        paid_amount = inv.get_total_paid()
+        outstanding_amount = inv.get_outstanding_amount()
+        
+        # Determine status from actual data
+        if inv.status:
+            actual_status = inv.status.value
+        else:
+            actual_status = "ISSUED"
+        
         result.append(InvoiceSchema(
             id=inv.id,
             house_id=inv.house_id,
@@ -47,7 +59,9 @@ async def list_invoices(
             invoice_type=InvoiceType.AUTO_MONTHLY,
             cycle=f"{inv.cycle_year}-{inv.cycle_month:02d}",
             total=float(inv.total_amount),
-            status=InvoiceStatus.PENDING,
+            paid=paid_amount,
+            outstanding=outstanding_amount,
+            status=actual_status,
             due_date=inv.due_date,
             items=[
                 InvoiceItem(
@@ -61,6 +75,53 @@ async def list_invoices(
     
     return result
 
+
+@router.get("/allocatable-ledgers")
+async def get_allocatable_ledgers(
+    house_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of ledger entries (IncomeTransactions) that can be allocated to invoices.
+    
+    Criteria:
+    - Created from ACCEPTED pay-ins (recognized income)
+    - Has remaining amount > 0 (not fully allocated)
+    - Optionally filtered by house_id
+    """
+    query = db.query(IncomeTransaction).join(
+        PayinReport, IncomeTransaction.payin_id == PayinReport.id
+    ).filter(
+        PayinReport.status == PayinStatus.ACCEPTED  # Only from accepted pay-ins
+    )
+    
+    if house_id:
+        query = query.filter(IncomeTransaction.house_id == house_id)
+    
+    ledgers = query.all()
+    
+    # Filter to only those with remaining amount
+    allocatable = []
+    for ledger in ledgers:
+        remaining = ledger.get_unallocated_amount()
+        if remaining > 0:
+            house = db.query(HouseDB).filter(HouseDB.id == ledger.house_id).first()
+            allocatable.append({
+                "id": ledger.id,
+                "house_id": ledger.house_id,
+                "house_code": house.house_code if house else None,
+                "payin_id": ledger.payin_id,
+                "amount": float(ledger.amount),
+                "allocated": ledger.get_total_applied(),
+                "remaining": remaining,
+                "received_at": ledger.received_at.isoformat() if ledger.received_at else None,
+                "created_at": ledger.created_at.isoformat() if ledger.created_at else None
+            })
+    
+    return {
+        "ledgers": allocatable,
+        "count": len(allocatable)
+    }
 
 
 @router.get("/{invoice_id}", response_model=InvoiceSchema)
@@ -314,54 +375,6 @@ async def get_invoice_detail(
     }
 
 
-@router.get("/allocatable-ledgers")
-async def get_allocatable_ledgers(
-    house_id: Optional[int] = None,
-    db: Session = Depends(get_db)
-):
-    """
-    Get list of ledger entries (IncomeTransactions) that can be allocated to invoices.
-    
-    Criteria:
-    - Created from ACCEPTED pay-ins (recognized income)
-    - Has remaining amount > 0 (not fully allocated)
-    - Optionally filtered by house_id
-    """
-    query = db.query(IncomeTransaction).join(
-        PayinReport, IncomeTransaction.payin_id == PayinReport.id
-    ).filter(
-        PayinReport.status == "ACCEPTED"  # Only from accepted pay-ins
-    )
-    
-    if house_id:
-        query = query.filter(IncomeTransaction.house_id == house_id)
-    
-    ledgers = query.all()
-    
-    # Filter to only those with remaining amount
-    allocatable = []
-    for ledger in ledgers:
-        remaining = ledger.get_unallocated_amount()
-        if remaining > 0:
-            house = db.query(HouseDB).filter(HouseDB.id == ledger.house_id).first()
-            allocatable.append({
-                "id": ledger.id,
-                "house_id": ledger.house_id,
-                "house_code": house.house_code if house else None,
-                "payin_id": ledger.payin_id,
-                "amount": float(ledger.amount),
-                "allocated": ledger.get_total_applied(),
-                "remaining": remaining,
-                "received_at": ledger.received_at.isoformat() if ledger.received_at else None,
-                "created_at": ledger.created_at.isoformat() if ledger.created_at else None
-            })
-    
-    return {
-        "ledgers": allocatable,
-        "count": len(allocatable)
-    }
-
-
 @router.post("/{invoice_id}/apply-payment")
 async def apply_payment_to_invoice(
     invoice_id: int,
@@ -401,7 +414,7 @@ async def apply_payment_to_invoice(
     
     # 3. Verify ledger is from ACCEPTED pay-in
     payin = db.query(PayinReport).filter(PayinReport.id == ledger.payin_id).first()
-    if not payin or payin.status != "ACCEPTED":
+    if not payin or payin.status != PayinStatus.ACCEPTED:
         raise HTTPException(
             status_code=400,
             detail="Cannot apply: Ledger entry must be from an ACCEPTED pay-in"
@@ -439,6 +452,10 @@ async def apply_payment_to_invoice(
             amount=request.amount
         )
         db.add(payment)
+        
+        # Flush to ensure payment is visible for status calculation
+        db.flush()
+        db.refresh(invoice)
         
         # Update invoice status based on new total paid
         invoice.update_status()

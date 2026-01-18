@@ -4,6 +4,9 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 from app.core.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Password hashing - switch to argon2 to avoid bcrypt issues
 pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
@@ -21,23 +24,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         if len(plain_password.encode('utf-8')) > 72:
             plain_password = plain_password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
         
-        # DEBUG: Log password verification attempt
-        print(f"[DEBUG] Verifying password...")
-        print(f"[DEBUG] Plain password length: {len(plain_password)}")
-        print(f"[DEBUG] Hash starts with: {hashed_password[:30]}...")
-        
+        logger.info(f"Verifying password: len={len(plain_password)}, hash_prefix={hashed_password[:20]}")
         result = pwd_context.verify(plain_password, hashed_password)
-        print(f"[DEBUG] Verification result: {result}")
+        logger.info(f"Password verification result: {result}")
         return result
     except Exception as e:
-        # Fallback: simple password comparison for development
-        print(f"[ERROR] Password verification error: {e}")
-        import traceback
-        traceback.print_exc()
-        # For testing purposes, check if it's a simple password
-        if hashed_password.startswith('$'):  # It's actually hashed
-            return False
-        return plain_password == hashed_password
+        logger.error(f"Password verification error: {e}")
+        return False
 
 
 def get_password_hash(password: str) -> str:

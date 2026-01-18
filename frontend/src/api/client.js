@@ -105,10 +105,18 @@ export const housesAPI = {
 export const invoicesAPI = {
   list: (params) => apiClient.get('/api/invoices', { params }),
   get: (id) => apiClient.get(`/api/invoices/${id}`),
+  getDetail: (id) => apiClient.get(`/api/invoices/${id}/detail`),
   create: (data) => apiClient.post('/api/invoices', data),
   update: (id, data) => apiClient.put(`/api/invoices/${id}`, data),
   delete: (id) => apiClient.delete(`/api/invoices/${id}`),
   generateMonthly: () => apiClient.post('/api/invoices/generate-monthly'),
+  // Apply Payment APIs (Phase 3)
+  getAllocatableLedgers: (houseId) => 
+    apiClient.get('/api/invoices/allocatable-ledgers', { params: houseId ? { house_id: houseId } : {} }),
+  applyPayment: (invoiceId, data) => 
+    apiClient.post(`/api/invoices/${invoiceId}/apply-payment`, data),
+  getPayments: (invoiceId) => 
+    apiClient.get(`/api/invoices/${invoiceId}/payments`),
 };
 
 // Pay-in Reports API
