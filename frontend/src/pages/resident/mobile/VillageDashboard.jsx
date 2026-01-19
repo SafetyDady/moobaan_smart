@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Users, DollarSign } from 'lucide-react';
 import MobileLayout from './MobileLayout';
-import { api } from '../../../api/client';
+// import { api } from '../../../api/client'; // Comment out for now
+import villageDashboardMockData from './villageDashboardMockData';
 
 export default function VillageDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Toggle this to switch between mock data and real API
+  const USE_MOCK_DATA = true; // Set to false when API is ready
   
   useEffect(() => {
     loadData();
@@ -16,8 +20,16 @@ export default function VillageDashboard() {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get('/api/dashboard/village-summary');
-      setData(response.data);
+      
+      if (USE_MOCK_DATA) {
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setData(villageDashboardMockData);
+      } else {
+        // Real API call
+        const response = await api.get('/api/dashboard/village-summary');
+        setData(response.data);
+      }
     } catch (error) {
       console.error('Failed to load village summary:', error);
       setError('ไม่สามารถโหลดข้อมูลได้');
@@ -67,6 +79,15 @@ export default function VillageDashboard() {
   return (
     <MobileLayout>
       <div className="p-4 space-y-4">
+        {/* Mock Data Indicator (Remove in production) */}
+        {USE_MOCK_DATA && (
+          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-2 text-center">
+            <span className="text-xs text-yellow-300">
+              ⚠️ กำลังใช้ Mock Data (ข้อมูลตัวอย่าง)
+            </span>
+          </div>
+        )}
+        
         {/* Main Balance Card */}
         <div className="bg-gradient-to-br from-primary-500 via-primary-600 to-blue-600 rounded-xl p-6 shadow-lg">
           <div className="text-sm text-white/80 mb-2">ยอดคงเหลือรวม</div>
@@ -113,6 +134,11 @@ export default function VillageDashboard() {
             <div className="text-2xl font-bold text-white">
               ฿{data.total_expense.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
+            {data.monthly_income.length > 1 && (
+              <div className="text-xs text-red-400 mt-1">
+                ลดลง 2%
+              </div>
+            )}
           </div>
           
           {/* Debtor Count */}

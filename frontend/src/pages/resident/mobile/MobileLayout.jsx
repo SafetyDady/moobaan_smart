@@ -1,14 +1,12 @@
 /**
- * MobileLayout - Resident Mobile-only Layout
+ * MobileLayout - Resident Mobile-only Layout (UPDATED)
  * 
- * Per OPTION A.1 Spec:
- * - Single column layout (100vw)
- * - Card-based UI only
- * - No tables, no hover
- * - Minimum 44px tap target
- * - Thai language only
- * - Bottom navigation = primary navigation
- * - No sidebar, no top desktop menu
+ * Bottom Navigation (Left to Right):
+ * 1. บ้าน (Dashboard) - Icon: 🏠
+ * 2. มบ. (Village Stats) - Icon: 📊
+ * 3. แจ้งชำระ (Submit Payment) - Icon: 💳 (Credit Card)
+ * 4. ประวัติ (Payment History) - Icon: 📄
+ * 5. โปรไฟล์ (Profile) - Icon: 👤
  */
 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -32,20 +30,20 @@ export default function MobileLayout({ children }) {
     { 
       path: '/resident/dashboard', 
       icon: '🏠', 
-      label: 'หน้าหลัก',
+      label: 'บ้าน',  // CHANGED: หน้าหลัก → บ้าน
       activeIcon: '🏠'
     },
     { 
       path: '/resident/village', 
-      icon: '📈', 
-      label: 'ภาพรวม',
-      activeIcon: '📈'
+      icon: '📊',  // CHANGED: 📈 → 📊
+      label: 'มบ.',  // CHANGED: ภาพรวม → มบ. (สถิติหมู่บ้าน)
+      activeIcon: '📊'
     },
     { 
       path: '/resident/submit', 
-      icon: '📸', 
-      label: 'ส่งสลิป',
-      activeIcon: '📸',
+      icon: '💳',  // CHANGED: 📸 → 💳 (Credit Card)
+      label: 'แจ้งชำระ',  // CHANGED: ส่งสลิป → แจ้งชำระ
+      activeIcon: '💳',
       isPrimary: true
     },
     { 
