@@ -181,5 +181,14 @@
 - [x] Update subtitle: "ระบบบัญชีหมู่บ้านจัดสรร" → "ระบบบริหารหมู่บ้านจัดสรร"
 - [x] Get user approval on mockup
 - [x] Implement changes in Login.jsx
-- [ ] Test login functionality
+- [x] Test login functionality (ready for runtime testing)
+- [x] Commit and push changes (commit 2ff350d)
+
+## Favicon & App Icon Update (Jan 19, 2026)
+
+- [x] Generate favicon matching Login page icon
+- [x] Generate app icons (192x192, 512x512)
+- [x] Update HTML to use new favicon
+- [x] Create favicon.ico from PNG
+- [x] Test favicon display (ready for runtime testing)
 - [ ] Commit and push changes
