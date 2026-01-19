@@ -11,6 +11,7 @@
 // Mobile versions ONLY - Desktop versions removed by design
 import MobileDashboard from './mobile/MobileDashboard';
 import MobileSubmitPayment from './mobile/MobileSubmitPayment';
+import VillageDashboard from './mobile/VillageDashboard';
 
 /**
  * Resident Dashboard - ALWAYS mobile layout
@@ -29,4 +30,13 @@ export const ResidentDashboardWrapper = () => {
 export const ResidentSubmitPaymentWrapper = () => {
   // MOBILE ONLY - No device detection needed
   return <MobileSubmitPayment />;
+};
+
+/**
+ * Village Dashboard - ALWAYS mobile layout
+ * Shows overall village financial statistics (PDPA compliant - no personal data)
+ */
+export const ResidentVillageDashboardWrapper = () => {
+  // MOBILE ONLY - No device detection needed
+  return <VillageDashboard />;
 };

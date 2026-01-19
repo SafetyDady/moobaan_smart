@@ -36,10 +36,29 @@ export default function MobileLayout({ children }) {
       activeIcon: '🏠'
     },
     { 
+      path: '/resident/village', 
+      icon: '📈', 
+      label: 'ภาพรวม',
+      activeIcon: '📈'
+    },
+    { 
       path: '/resident/submit', 
-      icon: '💳', 
-      label: 'ชำระเงิน',
-      activeIcon: '💳'
+      icon: '📸', 
+      label: 'ส่งสลิป',
+      activeIcon: '📸',
+      isPrimary: true
+    },
+    { 
+      path: '/resident/payments', 
+      icon: '📄', 
+      label: 'ประวัติ',
+      activeIcon: '📄'
+    },
+    { 
+      path: '/resident/profile', 
+      icon: '👤', 
+      label: 'โปรไฟล์',
+      activeIcon: '👤'
     },
   ];
 
@@ -74,6 +93,30 @@ export default function MobileLayout({ children }) {
         <div className="flex">
           {navItems.map(item => {
             const isActive = location.pathname === item.path;
+            
+            // Special styling for primary action button (center)
+            if (item.isPrimary) {
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className="flex-1 flex flex-col items-center justify-center min-h-[64px]"
+                >
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-1 transition-colors ${
+                    isActive ? 'bg-primary-500' : 'bg-gray-700'
+                  }`}>
+                    <span className="text-2xl">{item.icon}</span>
+                  </div>
+                  <span className={`text-xs ${
+                    isActive ? 'text-primary-400 font-semibold' : 'text-gray-400 font-medium'
+                  }`}>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            }
+            
+            // Regular nav items
             return (
               <Link
                 key={item.path}

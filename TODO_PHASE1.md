@@ -120,3 +120,40 @@
 - [ ] Apply fix to AuthContext.jsx (Line 90)
 - [ ] Test all 5 scenarios
 - [ ] Push fix and documentation to GitHub
+
+
+## Phase 1.6 - Improve Resident Mobile Dashboard UX
+
+- [ ] Analyze current card sizes and layout issues
+- [ ] Design compact card layouts for invoices
+- [ ] Design compact card layouts for payment history
+- [ ] Reduce card heights and improve information density
+- [ ] Implement responsive typography and spacing
+- [ ] Test on various mobile screen sizes
+- [ ] Apply changes to MobileDashboard.jsx
+- [ ] Push improvements to GitHub
+
+
+## Phase 1.7 - Redesign Resident Mobile Dashboard (Summary + Table View)
+
+- [ ] Design summary cards layout (total amount, invoice count, payment count)
+- [ ] Design filter tabs (All, Paid, Unpaid, Pending)
+- [ ] Design table view for invoices (compact rows)
+- [ ] Design table view for payments (compact rows)
+- [ ] Create mockup UI as JPG images
+- [ ] Document implementation details
+- [ ] Implement new dashboard layout
+- [ ] Test filtering and navigation
+- [ ] Push to GitHub
+
+
+## Phase 1.8 - Add Village Dashboard (ภาพรวมหมู่บ้าน)
+
+- [x] Implement backend API endpoint (/api/dashboard/village-summary)
+- [x] Create VillageDashboard.jsx page with all components
+- [x] Update MobileLayout.jsx bottom navigation (5 items)
+- [x] Add route in App.jsx
+- [ ] Test village dashboard displays correctly (REQUIRES DOCKER/DB)
+- [ ] Verify status colors/logic unchanged (PENDING=yellow, REJECTED_NEEDS_FIX=red, SUBMITTED=gray, ACCEPTED=green)
+- [ ] Test all navigation flows (REQUIRES DOCKER/DB)
+- [x] Prepare git pull documentation (VILLAGE_DASHBOARD_IMPLEMENTATION.md)

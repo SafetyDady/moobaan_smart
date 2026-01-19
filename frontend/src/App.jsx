@@ -20,7 +20,7 @@ import BankStatements from './pages/admin/BankStatements';
 import UnidentifiedReceipts from './pages/admin/UnidentifiedReceipts';
 
 // Resident pages (with mobile detection)
-import { ResidentDashboardWrapper, ResidentSubmitPaymentWrapper } from './pages/resident/ResidentRouteWrapper';
+import { ResidentDashboardWrapper, ResidentSubmitPaymentWrapper, ResidentVillageDashboardWrapper } from './pages/resident/ResidentRouteWrapper';
 
 function App() {
   return (
@@ -84,6 +84,7 @@ function App() {
               <ProtectedRoute allowedRoles={['resident']}>
                 <Routes>
                   <Route path="dashboard" element={<ResidentDashboardWrapper />} />
+                  <Route path="village" element={<ResidentVillageDashboardWrapper />} />
                   <Route path="submit" element={<ResidentSubmitPaymentWrapper />} />
                 </Routes>
               </ProtectedRoute>

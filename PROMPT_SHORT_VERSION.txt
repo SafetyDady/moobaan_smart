@@ -1,0 +1,59 @@
+========================================
+PROMPT FOR LOCAL AI - SHORT VERSION
+========================================
+
+Fix login redirect loop in Village Accounting System (Moobaan Smart).
+
+PROBLEM:
+Login successful → Navigate to dashboard → Redirect back to login → Infinite loop
+
+ROOT CAUSE:
+Race condition: setUser() is async, navigate() is sync
+When ProtectedRoute checks isAuthenticated, user state is still null
+
+THE FIX (1 line):
+File: frontend/src/contexts/AuthContext.jsx
+Line 90:
+
+CHANGE FROM:
+isAuthenticated: !!user,
+
+CHANGE TO:
+isAuthenticated: !!token || !!localStorage.getItem('auth_token'),
+
+WHY:
+localStorage.getItem() is synchronous, returns immediately
+No dependency on React state update timing
+
+STEPS:
+1. Open frontend/src/contexts/AuthContext.jsx
+2. Find line 90 (in the value object)
+3. Replace: isAuthenticated: !!user,
+   With: isAuthenticated: !!token || !!localStorage.getItem('auth_token'),
+4. Save file (Ctrl+S)
+5. Restart frontend: cd frontend && npm run dev
+6. Test login with: admin / admin123
+7. Should land on dashboard without redirect loop
+
+TEST CASES:
+1. Fresh login → Should stay on dashboard (no loop)
+2. Page refresh → Should maintain authentication
+3. Direct URL access → Should load protected routes
+4. Logout → Should clear auth and redirect to login
+5. All 3 roles (admin, accounting, resident) → All should work
+
+COMMIT:
+git add frontend/src/contexts/AuthContext.jsx
+git commit -m "fix: resolve login redirect loop by using localStorage check"
+git push origin master
+
+DOCUMENTATION:
+See PROMPT_FOR_LOCAL_AI.md for full details
+See LOGIN_REDIRECT_LOOP_ANALYSIS.md for technical analysis
+
+PROJECT:
+Repository: https://github.com/SafetyDady/moobaan_smart
+Branch: master
+Tech: React 18 + Vite 5 + FastAPI
+
+========================================
