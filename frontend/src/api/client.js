@@ -2,6 +2,9 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
+// Log API base URL on startup
+console.log('🌐 API_BASE_URL =', API_BASE_URL);
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -86,16 +89,34 @@ export const housesAPI = {
   create: (data) => apiClient.post('/api/houses', data),
   update: (id, data) => apiClient.put(`/api/houses/${id}`, data),
   delete: (id) => apiClient.delete(`/api/houses/${id}`),
+  downloadStatement: async (houseId, year, month, format) => {
+    const response = await apiClient.get(
+      `/api/accounting/statement/${houseId}`,
+      { 
+        params: { year, month, format },
+        responseType: 'blob'
+      }
+    );
+    return response.data;
+  },
 };
 
 // Invoices API
 export const invoicesAPI = {
   list: (params) => apiClient.get('/api/invoices', { params }),
   get: (id) => apiClient.get(`/api/invoices/${id}`),
+  getDetail: (id) => apiClient.get(`/api/invoices/${id}/detail`),
   create: (data) => apiClient.post('/api/invoices', data),
   update: (id, data) => apiClient.put(`/api/invoices/${id}`, data),
   delete: (id) => apiClient.delete(`/api/invoices/${id}`),
   generateMonthly: () => apiClient.post('/api/invoices/generate-monthly'),
+  // Apply Payment APIs (Phase 3)
+  getAllocatableLedgers: (houseId) => 
+    apiClient.get('/api/invoices/allocatable-ledgers', { params: houseId ? { house_id: houseId } : {} }),
+  applyPayment: (invoiceId, data) => 
+    apiClient.post(`/api/invoices/${invoiceId}/apply-payment`, data),
+  getPayments: (invoiceId) => 
+    apiClient.get(`/api/invoices/${invoiceId}/payments`),
 };
 
 // Pay-in Reports API
@@ -123,6 +144,7 @@ export const expensesAPI = {
 // Bank Statements API
 export const bankStatementsAPI = {
   list: () => apiClient.get('/api/bank-statements'),
+  listBatches: () => apiClient.get('/api/bank-statements/batches'),
   get: (id) => apiClient.get(`/api/bank-statements/${id}`),
   getRows: (id) => apiClient.get(`/api/bank-statements/${id}/rows`),
   upload: (file) => {
@@ -134,11 +156,56 @@ export const bankStatementsAPI = {
       },
     });
   },
+  getBatchTransactions: (batchId) => apiClient.get(`/api/bank-statements/batches/${batchId}/transactions`),
+  uploadPreview: (file, bankAccountId, year, month) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bank_account_id', bankAccountId);
+    formData.append('year', year);
+    formData.append('month', month);
+    return apiClient.post('/api/bank-statements/upload-preview', formData, {
+      params: { bank_account_id: bankAccountId, year, month },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  confirmImport: (file, bankAccountId, year, month) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bank_account_id', bankAccountId);
+    formData.append('year', year);
+    formData.append('month', month);
+    return apiClient.post('/api/bank-statements/confirm-import', formData, {
+      params: { bank_account_id: bankAccountId, year, month },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   matchRow: (statementId, rowId, payinId) => 
     apiClient.post(`/api/bank-statements/${statementId}/rows/${rowId}/match`, null, {
       params: { payin_id: payinId }
     }),
   delete: (id) => apiClient.delete(`/api/bank-statements/${id}`),
+};
+
+// Bank Accounts API
+export const bankAccountsAPI = {
+  list: () => apiClient.get('/api/bank-accounts'),
+  create: (data) => apiClient.post('/api/bank-accounts', data),
+  update: (id, data) => apiClient.put(`/api/bank-accounts/${id}`, data),
+  delete: (id) => apiClient.delete(`/api/bank-accounts/${id}`),
+};
+
+// Bank Reconciliation API
+export const bankReconciliationAPI = {
+  listUnmatchedTransactions: (batchId) => 
+    apiClient.get('/api/bank-statements/transactions/unmatched', { 
+      params: batchId ? { batch_id: batchId } : {} 
+    }),
+  getCandidatesForPayin: (payinId) =>
+    apiClient.get(`/api/bank-statements/candidates/payin/${payinId}`),
+  matchTransaction: (txnId, payinId) => 
+    apiClient.post(`/api/bank-statements/transactions/${txnId}/match`, { payin_id: payinId }),
+  unmatchTransaction: (txnId) => 
+    apiClient.post(`/api/bank-statements/transactions/${txnId}/unmatch`),
 };
 
 // Users API

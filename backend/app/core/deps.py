@@ -49,6 +49,10 @@ def require_roles(allowed_roles: List[str]):
     return role_checker
 
 
+# Alias for singular form
+require_role = require_roles
+
+
 # Common role dependencies - use with Depends() when calling
 # Example: current_user: User = Depends(require_user)
 require_user = get_current_user

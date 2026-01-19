@@ -1,3 +1,14 @@
+/**
+ * @deprecated This Desktop SubmitPayment is no longer used.
+ * Per RESIDENT_PAYIN_MOBILE_ONLY_SPEC.md Section 2.1:
+ * "Resident Desktop UI is intentionally removed by design."
+ * 
+ * All Resident users now see MobileSubmitPayment regardless of device.
+ * This file is kept for reference but is not rendered.
+ * 
+ * See: frontend/src/pages/resident/ResidentRouteWrapper.jsx
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { payinsAPI } from '../../api/client';
@@ -21,10 +32,37 @@ export default function SubmitPayment() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    console.log('🔍 DEBUG - currentHouseId:', currentHouseId, 'Type:', typeof currentHouseId);
-    console.log('🔍 DEBUG - formData:', formData);
-    console.log('🔍 DEBUG - slipFile:', slipFile);
+    console.log('🚀🚀🚀 handleSubmit CALLED - form submitted!');
+    
+    // Early validation - before any async operations
+    try {
+      console.log('🔍 DEBUG - currentHouseId:', currentHouseId, 'Type:', typeof currentHouseId);
+      console.log('🔍 DEBUG - formData:', formData);
+      console.log('🔍 DEBUG - slipFile:', slipFile);
+      console.log('🔍 DEBUG - editPayin:', editPayin);
+      
+      // Validate slip is attached FIRST (most common error)
+      if (!slipFile && !editPayin?.slip_url) {
+        console.log('❌ VALIDATION FAILED: No slip attached');
+        alert('❌ กรุณาแนบสลิปการโอนเงิน / Please attach transfer slip');
+        return;
+      }
+      
+      // Validate all required fields
+      if (!formData.amount || !formData.transfer_date || formData.transfer_hour === '' || formData.transfer_minute === '') {
+        console.log('❌ VALIDATION FAILED: Missing required fields');
+        alert('❌ กรุณากรอกข้อมูลให้ครบถ้วน / Please fill in all required fields');
+        return;
+      }
+      
+      console.log('✅ VALIDATION PASSED');
+    } catch (validationError) {
+      console.error('Validation error:', validationError);
+      alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล');
+      return;
+    }
     
     // Validate house ID from context
     if (!currentHouseId) {
@@ -51,18 +89,6 @@ export default function SubmitPayment() {
       }
     }
     
-    // Validate all required fields
-    if (!formData.amount || !formData.transfer_date || !formData.transfer_hour || !formData.transfer_minute) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
-      return;
-    }
-    
-    // Validate slip is attached
-    if (!slipFile && !editPayin) {
-      alert('กรุณาแนบสลิปการโอนเงิน');
-      return;
-    }
-    
     // Validate hour and minute ranges
     const hour = parseInt(formData.transfer_hour);
     const minute = parseInt(formData.transfer_minute);
@@ -77,14 +103,20 @@ export default function SubmitPayment() {
       // Create FormData for multipart/form-data submission
       const submitFormData = new FormData();
       
-      // Create ISO datetime from date + time
+      // Create ISO datetime from date + time (local timezone)
       const paidAtDate = new Date(formData.transfer_date);
       paidAtDate.setHours(hour, minute, 0, 0);
-      const paidAtISO = paidAtDate.toISOString();
+      
+      // Format as ISO string but preserve local time (don't convert to UTC)
+      const year = paidAtDate.getFullYear();
+      const month = String(paidAtDate.getMonth() + 1).padStart(2, '0');
+      const day = String(paidAtDate.getDate()).padStart(2, '0');
+      const hourStr = String(paidAtDate.getHours()).padStart(2, '0');
+      const minuteStr = String(paidAtDate.getMinutes()).padStart(2, '0');
+      const paidAtISO = `${year}-${month}-${day}T${hourStr}:${minuteStr}:00`;
       
       submitFormData.append('amount', parseFloat(formData.amount));
       submitFormData.append('paid_at', paidAtISO);
-      submitFormData.append('note', `Transfer at ${hour}:${String(minute).padStart(2, '0')}`);
       
       if (slipFile) {
         submitFormData.append('slip', slipFile);
@@ -93,7 +125,8 @@ export default function SubmitPayment() {
       console.log('📤 Submitting FormData fields:', {
         amount: submitFormData.get('amount'),
         paid_at: submitFormData.get('paid_at'),
-        note: submitFormData.get('note'),
+        hour: hourStr,
+        minute: minuteStr,
         slip: slipFile ? slipFile.name : 'none'
       });
 
@@ -115,10 +148,8 @@ export default function SubmitPayment() {
         alert('✅ ส่งรายงานการชำระเงินเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
       }
       
-      // Use window.location for full page reload to avoid auth state issues
-      setTimeout(() => {
-        window.location.href = '/resident/dashboard';
-      }, 300);
+      // Use navigate to avoid losing auth state
+      navigate('/resident/dashboard');
     } catch (error) {
       console.error('❌ Failed to submit:', error);
       console.error('❌ Error status:', error.response?.status);
@@ -175,15 +206,46 @@ export default function SubmitPayment() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">
-          {editPayin ? 'Edit & Resubmit Payment' : 'Submit Payment Slip'}
+          {editPayin ? 'แก้ไขข้อมูลการชำระเงิน' : 'ส่งสลิปการชำระเงิน'}
         </h1>
         <p className="text-gray-400">
-          House #{currentHouseId} - Upload your payment slip details
+          บ้านเลขที่ #{currentHouseId} - อัพโหลดข้อมูลการชำระเงิน
         </p>
-        {editPayin && (
+        {editPayin && editPayin.status === 'REJECTED' && (
           <div className="mt-4 p-4 bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg">
             <p className="text-yellow-300 text-sm">
-              <strong>Rejection Reason:</strong> {editPayin.reject_reason}
+              <strong>เหตุผลที่ปฏิเสธ:</strong> {editPayin.reject_reason}
+            </p>
+          </div>
+        )}
+        {editPayin && editPayin.status === 'REJECTED_NEEDS_FIX' && (
+          <div className="mt-4 p-4 bg-red-900 bg-opacity-30 border border-red-600 rounded-lg">
+            <p className="text-red-300 text-sm font-medium mb-2">
+              ⚠️ ต้องแก้ไขข้อมูล
+            </p>
+            {editPayin.reject_reason && (
+              <p className="text-red-200 text-sm">
+                <strong>เหตุผล:</strong> {editPayin.reject_reason}
+              </p>
+            )}
+            {editPayin.admin_note && (
+              <p className="text-yellow-300 text-sm mt-2">
+                💬 <strong>หมายเหตุจากแอดมิน:</strong> {editPayin.admin_note}
+              </p>
+            )}
+          </div>
+        )}
+        {editPayin && editPayin.status === 'DRAFT' && (
+          <div className="mt-4 p-4 bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg">
+            <p className="text-gray-300 text-sm">
+              📝 แก้ไขร่างการชำระเงิน - ยังไม่ได้ส่งเข้าระบบ
+            </p>
+          </div>
+        )}
+        {editPayin && editPayin.status === 'PENDING' && (
+          <div className="mt-4 p-4 bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg">
+            <p className="text-blue-300 text-sm">
+              📝 กำลังแก้ไขรายการที่รอตรวจสอบ - คุณสามารถปรับปรุงข้อมูลได้
             </p>
           </div>
         )}
@@ -309,7 +371,7 @@ export default function SubmitPayment() {
             </button>
             <button
               type="button"
-              onClick={() => window.location.href = '/resident/dashboard'}
+              onClick={() => navigate('/resident/dashboard')}
               disabled={submitting}
               className="btn-secondary flex-1 disabled:bg-gray-700 disabled:cursor-not-allowed"
             >

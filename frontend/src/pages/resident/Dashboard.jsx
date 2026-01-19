@@ -1,3 +1,14 @@
+/**
+ * @deprecated This Desktop Dashboard is no longer used.
+ * Per RESIDENT_PAYIN_MOBILE_ONLY_SPEC.md Section 2.1:
+ * "Resident Desktop UI is intentionally removed by design."
+ * 
+ * All Resident users now see MobileDashboard regardless of device.
+ * This file is kept for reference but is not rendered.
+ * 
+ * See: frontend/src/pages/resident/ResidentRouteWrapper.jsx
+ */
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { invoicesAPI, payinsAPI, api } from '../../api/client';
@@ -32,6 +43,20 @@ export default function ResidentDashboard() {
     }
   };
 
+  const handleDeletePayin = async (payinId) => {
+    if (!confirm('คุณต้องการลบรายการชำระเงินนี้ใช่หรือไม่?')) {
+      return;
+    }
+    try {
+      await payinsAPI.delete(payinId);
+      alert('ลบรายการสำเร็จ');
+      loadData();
+    } catch (error) {
+      console.error('Failed to delete payin:', error);
+      alert(error.response?.data?.detail || 'ลบรายการไม่สำเร็จ');
+    }
+  };
+
   const downloadStatement = async (format = 'pdf') => {
     setDownloadingStatement(true);
     try {
@@ -44,7 +69,7 @@ export default function ResidentDashboard() {
         `/api/accounting/statement/${currentHouseId}?year=${year}&month=${month}&format=${format}`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
           }
         }
       );
@@ -85,15 +110,43 @@ export default function ResidentDashboard() {
 
   const getStatusBadge = (status) => {
     const badges = {
+      // New state machine statuses
+      DRAFT: 'badge-gray',
+      SUBMITTED: 'badge-info',
+      REJECTED_NEEDS_FIX: 'badge-danger',
+      ACCEPTED: 'badge-success',
+      // Legacy statuses (for backward compatibility)
       submitted: 'badge-info',
       rejected: 'badge-danger',
       matched: 'badge-warning',
       accepted: 'badge-success',
       pending: 'badge-warning',
+      PENDING: 'badge-warning',
+      REJECTED: 'badge-danger',
+      // Invoice statuses
       paid: 'badge-success',
       overdue: 'badge-danger',
     };
     return badges[status] || 'badge-gray';
+  };
+
+  // Get Thai display text for pay-in status
+  const getStatusText = (status) => {
+    const texts = {
+      DRAFT: 'ร่าง',
+      SUBMITTED: 'รอตรวจสอบ',
+      REJECTED_NEEDS_FIX: 'ต้องแก้ไข',
+      ACCEPTED: 'รับแล้ว',
+      // Legacy
+      PENDING: 'รอตรวจสอบ',
+      REJECTED: 'ปฏิเสธ',
+    };
+    return texts[status] || status;
+  };
+
+  // Check if payin can be edited by resident
+  const canEditPayin = (payin) => {
+    return ['DRAFT', 'REJECTED_NEEDS_FIX', 'PENDING', 'REJECTED'].includes(payin.status);
   };
 
   if (loading) {
@@ -195,7 +248,7 @@ export default function ResidentDashboard() {
                 <th>จำนวนเงิน</th>
                 <th>วันที่/เวลาโอน</th>
                 <th>สถานะ</th>
-                <th>วันที่ส่ง</th>
+                <th>วันเวลาส่งข้อมูล</th>
                 <th>การดำเนินการ</th>
               </tr>
             </thead>
@@ -203,28 +256,109 @@ export default function ResidentDashboard() {
               {payins.length === 0 ? (
                 <tr><td colSpan="5" className="text-center py-8 text-gray-400">ยังไม่มีการชำระเงิน</td></tr>
               ) : (
-                payins.map((payin) => (
-                  <tr key={payin.id}>
-                    <td className="font-medium text-white">฿{payin.amount.toLocaleString()}</td>
-                    <td className="text-gray-300">
-                      {new Date(payin.transfer_date).toLocaleDateString()} {payin.transfer_hour}:{String(payin.transfer_minute).padStart(2, '0')}
-                    </td>
-                    <td>
-                      <span className={`badge ${getStatusBadge(payin.status)}`}>{payin.status}</span>
-                      {payin.reject_reason && (
-                        <div className="text-xs text-red-400 mt-1">{payin.reject_reason}</div>
-                      )}
-                    </td>
-                    <td className="text-gray-400">{new Date(payin.created_at).toLocaleDateString()}</td>
-                    <td>
-                      {payin.status === 'rejected' && (
-                        <Link to="/resident/submit" state={{ editPayin: payin }} className="text-primary-400 hover:text-primary-300 text-sm">
-                          แก้ไขและส่งใหม่
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                payins.map((payin) => {
+                  const submittedAt = new Date(payin.created_at);
+                  const submittedDate = submittedAt.toLocaleDateString('th-TH', { 
+                    year: '2-digit', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  });
+                  const submittedTime = submittedAt.toLocaleTimeString('th-TH', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                  });
+                  
+                  return (
+                    <tr key={payin.id}>
+                      <td className="font-medium text-white">฿{payin.amount.toLocaleString()}</td>
+                      <td className="text-gray-300">
+                        {new Date(payin.transfer_date).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric' })}
+                        <br />
+                        <span className="text-sm text-gray-400">
+                          {String(payin.transfer_hour).padStart(2, '0')}:{String(payin.transfer_minute).padStart(2, '0')} น.
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${getStatusBadge(payin.status)}`}>{getStatusText(payin.status)}</span>
+                        {payin.reject_reason && (
+                          <div className="text-xs text-red-400 mt-1">{payin.reject_reason}</div>
+                        )}
+                        {payin.admin_note && payin.status === 'REJECTED_NEEDS_FIX' && (
+                          <div className="text-xs text-yellow-400 mt-1">💬 {payin.admin_note}</div>
+                        )}
+                      </td>
+                      <td className="text-gray-400 text-sm">
+                        {submittedDate}
+                        <br />
+                        <span className="text-xs text-gray-500">{submittedTime}</span>
+                      </td>
+                      <td>
+                        <div className="flex gap-2">
+                          {payin.status === 'DRAFT' && (
+                            <>
+                              <Link 
+                                to="/resident/submit" 
+                                state={{ editPayin: payin }} 
+                                className="text-blue-400 hover:text-blue-300 text-sm"
+                              >
+                                ✏️ แก้ไข
+                              </Link>
+                              <button
+                                onClick={() => handleDeletePayin(payin.id)}
+                                className="text-red-400 hover:text-red-300 text-sm"
+                              >
+                                🗑️ ลบ
+                              </button>
+                            </>
+                          )}
+                          {payin.status === 'SUBMITTED' && (
+                            <span className="text-blue-400 text-sm">⏳ กำลังตรวจสอบ</span>
+                          )}
+                          {payin.status === 'REJECTED_NEEDS_FIX' && (
+                            <Link 
+                              to="/resident/submit" 
+                              state={{ editPayin: payin }} 
+                              className="text-primary-400 hover:text-primary-300 text-sm"
+                            >
+                              🔄 แก้ไขและส่งใหม่
+                            </Link>
+                          )}
+                          {/* Legacy status support */}
+                          {payin.status === 'PENDING' && (
+                            <>
+                              <Link 
+                                to="/resident/submit" 
+                                state={{ editPayin: payin }} 
+                                className="text-blue-400 hover:text-blue-300 text-sm"
+                              >
+                                ✏️ แก้ไข
+                              </Link>
+                              <button
+                                onClick={() => handleDeletePayin(payin.id)}
+                                className="text-red-400 hover:text-red-300 text-sm"
+                              >
+                                🗑️ ลบ
+                              </button>
+                            </>
+                          )}
+                          {payin.status === 'REJECTED' && (
+                            <Link 
+                              to="/resident/submit" 
+                              state={{ editPayin: payin }} 
+                              className="text-primary-400 hover:text-primary-300 text-sm"
+                            >
+                              🔄 แก้ไขและส่งใหม่
+                            </Link>
+                          )}
+                          {payin.status === 'ACCEPTED' && (
+                            <span className="text-green-400 text-sm">✓ รับแล้ว</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

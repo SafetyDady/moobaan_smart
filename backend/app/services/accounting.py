@@ -138,6 +138,14 @@ class AccountingService:
         if not payin.can_be_accepted():
             raise ValueError(f"PayIn {payin_id} cannot be accepted (status: {payin.status})")
         
+        # ===== NEW: Enforce Bank Statement Matching =====
+        if payin.matched_statement_txn_id is None:
+            raise ValueError(
+                "PayIn must be matched with a bank statement transaction before acceptance. "
+                "Please match this pay-in with a bank transaction first."
+            )
+        # ============================================
+        
         # Verify house exists and get house status
         house = db.query(House).filter(House.id == payin.house_id).first()
         if not house:

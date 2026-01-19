@@ -48,23 +48,11 @@ export default function Houses() {
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
 
-      const response = await fetch(
-        `/api/accounting/statement/${houseId}?year=${year}&month=${month}&format=${format}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error_en || errorData.error || 'Download failed');
-      }
+      // Use apiClient to get correct baseURL
+      const response = await housesAPI.downloadStatement(houseId, year, month, format);
 
       // Create blob and download
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(response);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;

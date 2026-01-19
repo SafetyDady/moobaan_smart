@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 const RoleContext = createContext();
 
@@ -9,63 +10,48 @@ export const ROLES = {
 };
 
 export function RoleProvider({ children }) {
-  const [currentRole, setCurrentRole] = useState(ROLES.SUPER_ADMIN);
+  const { user, loading: authLoading } = useAuth();
+  const [currentRole, setCurrentRole] = useState(null);
   const [currentHouseId, setCurrentHouseId] = useState(null);
   const [currentHouseCode, setCurrentHouseCode] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Sync role/house data from AuthContext user
   useEffect(() => {
-    loadUserHouse();
-  }, []);
-
-  const loadUserHouse = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      // Get user info from /api/auth/me endpoint
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('✅ RoleContext - User data from /api/auth/me:', userData);
-          
-          // Set role
-          setCurrentRole(userData.role);
-          
-          // Set house_id and house_code if resident
-          if (userData.role === 'resident') {
-            if (userData.house_id) {
-              setCurrentHouseId(userData.house_id);
-              setCurrentHouseCode(userData.house_code || null);
-              console.log('✅ RoleContext - Set currentHouseId:', userData.house_id);
-              console.log('✅ RoleContext - Set currentHouseCode:', userData.house_code);
-            } else {
-              console.warn('⚠️ RoleContext - Resident has no house_id!');
-              console.warn('⚠️ This user may not be linked to a house via HouseMember table');
-              console.warn('⚠️ User data:', userData);
-            }
-          }
-        } else {
-          console.error('❌ RoleContext - Failed to fetch user data:', response.status);
-        }
-      } catch (error) {
-        console.error('❌ RoleContext - Failed to load user data:', error);
-      }
-    } catch (error) {
-      console.error('❌ RoleContext - Outer error:', error);
-    } finally {
-      setLoading(false);
+    if (authLoading) {
+      return; // Wait for auth to finish loading
     }
-  };
+
+    if (user) {
+      console.log('✅ RoleContext - Syncing from AuthContext user:', user);
+      setCurrentRole(user.role);
+      
+      if (user.role === 'resident') {
+        if (user.house_id) {
+          setCurrentHouseId(user.house_id);
+          setCurrentHouseCode(user.house_code || null);
+          console.log('✅ RoleContext - Set currentHouseId:', user.house_id);
+          console.log('✅ RoleContext - Set currentHouseCode:', user.house_code);
+        } else {
+          console.warn('⚠️ RoleContext - Resident has no house_id!');
+          setCurrentHouseId(null);
+          setCurrentHouseCode(null);
+        }
+      } else {
+        // Non-resident: clear house data
+        setCurrentHouseId(null);
+        setCurrentHouseCode(null);
+      }
+    } else {
+      // No user: reset everything
+      console.log('⚠️ RoleContext - No user, resetting state');
+      setCurrentRole(null);
+      setCurrentHouseId(null);
+      setCurrentHouseCode(null);
+    }
+    
+    setLoading(false);
+  }, [user, authLoading]);
 
   const value = {
     currentRole,
@@ -77,7 +63,7 @@ export function RoleProvider({ children }) {
     isAdmin: currentRole === ROLES.SUPER_ADMIN,
     isAccounting: currentRole === ROLES.ACCOUNTING,
     isResident: currentRole === ROLES.RESIDENT,
-    loading,
+    loading: loading || authLoading,
   };
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;

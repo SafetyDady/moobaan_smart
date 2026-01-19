@@ -3,6 +3,16 @@ import { Link } from 'react-router-dom';
 import { invoicesAPI, payinsAPI, api } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
+import PayinDetailModal from './PayinDetailModal';
+import {
+  canEditPayin,
+  canDeletePayin,
+  isBlockingPayin,
+  getStatusText as getPayinStatusText,
+  getStatusBadgeColor,
+  formatPayinDateTime,
+  formatThaiDate,
+} from '../../../utils/payinStatus';
 
 export default function MobileDashboard() {
   const { currentHouseId } = useRole();
@@ -10,6 +20,11 @@ export default function MobileDashboard() {
   const [payins, setPayins] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedPayin, setSelectedPayin] = useState(null);
+
+  // Check if there's a blocking pay-in (DRAFT or PENDING)
+  const hasBlockingPayin = payins.some(isBlockingPayin);
+  const blockingPayin = payins.find(isBlockingPayin);
 
   useEffect(() => {
     loadData();
@@ -32,17 +47,40 @@ export default function MobileDashboard() {
     }
   };
 
+  const handleDeletePayin = async (payinId) => {
+    try {
+      await payinsAPI.delete(payinId);
+      setSelectedPayin(null);
+      loadData();
+    } catch (error) {
+      console.error('Failed to delete payin:', error);
+      
+      // Map error codes to Thai messages
+      let errorMessage = 'ลบรายการไม่สำเร็จ';
+      
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        errorMessage = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (CORS/Network)';
+      } else if (error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        if (typeof detail === 'object' && detail.message) {
+          errorMessage = detail.message;
+        } else if (typeof detail === 'string') {
+          errorMessage = detail;
+        }
+      }
+      
+      alert(errorMessage);
+    }
+  };
+
   // Get balance from summary API (negative = owe, positive = overpaid)
   const currentBalance = summary?.current_balance || 0;
   const isOverpaid = currentBalance > 0;
   const displayAmount = Math.abs(currentBalance);
 
-  const getStatusColor = (status) => {
+  // Invoice status colors (separate from Pay-in)
+  const getInvoiceStatusColor = (status) => {
     const colors = {
-      submitted: 'bg-blue-500 text-white',
-      rejected: 'bg-red-500 text-white',
-      matched: 'bg-yellow-500 text-white',
-      accepted: 'bg-green-500 text-white',
       pending: 'bg-yellow-500 text-white',
       paid: 'bg-green-500 text-white',
       overdue: 'bg-red-500 text-white',
@@ -50,12 +88,8 @@ export default function MobileDashboard() {
     return colors[status] || 'bg-gray-500 text-white';
   };
 
-  const getStatusText = (status) => {
+  const getInvoiceStatusText = (status) => {
     const texts = {
-      submitted: 'ส่งแล้ว',
-      rejected: 'ถูกปฏิเสธ',
-      matched: 'จับคู่แล้ว',
-      accepted: 'อนุมัติแล้ว',
       pending: 'รอชำระ',
       paid: 'ชำระแล้ว',
       overdue: 'เกินกำหนด',
@@ -94,12 +128,25 @@ export default function MobileDashboard() {
             ฿{displayAmount.toLocaleString()}
           </p>
           {!isOverpaid && (
-            <Link 
-              to="/resident/submit" 
-              className="block w-full bg-white text-red-600 font-semibold py-3 rounded-lg text-center active:bg-red-50 transition-colors"
-            >
-              💳 ชำระเงินเลย
-            </Link>
+            hasBlockingPayin ? (
+              // Disabled state - has incomplete pay-in
+              <div className="w-full">
+                <div className="w-full bg-gray-400 text-gray-600 font-semibold py-3 rounded-lg text-center cursor-not-allowed">
+                  💳 ชำระเงินเลย
+                </div>
+                <p className="text-yellow-200 text-xs mt-2 text-center">
+                  ⚠️ คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน
+                </p>
+              </div>
+            ) : (
+              // Normal state - can create
+              <Link 
+                to="/resident/submit" 
+                className="block w-full bg-white text-red-600 font-semibold py-3 rounded-lg text-center active:bg-red-50 transition-colors"
+              >
+                💳 ชำระเงินเลย
+              </Link>
+            )
           )}
         </div>
       </div>
@@ -137,8 +184,8 @@ export default function MobileDashboard() {
                     <span className="text-xs text-gray-400">รอบบิล</span>
                     <p className="font-medium text-white">{inv.cycle || '-'}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(inv.status)}`}>
-                    {getStatusText(inv.status)}
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${getInvoiceStatusColor(inv.status)}`}>
+                    {getInvoiceStatusText(inv.status)}
                   </span>
                 </div>
                 
@@ -153,11 +200,7 @@ export default function MobileDashboard() {
                     {inv.invoice_type === 'monthly_auto' ? 'รายเดือน' : 'พิเศษ'}
                   </span>
                   <span className="text-gray-400">
-                    ครบกำหนด: {new Date(inv.due_date).toLocaleDateString('th-TH', { 
-                      day: 'numeric', 
-                      month: 'short',
-                      year: '2-digit'
-                    })}
+                    ครบกำหนด: {formatThaiDate(inv.due_date)}
                   </span>
                 </div>
               </div>
@@ -173,75 +216,116 @@ export default function MobileDashboard() {
           <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
             <div className="text-4xl mb-2">💳</div>
             <p className="text-gray-400">ยังไม่มีการส่งสลิป</p>
-            <Link 
-              to="/resident/submit"
-              className="inline-block mt-4 text-primary-400 font-medium"
-            >
-              ส่งสลิปเลย →
-            </Link>
+            {!hasBlockingPayin && (
+              <Link 
+                to="/resident/submit"
+                className="inline-block mt-4 text-primary-400 font-medium"
+              >
+                ส่งสลิปเลย →
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
-            {payins.map(payin => (
-              <div 
-                key={payin.id} 
-                className="bg-gray-800 rounded-lg p-4 border border-gray-700"
-              >
-                {/* Header */}
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <span className="text-xs text-gray-400">จำนวนเงิน</span>
-                    <p className="text-xl font-bold text-white">
-                      ฿{payin.amount.toLocaleString()}
-                    </p>
+            {payins.map(payin => {
+              // Use centralized date formatting
+              const { date: transferDate, time: transferTime } = formatPayinDateTime(payin);
+              const submittedDate = formatThaiDate(payin.created_at, {
+                day: 'numeric',
+                month: 'short',
+                year: '2-digit',
+              });
+              
+              // Use centralized action rules
+              const canEdit = canEditPayin(payin);
+              const canDelete = canDeletePayin(payin);
+              const isRejected = payin.status === 'REJECTED_NEEDS_FIX' || payin.status === 'REJECTED';
+              
+              return (
+                <div 
+                  key={payin.id} 
+                  className="bg-gray-800 rounded-lg p-4 border border-gray-700"
+                >
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span className="text-xs text-gray-400">จำนวนเงิน</span>
+                      <p className="text-xl font-bold text-white">
+                        ฿{payin.amount?.toLocaleString()}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadgeColor(payin.status)}`}>
+                      {getPayinStatusText(payin.status)}
+                    </span>
                   </div>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(payin.status)}`}>
-                    {getStatusText(payin.status)}
-                  </span>
-                </div>
-                
-                {/* Transfer Info */}
-                <div className="text-sm text-gray-400 mb-2">
-                  โอนเมื่อ: {new Date(payin.transfer_date).toLocaleDateString('th-TH', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: '2-digit'
-                  })} เวลา {payin.transfer_hour}:{String(payin.transfer_minute).padStart(2, '0')} น.
-                </div>
-
-                {/* Rejection Reason */}
-                {payin.reject_reason && (
-                  <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-2 mb-2">
-                    <p className="text-xs text-red-300">
-                      <strong>เหตุผล:</strong> {payin.reject_reason}
-                    </p>
+                  
+                  {/* Transfer Info - Using safe date formatting */}
+                  <div className="text-sm text-gray-400 mb-2">
+                    โอนเมื่อ: {transferDate} เวลา {transferTime} น.
                   </div>
-                )}
 
-                {/* Actions */}
-                {payin.status === 'rejected' && (
-                  <Link 
-                    to="/resident/submit" 
-                    state={{ editPayin: payin }}
-                    className="block w-full bg-primary-600 text-white text-center font-medium py-2 rounded mt-3 active:bg-primary-700"
-                  >
-                    แก้ไขและส่งใหม่
-                  </Link>
-                )}
+                  {/* Submitted Date */}
+                  <div className="text-xs text-gray-500 mb-2">
+                    ส่งข้อมูลเมื่อ: {submittedDate}
+                  </div>
 
-                {/* Submitted Date */}
-                <div className="text-xs text-gray-500 mt-2">
-                  ส่งเมื่อ: {new Date(payin.created_at).toLocaleDateString('th-TH', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
-                  })}
+                  {/* Rejection Reason - For both REJECTED and REJECTED_NEEDS_FIX */}
+                  {isRejected && (payin.rejection_reason || payin.reject_reason || payin.admin_note) && (
+                    <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-2 mb-2">
+                      <p className="text-xs text-red-300">
+                        <strong>⚠️ เหตุผล:</strong> {payin.rejection_reason || payin.reject_reason || payin.admin_note}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Actions - Based on centralized rules (min 44px tap targets) */}
+                  <div className="flex gap-2 mt-3">
+                    {/* View Detail - Always available */}
+                    <button
+                      onClick={() => setSelectedPayin(payin)}
+                      className="flex-1 bg-gray-700 text-white text-center font-medium py-3 rounded active:bg-gray-600 min-h-[44px]"
+                    >
+                      👁️ ดูรายละเอียด
+                    </button>
+                    
+                    {/* Edit - Only in editable states */}
+                    {canEdit && (
+                      <Link 
+                        to="/resident/submit" 
+                        state={{ editPayin: payin }}
+                        className="flex-1 bg-blue-600 text-white text-center font-medium py-3 rounded active:bg-blue-700 min-h-[44px] flex items-center justify-center"
+                      >
+                        {isRejected ? '🔄 แก้ไข' : '✏️ แก้ไข'}
+                      </Link>
+                    )}
+                    
+                    {/* Status indicator for read-only states */}
+                    {payin.status === 'SUBMITTED' && (
+                      <div className="flex-1 text-center text-blue-400 py-3 min-h-[44px] flex items-center justify-center">
+                        ⏳ รอตรวจสอบ
+                      </div>
+                    )}
+                    {payin.status === 'ACCEPTED' && (
+                      <div className="flex-1 text-center text-green-400 py-3 min-h-[44px] flex items-center justify-center">
+                        ✓ รับแล้ว
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Pay-in Detail Modal */}
+      {selectedPayin && (
+        <PayinDetailModal
+          payin={selectedPayin}
+          onClose={() => setSelectedPayin(null)}
+          onDelete={handleDeletePayin}
+        />
+      )}
     </MobileLayout>
   );
 }

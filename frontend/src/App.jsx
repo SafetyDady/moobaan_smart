@@ -17,6 +17,7 @@ import Invoices from './pages/admin/Invoices';
 import PayIns from './pages/admin/PayIns';
 import Expenses from './pages/admin/Expenses';
 import BankStatements from './pages/admin/BankStatements';
+import UnidentifiedReceipts from './pages/admin/UnidentifiedReceipts';
 
 // Resident pages (with mobile detection)
 import { ResidentDashboardWrapper, ResidentSubmitPaymentWrapper } from './pages/resident/ResidentRouteWrapper';
@@ -47,6 +48,7 @@ function App() {
                     <Route path="members" element={<Members />} />
                     <Route path="invoices" element={<Invoices />} />
                     <Route path="payins" element={<PayIns />} />
+                    <Route path="unidentified-receipts" element={<UnidentifiedReceipts />} />
                     <Route path="expenses" element={<Expenses />} />
                     <Route path="statements" element={<BankStatements />} />
                   </Routes>
@@ -65,6 +67,7 @@ function App() {
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="invoices" element={<Invoices />} />
                     <Route path="payins" element={<PayIns />} />
+                    <Route path="unidentified-receipts" element={<UnidentifiedReceipts />} />
                     <Route path="expenses" element={<Expenses />} />
                     <Route path="statements" element={<BankStatements />} />
                   </Routes>
@@ -73,17 +76,16 @@ function App() {
             }
           />
 
-          {/* Protected Routes - Resident */}
+          {/* Protected Routes - Resident (MOBILE ONLY - No Layout wrapper) */}
+          {/* Per RESIDENT_PAYIN_MOBILE_ONLY_SPEC: No sidebar, no desktop layout */}
           <Route
             path="/resident/*"
             element={
               <ProtectedRoute allowedRoles={['resident']}>
-                <Layout>
-                  <Routes>
-                    <Route path="dashboard" element={<ResidentDashboardWrapper />} />
-                    <Route path="submit" element={<ResidentSubmitPaymentWrapper />} />
-                  </Routes>
-                </Layout>
+                <Routes>
+                  <Route path="dashboard" element={<ResidentDashboardWrapper />} />
+                  <Route path="submit" element={<ResidentSubmitPaymentWrapper />} />
+                </Routes>
               </ProtectedRoute>
             }
           />

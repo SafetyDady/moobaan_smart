@@ -13,13 +13,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 if __name__ == "__main__":
     import uvicorn
     from app.core.config import settings
+    from app.main import app
     
-    # Force use of single worker on Windows for Python 3.13
+    # Use app object directly for better Windows compatibility
     uvicorn.run(
-        "app.main:app", 
+        app, 
         host="127.0.0.1", 
         port=settings.PORT, 
-        reload=False,  # Disable reload for now to avoid issues
-        workers=1,
         log_level="info"
     )

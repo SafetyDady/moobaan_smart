@@ -1,48 +1,32 @@
-import { useEffect, useState } from 'react';
-import { isMobileDevice } from '../../utils/deviceDetect';
+/**
+ * Resident Route Wrappers
+ * 
+ * IMPORTANT: Per RESIDENT_PAYIN_MOBILE_ONLY_SPEC.md Section 2.1:
+ * "Resident Desktop UI is intentionally removed by design."
+ * 
+ * These wrappers ALWAYS render mobile components regardless of device.
+ * Desktop browsers will see the mobile layout with max-width constraint.
+ */
 
-// Desktop versions
-import DesktopDashboard from './Dashboard';
-import DesktopSubmitPayment from './SubmitPayment';
-
-// Mobile versions
+// Mobile versions ONLY - Desktop versions removed by design
 import MobileDashboard from './mobile/MobileDashboard';
 import MobileSubmitPayment from './mobile/MobileSubmitPayment';
 
 /**
- * Wrapper component that automatically routes to mobile or desktop version
- * based on device detection
+ * Resident Dashboard - ALWAYS mobile layout
+ * Per spec: "If accessed from desktop browser, Resident must see mobile responsive layout only"
  */
 export const ResidentDashboardWrapper = () => {
-  const [isMobile, setIsMobile] = useState(isMobileDevice());
-
-  useEffect(() => {
-    // Re-check on window resize
-    const handleResize = () => {
-      setIsMobile(isMobileDevice());
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Render mobile or desktop version
-  return isMobile ? <MobileDashboard /> : <DesktopDashboard />;
+  // MOBILE ONLY - No device detection needed
+  // Desktop users see same mobile UI with max-width constraint
+  return <MobileDashboard />;
 };
 
+/**
+ * Resident Submit Payment - ALWAYS mobile layout
+ * Per spec: "Desktop-specific layouts, tables, or hover interactions are forbidden"
+ */
 export const ResidentSubmitPaymentWrapper = () => {
-  const [isMobile, setIsMobile] = useState(isMobileDevice());
-
-  useEffect(() => {
-    // Re-check on window resize
-    const handleResize = () => {
-      setIsMobile(isMobileDevice());
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Render mobile or desktop version
-  return isMobile ? <MobileSubmitPayment /> : <DesktopSubmitPayment />;
+  // MOBILE ONLY - No device detection needed
+  return <MobileSubmitPayment />;
 };

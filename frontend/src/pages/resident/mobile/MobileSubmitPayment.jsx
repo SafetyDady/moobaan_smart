@@ -74,33 +74,55 @@ export default function MobileSubmitPayment() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     setSubmitting(true);
     setError(null);
 
-    try {
-      // Validate house ID
-      if (!currentHouseId) {
-        setError('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
-        navigate('/auth/login');
-        return;
-      }
+    console.log('📱📱📱 Mobile handleSubmit CALLED!');
+    console.log('🔍 formData:', formData);
+    console.log('🔍 currentHouseId:', currentHouseId);
 
-      // Validate slip image for CREATE
+    try {
+      // Validate slip image FIRST for CREATE (most common error)
       if (!editPayin && !formData.slip_image) {
-        setError('กรุณาแนบสลิปก่อนส่ง');
+        console.log('❌ VALIDATION FAILED: No slip attached');
+        const msg = '❌ กรุณาแนบสลิปก่อนส่ง / Please attach slip first';
+        setError(msg);
+        alert(msg);
         setSubmitting(false);
         return;
       }
 
-      // Parse time and build ISO datetime
+      // Validate house ID
+      if (!currentHouseId) {
+        console.log('❌ VALIDATION FAILED: No house ID');
+        const msg = 'ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง';
+        setError(msg);
+        alert(msg);
+        setSubmitting(false);
+        return;
+      }
+
+      console.log('✅ VALIDATION PASSED');
+
+      // Parse time and build ISO datetime (local timezone)
       const [hour, minute] = formData.transfer_time.split(':');
       const paidAtDate = new Date(formData.transfer_date);
       paidAtDate.setHours(parseInt(hour), parseInt(minute), 0, 0);
-      const paidAtISO = paidAtDate.toISOString();
+      
+      // Format as ISO string but remove 'Z' to preserve local time
+      const year = paidAtDate.getFullYear();
+      const month = String(paidAtDate.getMonth() + 1).padStart(2, '0');
+      const day = String(paidAtDate.getDate()).padStart(2, '0');
+      const hourStr = String(paidAtDate.getHours()).padStart(2, '0');
+      const minuteStr = String(paidAtDate.getMinutes()).padStart(2, '0');
+      const paidAtISO = `${year}-${month}-${day}T${hourStr}:${minuteStr}:00`;
 
       console.log('📱 Mobile - Building FormData:', {
         amount: formData.amount,
         paid_at: paidAtISO,
+        hour: hourStr,
+        minute: minuteStr,
         slip: formData.slip_image?.name || 'none'
       });
 
@@ -120,7 +142,6 @@ export default function MobileSubmitPayment() {
         const submitFormData = new FormData();
         submitFormData.append('amount', parseFloat(formData.amount));
         submitFormData.append('paid_at', paidAtISO);
-        submitFormData.append('note', `Mobile submit at ${hour}:${minute}`);
         
         if (formData.slip_image) {
           submitFormData.append('slip', formData.slip_image);
@@ -131,34 +152,42 @@ export default function MobileSubmitPayment() {
         console.log('✅ Mobile - Success:', response.data);
         
         // Show success message
-        alert('✅ ส่งสลิปเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
+        alert('✅ ส่งสลิปเรียบร้อยแล้ว');
         
-        // Use window.location for full page reload to avoid auth state issues
-        setTimeout(() => {
-          window.location.href = '/resident/dashboard';
-        }, 300);
+        // Use navigate to preserve auth state
+        navigate('/resident/dashboard');
         return; // Prevent double navigation
       }
       
-      // For edit flow - also use window.location
+      // For edit flow - also use navigate
       alert('✅ แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
-      setTimeout(() => {
-        window.location.href = '/resident/dashboard';
-      }, 300);
+      navigate('/resident/dashboard');
     } catch (error) {
       console.error('❌ Mobile submit failed:', error);
       console.error('❌ Error response:', error.response?.data);
       
-      // Handle 409 duplicate submission gracefully
+      // Handle 409 - pay-in already exists (single-open rule)
       if (error.response?.status === 409) {
         const errorData = error.response?.data;
-        if (errorData?.detail?.code === 'PAYIN_PENDING_EXISTS') {
-          const msg = errorData.detail.message || 'มีรายการรอตรวจสอบอยู่แล้ว กรุณารอสักครู่ก่อนส่งใหม่';
+        const code = errorData?.detail?.code;
+        if (code === 'PAYIN_ALREADY_OPEN' || code === 'INCOMPLETE_PAYIN_EXISTS' || code === 'PAYIN_PENDING_EXISTS') {
+          const msg = errorData.detail.message || 'คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน';
           setError(msg);
           alert('⚠️ ' + msg);
           setSubmitting(false);
+          // Navigate back to dashboard
+          setTimeout(() => navigate('/resident/dashboard'), 1500);
           return;
         }
+      }
+      
+      // Handle network/CORS error
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        const msg = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (CORS/Network)';
+        setError(msg);
+        alert('❌ ' + msg);
+        setSubmitting(false);
+        return;
       }
       
       // Extract error message properly
@@ -219,12 +248,21 @@ export default function MobileSubmitPayment() {
         )}
 
         {/* Rejection Notice */}
-        {editPayin && editPayin.reject_reason && (
+        {editPayin && editPayin.status === 'REJECTED' && editPayin.reject_reason && (
           <div className="mb-6 bg-red-900 bg-opacity-30 border border-red-600 rounded-lg p-4">
             <p className="text-sm text-red-300 mb-1">
               <strong>⚠️ เหตุผลที่ถูกปฏิเสธ:</strong>
             </p>
             <p className="text-red-200">{editPayin.reject_reason}</p>
+          </div>
+        )}
+
+        {/* PENDING Edit Notice */}
+        {editPayin && editPayin.status === 'PENDING' && (
+          <div className="mb-6 bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4">
+            <p className="text-sm text-blue-300">
+              📝 กำลังแก้ไขรายการที่รอตรวจสอบ - คุณสามารถปรับปรุงข้อมูลได้
+            </p>
           </div>
         )}
 
@@ -328,7 +366,7 @@ export default function MobileSubmitPayment() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg text-lg transition-colors"
+            className="w-full bg-primary-600 active:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg text-lg transition-colors min-h-[44px]"
           >
             {submitting ? (
               <span>⏳ กำลังส่ง...</span>
@@ -344,7 +382,7 @@ export default function MobileSubmitPayment() {
             type="button"
             onClick={() => navigate('/resident/dashboard')}
             disabled={submitting}
-            className="w-full bg-gray-700 hover:bg-gray-600 active:bg-gray-600 disabled:bg-gray-800 text-white font-medium py-4 rounded-lg text-lg transition-colors"
+            className="w-full bg-gray-700 active:bg-gray-600 disabled:bg-gray-800 text-white font-medium py-4 rounded-lg text-lg transition-colors min-h-[44px]"
           >
             ยกเลิก
           </button>

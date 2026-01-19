@@ -160,7 +160,9 @@ class Invoice(BaseModel):
     invoice_type: InvoiceType
     cycle: Optional[str] = None
     total: float
-    status: InvoiceStatus
+    paid: Optional[float] = 0
+    outstanding: Optional[float] = None
+    status: str  # Changed from InvoiceStatus to str to accept any status value
     due_date: date
     items: List[InvoiceItem]
     created_at: datetime

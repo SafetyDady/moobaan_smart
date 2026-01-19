@@ -15,14 +15,21 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate user and return access token"""
+    # Debug: Log received credentials (mask password for security)
+    logger.info(f"Login attempt: email={login_data.email}, password_len={len(login_data.password)}")
+    
     user = authenticate_user(login_data.email, login_data.password, db)
     
     if not user:
+        logger.warning(f"Login failed for email: {login_data.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
