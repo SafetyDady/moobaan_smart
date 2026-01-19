@@ -59,12 +59,14 @@ This document defines the **final, agreed system behavior** for the Pay-in / Pay
 |------------|------------|
 | View Pay-in list | All statuses visible |
 | View Pay-in details | All statuses (read-only for non-editable) |
-| Create new Pay-in | Always allowed |
+| Create new Pay-in | Only if no open Pay-in exists (single-open rule) |
 | Edit Pay-in | Only when status is: `PENDING`, `REJECTED_NEEDS_FIX`, `DRAFT` |
-| Delete Pay-in | Only when status is: `PENDING`, `REJECTED_NEEDS_FIX`, `DRAFT` |
+| Delete Pay-in | Only when status is: `REJECTED_NEEDS_FIX`, `DRAFT` **(NOT PENDING)** |
 | Upload/replace payment slip | Only when Pay-in is editable |
 | View rejection reason | Read-only, shown prominently |
 | View admin notes | Read-only |
+
+> **A.1.x Rule:** PENDING status is editable but NOT deletable. Resident must edit to fix mistakes.
 
 ### 3.2 What Residents CANNOT Do
 
@@ -143,16 +145,23 @@ Admin may create a Pay-in on behalf of a Resident when:
 | State | Description | Resident Editable | Resident Deletable |
 |-------|-------------|-------------------|-------------------|
 | `DRAFT` | Started but not submitted | ✅ Yes | ✅ Yes |
-| `SUBMITTED` | Awaiting admin review | ❌ No | ❌ No |
+| `PENDING` | **Primary state**: Resident submitted, awaiting review | ✅ Yes | ❌ **No** |
+| `SUBMITTED` | Admin queue state (legacy, read-only) | ❌ No | ❌ No |
 | `REJECTED_NEEDS_FIX` | Admin rejected, needs correction | ✅ Yes | ✅ Yes |
 | `ACCEPTED` | Approved, Ledger created | ❌ No | ❌ No |
 
-**Legacy States (backward compatibility):**
+> **A.1.x Implementation Note (2026-01-19):**
+> - Resident Create → **PENDING** (skips DRAFT)
+> - PENDING = editable, **NOT deletable**
+> - Edit keeps status as PENDING until Admin accepts/rejects
+> - Single-open rule: Only one DRAFT/PENDING/REJECTED_NEEDS_FIX/SUBMITTED allowed per house
 
-| Legacy State | Maps To |
-|--------------|---------|
-| `PENDING` | `SUBMITTED` |
-| `REJECTED` | `REJECTED_NEEDS_FIX` |
+**Legacy State Mapping (backward compatibility):**
+
+| Legacy State | Current State | Notes |
+|--------------|---------------|-------|
+| `PENDING` | `PENDING` | Now the primary editable state |
+| `REJECTED` | `REJECTED_NEEDS_FIX` | Renamed for clarity |
 
 ### 5.2 State Transition Rules
 

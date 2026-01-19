@@ -193,3 +193,60 @@ After Phase A is validated:
 - Add ledger entry creation on Accept
 - Connect invoice payment tracking
 - Add payment reconciliation reports
+---
+
+## 10. Phase A.1.x Hardening (2026-01-19)
+
+### Overview
+Phase A.1.x focuses on Resident Pay-in mobile UX with proper status-based action rules.
+
+### Key Changes
+
+#### 10.1 Status Flow Updated
+
+| Before A.1.x | After A.1.x |
+|-------------|-------------|
+| Create → DRAFT → SUBMITTED | Create → **PENDING** directly |
+| PENDING = legacy state | PENDING = **primary editable state** |
+| Edit → SUBMITTED | Edit → **keeps PENDING** |
+
+#### 10.2 Single-Open Rule
+Only ONE open Pay-in per house at a time. Blocking statuses:
+- DRAFT
+- PENDING
+- REJECTED_NEEDS_FIX
+- SUBMITTED
+
+Only `ACCEPTED` status allows creating a new Pay-in.
+
+#### 10.3 PENDING Status Rules
+| Action | Allowed |
+|--------|---------|
+| View | ✅ |
+| Edit | ✅ |
+| Delete | ❌ **No** |
+
+> PENDING can be edited but NOT deleted. Resident must edit to correct mistakes.
+
+#### 10.4 Backend Changes
+- `backend/app/api/payins.py`:
+  - Create endpoint: `status=PayinStatusEnum.PENDING`
+  - Update endpoint: keeps `status=PayinStatusEnum.PENDING`
+  - Single-open rule blocking check
+
+#### 10.5 Frontend Changes
+- `frontend/src/utils/payinStatus.js`:
+  - `EDITABLE_STATUSES`: DRAFT, PENDING, REJECTED_NEEDS_FIX
+  - `DELETABLE_STATUSES`: DRAFT, REJECTED_NEEDS_FIX (NOT PENDING)
+  - `BLOCKING_STATUSES`: DRAFT, PENDING, REJECTED_NEEDS_FIX, SUBMITTED
+
+#### 10.6 Migration Script
+`backend/fix_submitted_to_pending.py` - Converts existing SUBMITTED → PENDING
+
+### Testing Checklist A.1.x
+- [x] Create Pay-in → status is PENDING
+- [x] Edit Pay-in → status stays PENDING
+- [x] Edit button visible for PENDING
+- [x] Delete button NOT visible for PENDING
+- [x] Cannot create new Pay-in if PENDING exists
+- [x] ACCEPTED allows creating new Pay-in
