@@ -172,7 +172,10 @@ export default function PaymentHistory() {
                           ฿{payin.amount?.toLocaleString('th-TH') || '0'}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">
-                          {formatPayinDateTime(payin.created_at)}
+                          {(() => {
+                            const dt = formatPayinDateTime(payin);
+                            return `${dt.date} ${dt.time}`;
+                          })()}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
