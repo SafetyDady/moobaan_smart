@@ -157,3 +157,17 @@
 - [ ] Verify status colors/logic unchanged (PENDING=yellow, REJECTED_NEEDS_FIX=red, SUBMITTED=gray, ACCEPTED=green)
 - [ ] Test all navigation flows (REQUIRES DOCKER/DB)
 - [x] Prepare git pull documentation (VILLAGE_DASHBOARD_IMPLEMENTATION.md)
+
+
+## Phase 1.9 - Add Payment History and Profile Pages
+
+- [x] Create mockup for Payment History page (Option A: Tabs)
+- [x] Create mockup for Payment History page (Option B: Single view)
+- [x] Get user approval on design (Option A selected)
+- [x] Implement PaymentHistory.jsx page
+- [x] Implement Profile.jsx page
+- [x] Add routes in App.jsx
+- [x] Add wrappers in ResidentRouteWrapper.jsx
+- [ ] Test all 5 navigation items work
+- [ ] Verify status colors/logic unchanged
+- [ ] Commit and push to GitHub

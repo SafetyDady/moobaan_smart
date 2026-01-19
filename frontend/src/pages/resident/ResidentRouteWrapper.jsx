@@ -12,6 +12,8 @@
 import MobileDashboard from './mobile/MobileDashboard';
 import MobileSubmitPayment from './mobile/MobileSubmitPayment';
 import VillageDashboard from './mobile/VillageDashboard';
+import PaymentHistory from './mobile/PaymentHistory';
+import Profile from './mobile/Profile';
 
 /**
  * Resident Dashboard - ALWAYS mobile layout
@@ -39,4 +41,22 @@ export const ResidentSubmitPaymentWrapper = () => {
 export const ResidentVillageDashboardWrapper = () => {
   // MOBILE ONLY - No device detection needed
   return <VillageDashboard />;
+};
+
+/**
+ * Payment History - ALWAYS mobile layout
+ * Shows payment submission history and invoice history with tabs
+ */
+export const ResidentPaymentHistoryWrapper = () => {
+  // MOBILE ONLY - No device detection needed
+  return <PaymentHistory />;
+};
+
+/**
+ * Profile - ALWAYS mobile layout
+ * Shows user profile and settings
+ */
+export const ResidentProfileWrapper = () => {
+  // MOBILE ONLY - No device detection needed
+  return <Profile />;
 };
