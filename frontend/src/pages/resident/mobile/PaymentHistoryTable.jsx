@@ -1,6 +1,5 @@
 import React from 'react';
-import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
+import { formatPayinDateTime } from '../../../utils/payinStatus';
 
 /**
  * PaymentHistoryTable Component
@@ -40,20 +39,10 @@ const PaymentHistoryTable = ({ payins, onView, onEdit }) => {
     return ['DRAFT', 'PENDING', 'REJECTED', 'REJECTED_NEEDS_FIX'].includes(status);
   };
 
-  // ฟังก์ชันจัดรูปแบบวันที่และเวลา
-  const formatDateTime = (transferDate, transferTime) => {
-    try {
-      const dateStr = `${transferDate}T${transferTime}`;
-      const date = new Date(dateStr);
-      
-      // Format: "1 ม.ค. 69 11:11"
-      const dayMonth = format(date, 'd MMM. yy', { locale: th });
-      const time = format(date, 'HH:mm');
-      
-      return `${dayMonth} ${time}`;
-    } catch (error) {
-      return `${transferDate} ${transferTime}`;
-    }
+  // ฟังก์ชันจัดรูปแบบวันที่และเวลา (ใช้ centralized utility)
+  const formatDateTime = (payin) => {
+    const { date, time } = formatPayinDateTime(payin);
+    return `${date} ${time}`;
   };
 
   // ฟังก์ชันจัดรูปแบบจำนวนเงิน
@@ -114,8 +103,8 @@ const PaymentHistoryTable = ({ payins, onView, onEdit }) => {
 
                 {/* Column 2: Date-Time */}
                 <td className="px-2 py-3">
-                  <span className="text-gray-300 text-sm">
-                    {formatDateTime(payin.transfer_date, payin.transfer_time)}
+                  <span className="text-gray-300 text-sm break-words">
+                    {formatDateTime(payin)}
                   </span>
                 </td>
 

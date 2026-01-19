@@ -83,9 +83,9 @@ export default function MobileDashboard() {
   // Invoice status colors (separate from Pay-in)
   const getInvoiceStatusColor = (status) => {
     const colors = {
-      pending: 'bg-yellow-500 text-white',
-      paid: 'bg-green-500 text-white',
-      overdue: 'bg-red-500 text-white',
+      pending: 'bg-yellow-500 text-black',  // เหลือง - รอชำระ
+      paid: 'bg-green-500 text-white',      // เขียว - ชำระแล้ว
+      overdue: 'bg-red-500 text-white',     // แดง - เกินกำหนด
     };
     return colors[status] || 'bg-gray-500 text-white';
   };
