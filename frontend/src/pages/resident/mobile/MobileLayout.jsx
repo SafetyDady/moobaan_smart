@@ -1,3 +1,16 @@
+/**
+ * MobileLayout - Resident Mobile-only Layout
+ * 
+ * Per OPTION A.1 Spec:
+ * - Single column layout (100vw)
+ * - Card-based UI only
+ * - No tables, no hover
+ * - Minimum 44px tap target
+ * - Thai language only
+ * - Bottom navigation = primary navigation
+ * - No sidebar, no top desktop menu
+ */
+
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRole } from '../../../contexts/RoleContext';
@@ -31,20 +44,21 @@ export default function MobileLayout({ children }) {
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900">
-      {/* Header */}
+    // Full width layout - same on mobile and desktop (100vw)
+    <div className="flex flex-col min-h-screen w-full bg-gray-900">
+      {/* Header - Sticky top */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
         <div>
           <h1 className="text-lg font-bold text-primary-400">
             🏘️ Moobaan Smart
           </h1>
           <p className="text-xs text-gray-400">
-            {currentHouseCode ? `บ้านเลขที่ ${currentHouseCode}` : (user?.name || 'Resident')}
+            {currentHouseCode ? `บ้านเลขที่ ${currentHouseCode}` : (user?.name || 'ลูกบ้าน')}
           </p>
         </div>
         <button
           onClick={handleLogout}
-          className="text-gray-400 hover:text-white text-sm px-3 py-1.5 rounded bg-gray-700"
+          className="text-gray-400 active:text-white text-sm px-3 py-2 rounded bg-gray-700 min-h-[44px] min-w-[44px]"
         >
           ออกจากระบบ
         </button>
@@ -55,7 +69,7 @@ export default function MobileLayout({ children }) {
         {children}
       </main>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - Fixed sticky bottom bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 z-30">
         <div className="flex">
           {navItems.map(item => {
@@ -64,7 +78,7 @@ export default function MobileLayout({ children }) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex-1 flex flex-col items-center justify-center h-16 transition-colors ${
+                className={`flex-1 flex flex-col items-center justify-center min-h-[64px] transition-colors ${
                   isActive 
                     ? 'text-primary-400 bg-gray-750' 
                     : 'text-gray-400 active:bg-gray-750'

@@ -1,3 +1,14 @@
+/**
+ * @deprecated This Desktop SubmitPayment is no longer used.
+ * Per RESIDENT_PAYIN_MOBILE_ONLY_SPEC.md Section 2.1:
+ * "Resident Desktop UI is intentionally removed by design."
+ * 
+ * All Resident users now see MobileSubmitPayment regardless of device.
+ * This file is kept for reference but is not rendered.
+ * 
+ * See: frontend/src/pages/resident/ResidentRouteWrapper.jsx
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { payinsAPI } from '../../api/client';

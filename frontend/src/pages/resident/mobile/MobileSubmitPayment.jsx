@@ -166,16 +166,28 @@ export default function MobileSubmitPayment() {
       console.error('❌ Mobile submit failed:', error);
       console.error('❌ Error response:', error.response?.data);
       
-      // Handle 409 duplicate submission gracefully
+      // Handle 409 - pay-in already exists (single-open rule)
       if (error.response?.status === 409) {
         const errorData = error.response?.data;
-        if (errorData?.detail?.code === 'PAYIN_PENDING_EXISTS') {
-          const msg = errorData.detail.message || 'มีรายการรอตรวจสอบอยู่แล้ว กรุณารอสักครู่ก่อนส่งใหม่';
+        const code = errorData?.detail?.code;
+        if (code === 'PAYIN_ALREADY_OPEN' || code === 'INCOMPLETE_PAYIN_EXISTS' || code === 'PAYIN_PENDING_EXISTS') {
+          const msg = errorData.detail.message || 'คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน';
           setError(msg);
           alert('⚠️ ' + msg);
           setSubmitting(false);
+          // Navigate back to dashboard
+          setTimeout(() => navigate('/resident/dashboard'), 1500);
           return;
         }
+      }
+      
+      // Handle network/CORS error
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        const msg = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (CORS/Network)';
+        setError(msg);
+        alert('❌ ' + msg);
+        setSubmitting(false);
+        return;
       }
       
       // Extract error message properly
@@ -354,7 +366,7 @@ export default function MobileSubmitPayment() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg text-lg transition-colors"
+            className="w-full bg-primary-600 active:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg text-lg transition-colors min-h-[44px]"
           >
             {submitting ? (
               <span>⏳ กำลังส่ง...</span>
@@ -370,7 +382,7 @@ export default function MobileSubmitPayment() {
             type="button"
             onClick={() => navigate('/resident/dashboard')}
             disabled={submitting}
-            className="w-full bg-gray-700 hover:bg-gray-600 active:bg-gray-600 disabled:bg-gray-800 text-white font-medium py-4 rounded-lg text-lg transition-colors"
+            className="w-full bg-gray-700 active:bg-gray-600 disabled:bg-gray-800 text-white font-medium py-4 rounded-lg text-lg transition-colors min-h-[44px]"
           >
             ยกเลิก
           </button>

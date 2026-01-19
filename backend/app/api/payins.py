@@ -127,23 +127,25 @@ async def create_payin_report(
         if not house:
             raise HTTPException(status_code=404, detail="House not found")
         
-        # Soft duplicate prevention: check for recent PENDING payins (within 5 minutes)
-        from datetime import datetime, timedelta, timezone
-        five_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
-        recent_pending = db.query(PayinReportModel).filter(
+        # Single-open rule: Block create if there's any open pay-in
+        # Per A.1.2 spec: DRAFT, PENDING, REJECTED_NEEDS_FIX, SUBMITTED all block new creation
+        # User must complete or delete existing before creating new
+        blocking_statuses = ["DRAFT", "PENDING", "REJECTED_NEEDS_FIX", "SUBMITTED"]
+        existing_incomplete = db.query(PayinReportModel).filter(
             PayinReportModel.house_id == user_house_id,
-            PayinReportModel.status == "PENDING",
-            PayinReportModel.created_at >= five_minutes_ago
+            PayinReportModel.status.in_(blocking_statuses)
         ).first()
         
-        if recent_pending:
+        if existing_incomplete:
+            status_value = existing_incomplete.status.value if hasattr(existing_incomplete.status, 'value') else str(existing_incomplete.status)
             raise HTTPException(
                 status_code=409,
                 detail={
-                    "code": "PAYIN_PENDING_EXISTS",
-                    "message": "มีรายการรอตรวจสอบอยู่แล้ว กรุณารอสักครู่ก่อนส่งใหม่",
-                    "existing_payin_id": recent_pending.id,
-                    "created_at": recent_pending.created_at.isoformat()
+                    "code": "PAYIN_ALREADY_OPEN",
+                    "message": "คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน",
+                    "existing_payin_id": existing_incomplete.id,
+                    "existing_status": status_value,
+                    "created_at": existing_incomplete.created_at.isoformat() if existing_incomplete.created_at else None
                 }
             )
         
@@ -180,7 +182,7 @@ async def create_payin_report(
             transfer_hour=paid_at_datetime.hour,
             transfer_minute=paid_at_datetime.minute,
             slip_url=slip_url,
-            status=PayinStatusEnum.SUBMITTED,  # New: starts as SUBMITTED for immediate review
+            status=PayinStatusEnum.PENDING,  # PENDING = editable by resident until admin reviews
             source=PayinSource.RESIDENT,
             rejection_reason=None,
             accepted_by=None,
@@ -216,8 +218,23 @@ async def create_payin_report(
 
 
 @router.put("/{payin_id}", response_model=dict)
-async def update_payin_report(payin_id: int, payin: PayInReportUpdate, db: Session = Depends(get_db)):
-    """Update a pay-in report (only when DRAFT or REJECTED_NEEDS_FIX)"""
+async def update_payin_report(
+    payin_id: int, 
+    payin: PayInReportUpdate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_user),
+    user_house_id: Optional[int] = Depends(get_user_house_id)
+):
+    """Update a pay-in report
+    
+    Per A.1.2 spec - Editable statuses:
+    - DRAFT: edit ✅
+    - PENDING: edit ✅ (can edit but not delete)
+    - REJECTED_NEEDS_FIX: edit ✅
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     existing = db.query(PayinReportModel).options(
         joinedload(PayinReportModel.house)
     ).filter(PayinReportModel.id == payin_id).first()
@@ -225,12 +242,24 @@ async def update_payin_report(payin_id: int, payin: PayInReportUpdate, db: Sessi
     if not existing:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
+    # Ownership check for residents
+    if current_user.role == "resident":
+        if user_house_id != existing.house_id:
+            raise HTTPException(status_code=403, detail="Access denied to this house's data")
+    
     # Only allow update when can be edited
     if not existing.can_be_edited():
+        status_value = existing.status.value if hasattr(existing.status, 'value') else str(existing.status)
         raise HTTPException(
             status_code=400,
-            detail=f"Can only edit pay-in reports in DRAFT or REJECTED_NEEDS_FIX status (current: {existing.status.value})"
+            detail={
+                "code": "CANNOT_EDIT",
+                "message": f"ไม่สามารถแก้ไขรายการสถานะ {status_value} ได้",
+                "status": status_value
+            }
         )
+    
+    logger.info(f"Updating payin {payin_id} by user {current_user.id}, current status={existing.status}")
     
     # Update fields if provided
     if payin.amount is not None:
@@ -244,14 +273,17 @@ async def update_payin_report(payin_id: int, payin: PayInReportUpdate, db: Sessi
     if payin.slip_image_url is not None:
         existing.slip_url = payin.slip_image_url  # Database field is slip_url
     
-    # Reset to SUBMITTED after edit (resubmit for review)
-    existing.status = PayinStatusEnum.SUBMITTED
+    # Keep status as PENDING after edit (still editable by resident)
+    # Status only changes when admin accepts/rejects
+    existing.status = PayinStatusEnum.PENDING
     existing.rejection_reason = None
     existing.submitted_at = datetime.now()
     existing.updated_at = datetime.now()
     
     db.commit()
     db.refresh(existing)
+    
+    logger.info(f"✅ Payin {payin_id} updated successfully, status=PENDING")
     
     return {
         "id": existing.id,
@@ -471,32 +503,110 @@ async def delete_payin_report(
     current_user: User = Depends(require_user),
     user_house_id: Optional[int] = Depends(get_user_house_id)
 ):
-    """Delete a pay-in report (residents can only delete their own PENDING/REJECTED pay-ins)"""
-    payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
-    if not payin:
-        raise HTTPException(status_code=404, detail="Pay-in report not found")
+    """Delete a pay-in report
     
-    # Role-based access control
-    if current_user.role == "resident":
-        if user_house_id != payin.house_id:
-            raise HTTPException(status_code=403, detail="Access denied to this house's data")
-        # Residents can only delete PENDING or REJECTED pay-ins
-        if payin.status not in ["PENDING", "REJECTED"]:
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot delete accepted pay-in reports"
-            )
-    elif current_user.role in ["accounting", "super_admin"]:
-        # Admins can delete any non-accepted pay-in
-        if payin.status == "ACCEPTED":
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot delete an accepted pay-in report"
-            )
-    else:
-        raise HTTPException(status_code=403, detail="Access denied")
+    Resident can delete:
+    - DRAFT
+    - REJECTED_NEEDS_FIX (and legacy REJECTED)
     
-    db.delete(payin)
-    db.commit()
+    Resident CANNOT delete:
+    - PENDING (must edit instead)
+    - SUBMITTED (under review)
+    - ACCEPTED (permanent record)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
     
-    return {"message": "Pay-in report deleted successfully"}
+    logger.info(f"DELETE /payin-reports/{payin_id} by user={current_user.id} role={current_user.role}")
+    
+    try:
+        payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
+        if not payin:
+            logger.warning(f"Payin {payin_id} not found")
+            raise HTTPException(status_code=404, detail="Pay-in report not found")
+        
+        # Get status value for comparison (handle both Enum and string)
+        status_value = payin.status.value if hasattr(payin.status, 'value') else str(payin.status)
+        logger.info(f"Payin {payin_id} status={status_value} house_id={payin.house_id}")
+        
+        # Deletable statuses for residents
+        DELETABLE_STATUSES = ["DRAFT", "REJECTED_NEEDS_FIX", "REJECTED"]
+        
+        # Role-based access control
+        if current_user.role == "resident":
+            if user_house_id != payin.house_id:
+                logger.warning(f"Access denied: user house={user_house_id} != payin house={payin.house_id}")
+                raise HTTPException(status_code=403, detail="Access denied to this house's data")
+            
+            # Residents can only delete DRAFT or REJECTED pay-ins
+            if status_value not in DELETABLE_STATUSES:
+                logger.info(f"Cannot delete status={status_value}, not in {DELETABLE_STATUSES}")
+                # Return proper error code for UI to translate
+                if status_value in ["PENDING", "SUBMITTED"]:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "CANNOT_DELETE_PENDING",
+                            "message": "ไม่สามารถลบรายการที่รอตรวจสอบได้ กรุณาแก้ไขแทน",
+                            "status": status_value
+                        }
+                    )
+                elif status_value == "ACCEPTED":
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "CANNOT_DELETE_ACCEPTED",
+                            "message": "ไม่สามารถลบรายการที่ยืนยันแล้วได้",
+                            "status": status_value
+                        }
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "CANNOT_DELETE",
+                            "message": f"ไม่สามารถลบรายการสถานะ {status_value} ได้",
+                            "status": status_value
+                        }
+                    )
+        elif current_user.role in ["accounting", "super_admin"]:
+            # Admins can delete any non-accepted pay-in
+            if status_value == "ACCEPTED":
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "CANNOT_DELETE_ACCEPTED",
+                        "message": "Cannot delete an accepted pay-in report",
+                        "status": status_value
+                    }
+                )
+        else:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Clear any related bank transaction links before delete (avoid FK constraint errors)
+        if payin.matched_statement_txn_id:
+            logger.info(f"Clearing matched_statement_txn_id={payin.matched_statement_txn_id}")
+            payin.matched_statement_txn_id = None
+        if payin.reference_bank_transaction_id:
+            logger.info(f"Clearing reference_bank_transaction_id={payin.reference_bank_transaction_id}")
+            payin.reference_bank_transaction_id = None
+        
+        # Delete the pay-in
+        db.delete(payin)
+        db.commit()
+        
+        logger.info(f"✅ Payin {payin_id} deleted successfully")
+        return {"message": "ลบรายการสำเร็จ", "payin_id": payin_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error deleting payin {payin_id}: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "DELETE_ERROR",
+                "message": "เกิดข้อผิดพลาดในการลบรายการ กรุณาลองใหม่"
+            }
+        )

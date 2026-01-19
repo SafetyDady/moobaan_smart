@@ -76,17 +76,16 @@ function App() {
             }
           />
 
-          {/* Protected Routes - Resident */}
+          {/* Protected Routes - Resident (MOBILE ONLY - No Layout wrapper) */}
+          {/* Per RESIDENT_PAYIN_MOBILE_ONLY_SPEC: No sidebar, no desktop layout */}
           <Route
             path="/resident/*"
             element={
               <ProtectedRoute allowedRoles={['resident']}>
-                <Layout>
-                  <Routes>
-                    <Route path="dashboard" element={<ResidentDashboardWrapper />} />
-                    <Route path="submit" element={<ResidentSubmitPaymentWrapper />} />
-                  </Routes>
-                </Layout>
+                <Routes>
+                  <Route path="dashboard" element={<ResidentDashboardWrapper />} />
+                  <Route path="submit" element={<ResidentSubmitPaymentWrapper />} />
+                </Routes>
               </ProtectedRoute>
             }
           />

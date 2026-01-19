@@ -111,8 +111,16 @@ class PayinReport(Base):
         return self.status == PayinStatus.ACCEPTED
 
     def can_be_edited(self):
-        """Check if payin can be edited by resident"""
-        return self.status in [PayinStatus.DRAFT, PayinStatus.REJECTED_NEEDS_FIX]
+        """Check if payin can be edited by resident
+        
+        Per A.1.2 spec:
+        - DRAFT: edit ✅
+        - PENDING: edit ✅ (can edit but not delete)
+        - REJECTED_NEEDS_FIX: edit ✅
+        - SUBMITTED: edit ❌
+        - ACCEPTED: edit ❌
+        """
+        return self.status in [PayinStatus.DRAFT, PayinStatus.PENDING, PayinStatus.REJECTED_NEEDS_FIX]
 
     def can_be_submitted(self):
         """Check if payin can be submitted for review"""

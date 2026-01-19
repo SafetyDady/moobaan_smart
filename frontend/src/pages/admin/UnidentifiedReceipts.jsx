@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { safeParseDate, formatThaiDate, formatThaiTime } from '../../utils/payinStatus';
 
 export default function UnidentifiedReceipts() {
   const [transactions, setTransactions] = useState([]);
@@ -103,28 +104,37 @@ export default function UnidentifiedReceipts() {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.id}>
-                    <td className="text-gray-300">
-                      {new Date(tx.transaction_date).toLocaleDateString('th-TH')}
-                    </td>
-                    <td className="text-gray-300 max-w-xs truncate" title={tx.description}>
-                      {tx.description || '-'}
-                    </td>
-                    <td className="font-medium text-green-400">
-                      +฿{tx.amount?.toLocaleString()}
-                    </td>
-                    <td className="text-gray-400">{tx.bank_name || '-'}</td>
-                    <td>
-                      <button
-                        onClick={() => openCreateModal(tx)}
-                        className="btn-primary text-sm"
-                      >
-                        สร้าง Pay-in
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {transactions.map((tx) => {
+                  // Use effective_at (correct field from backend), NOT transaction_date
+                  const txDate = formatThaiDate(tx.effective_at);
+                  const txTime = formatThaiTime(tx.effective_at);
+                  
+                  return (
+                    <tr key={tx.id}>
+                      <td className="text-gray-300">
+                        {txDate}
+                        {txTime !== '-' && (
+                          <span className="text-gray-500 text-sm ml-1">{txTime}</span>
+                        )}
+                      </td>
+                      <td className="text-gray-300 max-w-xs truncate" title={tx.description}>
+                        {tx.description || '-'}
+                      </td>
+                      <td className="font-medium text-green-400">
+                        +฿{tx.amount?.toLocaleString() ?? tx.credit?.toLocaleString() ?? '0'}
+                      </td>
+                      <td className="text-gray-400">{tx.bank_name || '-'}</td>
+                      <td>
+                        <button
+                          onClick={() => openCreateModal(tx)}
+                          className="btn-primary text-sm"
+                        >
+                          สร้าง Pay-in
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -139,10 +149,10 @@ export default function UnidentifiedReceipts() {
             
             <div className="mb-4 p-3 bg-gray-700 rounded">
               <p className="text-gray-300 text-sm">
-                <strong>วันที่:</strong> {new Date(selectedTx.transaction_date).toLocaleDateString('th-TH')}
+                <strong>วันที่:</strong> {formatThaiDate(selectedTx.effective_at)} {formatThaiTime(selectedTx.effective_at)}
               </p>
               <p className="text-gray-300 text-sm">
-                <strong>จำนวนเงิน:</strong> ฿{selectedTx.amount?.toLocaleString()}
+                <strong>จำนวนเงิน:</strong> ฿{selectedTx.amount?.toLocaleString() ?? selectedTx.credit?.toLocaleString() ?? '0'}
               </p>
               <p className="text-gray-300 text-sm truncate">
                 <strong>รายละเอียด:</strong> {selectedTx.description || '-'}
