@@ -171,3 +171,15 @@
 - [x] Test all 5 navigation items work (code review complete)
 - [x] Verify status colors/logic unchanged (verified - read-only)
 - [x] Commit and push to GitHub (commit 05d0bd0)
+
+## Login Page Update (Jan 19, 2026)
+
+- [x] Create mockup for updated Login page
+- [x] Remove Demo Accounts section
+- [x] Change icon to modern design (Building2 from lucide-react)
+- [x] Update branding: "Village Accounting" → "Moobaan Smart"
+- [x] Update subtitle: "ระบบบัญชีหมู่บ้านจัดสรร" → "ระบบบริหารหมู่บ้านจัดสรร"
+- [x] Get user approval on mockup
+- [x] Implement changes in Login.jsx
+- [ ] Test login functionality
+- [ ] Commit and push changes

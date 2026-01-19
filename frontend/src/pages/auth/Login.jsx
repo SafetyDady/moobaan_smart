@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { Building2 } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -52,10 +53,15 @@ export default function Login() {
       <div className="max-w-md w-full">
         {/* Logo/Title */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-400 mb-2">
-            🏘️ Village Accounting
+          <div className="flex justify-center mb-4">
+            <div className="p-4 bg-gradient-to-br from-primary-500 to-teal-500 rounded-2xl">
+              <Building2 className="w-12 h-12 text-white" />
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Moobaan Smart
           </h1>
-          <p className="text-gray-400">ระบบบัญชีหมู่บ้านจัดสรรค์</p>
+          <p className="text-gray-400">ระบบบริหารหมู่บ้านจัดสรร</p>
         </div>
 
         {/* Login Card */}
@@ -125,16 +131,6 @@ export default function Login() {
               {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ / Login'}
             </button>
           </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-            <p className="text-xs text-gray-400 mb-2 font-semibold">Demo Accounts:</p>
-            <div className="text-xs text-gray-400 space-y-1">
-              <div><span className="text-primary-400">Admin:</span> admin / admin123</div>
-              <div><span className="text-primary-400">Accounting:</span> accounting / acc123</div>
-              <div><span className="text-primary-400">Resident:</span> resident / res123</div>
-            </div>
-          </div>
 
           {/* Contact Admin */}
           <div className="mt-4 text-center">
