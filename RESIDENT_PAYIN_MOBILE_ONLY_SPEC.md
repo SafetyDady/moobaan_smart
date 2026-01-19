@@ -106,24 +106,29 @@ Current auth remains username/password. Future auth improvements are separate in
 
 | Status | Thai Label | Description |
 |--------|------------|-------------|
-| `DRAFT` | แบบร่าง | Saved but not submitted (optional state) |
-| `PENDING` | รอตรวจสอบ | Legacy: Submitted, awaiting review |
-| `SUBMITTED` | ส่งแล้ว | Submitted, awaiting Admin review |
+| `DRAFT` | แบบร่าง | Saved but not submitted (reserved, not used in current flow) |
+| `PENDING` | รอตรวจสอบ | **Primary state**: Submitted, awaiting review, **editable by resident** |
+| `SUBMITTED` | ส่งแล้ว | Legacy/Admin state: Read-only, under review |
 | `REJECTED_NEEDS_FIX` | ถูกปฏิเสธ - กรุณาแก้ไข | Admin rejected, Resident must fix |
 | `ACCEPTED` | ยืนยันแล้ว | Admin accepted, final state |
+
+> **A.1.x Implementation Note (2026-01-19):**  
+> - Resident Create → **PENDING** (skips DRAFT)
+> - PENDING = editable, **NOT deletable**
+> - Edit keeps status as PENDING until Admin accepts/rejects
 
 ### 5.2 Status Flow (Resident Perspective)
 
 ```
-[Create] → DRAFT → [Submit] → SUBMITTED
-                                  ↓
-                    ┌─────────────┴─────────────┐
-                    ↓                           ↓
-            REJECTED_NEEDS_FIX              ACCEPTED
-                    ↓                        (Final)
-              [Edit & Resubmit]
-                    ↓
-               SUBMITTED
+[Resident Creates] ──────────────────────► PENDING (editable)
+                                              │
+                                              ├── [Resident Edits] ──► PENDING (still editable)
+                                              │
+                                              ├── [Admin Rejects] ──► REJECTED_NEEDS_FIX
+                                              │                              │
+                                              │                              └── [Resident Edits] ──► PENDING
+                                              │
+                                              └── [Admin Accepts] ──► ACCEPTED (locked)
 ```
 
 ---
@@ -132,13 +137,15 @@ Current auth remains username/password. Future auth improvements are separate in
 
 ### 6.1 Editable States
 
-Residents **CAN** edit and delete Pay-in when status is:
+Residents **CAN** edit Pay-in when status is:
 
-| Status | Edit | Delete | Resubmit |
-|--------|------|--------|----------|
-| `DRAFT` | ✅ | ✅ | ✅ (becomes SUBMITTED) |
-| `PENDING` | ✅ | ✅ | N/A (already submitted) |
-| `REJECTED_NEEDS_FIX` | ✅ | ✅ | ✅ (becomes SUBMITTED) |
+| Status | Edit | Delete | Create New |
+|--------|------|--------|------------|
+| `DRAFT` | ✅ | ✅ | ❌ (blocked) |
+| `PENDING` | ✅ | ❌ **No** | ❌ (blocked) |
+| `REJECTED_NEEDS_FIX` | ✅ | ✅ | ❌ (blocked) |
+
+> **A.1.x Rule:** PENDING can be edited but **NOT deleted**. Resident must edit instead of delete.
 
 **Editable Fields:**
 - Amount
@@ -152,10 +159,22 @@ Residents **CANNOT** edit or delete Pay-in when status is:
 
 | Status | Edit | Delete | Reason |
 |--------|------|--------|--------|
-| `SUBMITTED` | ❌ | ❌ | Under Admin review |
+| `SUBMITTED` | ❌ | ❌ | Legacy state, read-only |
 | `ACCEPTED` | ❌ | ❌ | Permanent accounting record |
 
-### 6.3 Always-Available Actions
+### 6.3 Single-Open Rule (A.1.x)
+
+> **Only ONE open Pay-in per house at a time.**
+
+Blocking statuses that prevent creating new Pay-in:
+- `DRAFT`
+- `PENDING`
+- `REJECTED_NEEDS_FIX`
+- `SUBMITTED`
+
+Only `ACCEPTED` status allows creating a new Pay-in.
+
+### 6.4 Always-Available Actions
 
 Regardless of status, Residents **CAN** always:
 
@@ -246,10 +265,12 @@ Each Pay-in card displays:
 | Status | View Detail | Edit | Delete |
 |--------|-------------|------|--------|
 | DRAFT | ✅ | ✅ | ✅ |
-| PENDING | ✅ | ✅ | ✅ |
+| PENDING | ✅ | ✅ | ❌ Hidden |
 | SUBMITTED | ✅ | ❌ Hidden | ❌ Hidden |
 | REJECTED_NEEDS_FIX | ✅ | ✅ | ✅ |
 | ACCEPTED | ✅ | ❌ Hidden | ❌ Hidden |
+
+> **A.1.x Note:** PENDING shows Edit but hides Delete. Resident must edit rather than delete.
 
 ---
 
