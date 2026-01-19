@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { invoicesAPI, payinsAPI, api } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import PayinDetailModal from './PayinDetailModal';
+import PaymentHistoryTable from './PaymentHistoryTable';
 import {
   canEditPayin,
   canDeletePayin,
@@ -16,6 +17,7 @@ import {
 
 export default function MobileDashboard() {
   const { currentHouseId } = useRole();
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [payins, setPayins] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -226,95 +228,11 @@ export default function MobileDashboard() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {payins.map(payin => {
-              // Use centralized date formatting
-              const { date: transferDate, time: transferTime } = formatPayinDateTime(payin);
-              const submittedDate = formatThaiDate(payin.created_at, {
-                day: 'numeric',
-                month: 'short',
-                year: '2-digit',
-              });
-              
-              // Use centralized action rules
-              const canEdit = canEditPayin(payin);
-              const canDelete = canDeletePayin(payin);
-              const isRejected = payin.status === 'REJECTED_NEEDS_FIX' || payin.status === 'REJECTED';
-              
-              return (
-                <div 
-                  key={payin.id} 
-                  className="bg-gray-800 rounded-lg p-4 border border-gray-700"
-                >
-                  {/* Header */}
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="text-xs text-gray-400">จำนวนเงิน</span>
-                      <p className="text-xl font-bold text-white">
-                        ฿{payin.amount?.toLocaleString()}
-                      </p>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadgeColor(payin.status)}`}>
-                      {getPayinStatusText(payin.status)}
-                    </span>
-                  </div>
-                  
-                  {/* Transfer Info - Using safe date formatting */}
-                  <div className="text-sm text-gray-400 mb-2">
-                    โอนเมื่อ: {transferDate} เวลา {transferTime} น.
-                  </div>
-
-                  {/* Submitted Date */}
-                  <div className="text-xs text-gray-500 mb-2">
-                    ส่งข้อมูลเมื่อ: {submittedDate}
-                  </div>
-
-                  {/* Rejection Reason - For both REJECTED and REJECTED_NEEDS_FIX */}
-                  {isRejected && (payin.rejection_reason || payin.reject_reason || payin.admin_note) && (
-                    <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-2 mb-2">
-                      <p className="text-xs text-red-300">
-                        <strong>⚠️ เหตุผล:</strong> {payin.rejection_reason || payin.reject_reason || payin.admin_note}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Actions - Based on centralized rules (min 44px tap targets) */}
-                  <div className="flex gap-2 mt-3">
-                    {/* View Detail - Always available */}
-                    <button
-                      onClick={() => setSelectedPayin(payin)}
-                      className="flex-1 bg-gray-700 text-white text-center font-medium py-3 rounded active:bg-gray-600 min-h-[44px]"
-                    >
-                      👁️ ดูรายละเอียด
-                    </button>
-                    
-                    {/* Edit - Only in editable states */}
-                    {canEdit && (
-                      <Link 
-                        to="/resident/submit" 
-                        state={{ editPayin: payin }}
-                        className="flex-1 bg-blue-600 text-white text-center font-medium py-3 rounded active:bg-blue-700 min-h-[44px] flex items-center justify-center"
-                      >
-                        {isRejected ? '🔄 แก้ไข' : '✏️ แก้ไข'}
-                      </Link>
-                    )}
-                    
-                    {/* Status indicator for read-only states */}
-                    {payin.status === 'SUBMITTED' && (
-                      <div className="flex-1 text-center text-blue-400 py-3 min-h-[44px] flex items-center justify-center">
-                        ⏳ รอตรวจสอบ
-                      </div>
-                    )}
-                    {payin.status === 'ACCEPTED' && (
-                      <div className="flex-1 text-center text-green-400 py-3 min-h-[44px] flex items-center justify-center">
-                        ✓ รับแล้ว
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <PaymentHistoryTable
+            payins={payins}
+            onView={(payin) => setSelectedPayin(payin)}
+            onEdit={(payin) => navigate('/resident/submit', { state: { editPayin: payin } })}
+          />
         )}
       </div>
 
