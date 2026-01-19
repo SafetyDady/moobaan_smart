@@ -58,7 +58,7 @@ export default function ResidentDashboard() {
         `/api/accounting/statement/${currentHouseId}?year=${year}&month=${month}&format=${format}`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
           }
         }
       );
@@ -99,15 +99,43 @@ export default function ResidentDashboard() {
 
   const getStatusBadge = (status) => {
     const badges = {
+      // New state machine statuses
+      DRAFT: 'badge-gray',
+      SUBMITTED: 'badge-info',
+      REJECTED_NEEDS_FIX: 'badge-danger',
+      ACCEPTED: 'badge-success',
+      // Legacy statuses (for backward compatibility)
       submitted: 'badge-info',
       rejected: 'badge-danger',
       matched: 'badge-warning',
       accepted: 'badge-success',
       pending: 'badge-warning',
+      PENDING: 'badge-warning',
+      REJECTED: 'badge-danger',
+      // Invoice statuses
       paid: 'badge-success',
       overdue: 'badge-danger',
     };
     return badges[status] || 'badge-gray';
+  };
+
+  // Get Thai display text for pay-in status
+  const getStatusText = (status) => {
+    const texts = {
+      DRAFT: 'ร่าง',
+      SUBMITTED: 'รอตรวจสอบ',
+      REJECTED_NEEDS_FIX: 'ต้องแก้ไข',
+      ACCEPTED: 'รับแล้ว',
+      // Legacy
+      PENDING: 'รอตรวจสอบ',
+      REJECTED: 'ปฏิเสธ',
+    };
+    return texts[status] || status;
+  };
+
+  // Check if payin can be edited by resident
+  const canEditPayin = (payin) => {
+    return ['DRAFT', 'REJECTED_NEEDS_FIX', 'PENDING', 'REJECTED'].includes(payin.status);
   };
 
   if (loading) {
@@ -241,9 +269,12 @@ export default function ResidentDashboard() {
                         </span>
                       </td>
                       <td>
-                        <span className={`badge ${getStatusBadge(payin.status)}`}>{payin.status}</span>
+                        <span className={`badge ${getStatusBadge(payin.status)}`}>{getStatusText(payin.status)}</span>
                         {payin.reject_reason && (
                           <div className="text-xs text-red-400 mt-1">{payin.reject_reason}</div>
+                        )}
+                        {payin.admin_note && payin.status === 'REJECTED_NEEDS_FIX' && (
+                          <div className="text-xs text-yellow-400 mt-1">💬 {payin.admin_note}</div>
                         )}
                       </td>
                       <td className="text-gray-400 text-sm">
@@ -253,6 +284,36 @@ export default function ResidentDashboard() {
                       </td>
                       <td>
                         <div className="flex gap-2">
+                          {payin.status === 'DRAFT' && (
+                            <>
+                              <Link 
+                                to="/resident/submit" 
+                                state={{ editPayin: payin }} 
+                                className="text-blue-400 hover:text-blue-300 text-sm"
+                              >
+                                ✏️ แก้ไข
+                              </Link>
+                              <button
+                                onClick={() => handleDeletePayin(payin.id)}
+                                className="text-red-400 hover:text-red-300 text-sm"
+                              >
+                                🗑️ ลบ
+                              </button>
+                            </>
+                          )}
+                          {payin.status === 'SUBMITTED' && (
+                            <span className="text-blue-400 text-sm">⏳ กำลังตรวจสอบ</span>
+                          )}
+                          {payin.status === 'REJECTED_NEEDS_FIX' && (
+                            <Link 
+                              to="/resident/submit" 
+                              state={{ editPayin: payin }} 
+                              className="text-primary-400 hover:text-primary-300 text-sm"
+                            >
+                              🔄 แก้ไขและส่งใหม่
+                            </Link>
+                          )}
+                          {/* Legacy status support */}
                           {payin.status === 'PENDING' && (
                             <>
                               <Link 
@@ -276,7 +337,7 @@ export default function ResidentDashboard() {
                               state={{ editPayin: payin }} 
                               className="text-primary-400 hover:text-primary-300 text-sm"
                             >
-                              แก้ไขและส่งใหม่
+                              🔄 แก้ไขและส่งใหม่
                             </Link>
                           )}
                           {payin.status === 'ACCEPTED' && (

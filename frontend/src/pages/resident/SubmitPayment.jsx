@@ -21,10 +21,37 @@ export default function SubmitPayment() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    console.log('🔍 DEBUG - currentHouseId:', currentHouseId, 'Type:', typeof currentHouseId);
-    console.log('🔍 DEBUG - formData:', formData);
-    console.log('🔍 DEBUG - slipFile:', slipFile);
+    console.log('🚀🚀🚀 handleSubmit CALLED - form submitted!');
+    
+    // Early validation - before any async operations
+    try {
+      console.log('🔍 DEBUG - currentHouseId:', currentHouseId, 'Type:', typeof currentHouseId);
+      console.log('🔍 DEBUG - formData:', formData);
+      console.log('🔍 DEBUG - slipFile:', slipFile);
+      console.log('🔍 DEBUG - editPayin:', editPayin);
+      
+      // Validate slip is attached FIRST (most common error)
+      if (!slipFile && !editPayin?.slip_url) {
+        console.log('❌ VALIDATION FAILED: No slip attached');
+        alert('❌ กรุณาแนบสลิปการโอนเงิน / Please attach transfer slip');
+        return;
+      }
+      
+      // Validate all required fields
+      if (!formData.amount || !formData.transfer_date || formData.transfer_hour === '' || formData.transfer_minute === '') {
+        console.log('❌ VALIDATION FAILED: Missing required fields');
+        alert('❌ กรุณากรอกข้อมูลให้ครบถ้วน / Please fill in all required fields');
+        return;
+      }
+      
+      console.log('✅ VALIDATION PASSED');
+    } catch (validationError) {
+      console.error('Validation error:', validationError);
+      alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล');
+      return;
+    }
     
     // Validate house ID from context
     if (!currentHouseId) {
@@ -49,18 +76,6 @@ export default function SubmitPayment() {
         navigate('/auth/login');
         return;
       }
-    }
-    
-    // Validate all required fields
-    if (!formData.amount || !formData.transfer_date || !formData.transfer_hour || !formData.transfer_minute) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
-      return;
-    }
-    
-    // Validate slip is attached
-    if (!slipFile && !editPayin) {
-      alert('กรุณาแนบสลิปการโอนเงิน');
-      return;
     }
     
     // Validate hour and minute ranges
@@ -122,10 +137,8 @@ export default function SubmitPayment() {
         alert('✅ ส่งรายงานการชำระเงินเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
       }
       
-      // Use window.location for full page reload to avoid auth state issues
-      setTimeout(() => {
-        window.location.href = '/resident/dashboard';
-      }, 300);
+      // Use navigate to avoid losing auth state
+      navigate('/resident/dashboard');
     } catch (error) {
       console.error('❌ Failed to submit:', error);
       console.error('❌ Error status:', error.response?.status);
@@ -191,6 +204,30 @@ export default function SubmitPayment() {
           <div className="mt-4 p-4 bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg">
             <p className="text-yellow-300 text-sm">
               <strong>เหตุผลที่ปฏิเสธ:</strong> {editPayin.reject_reason}
+            </p>
+          </div>
+        )}
+        {editPayin && editPayin.status === 'REJECTED_NEEDS_FIX' && (
+          <div className="mt-4 p-4 bg-red-900 bg-opacity-30 border border-red-600 rounded-lg">
+            <p className="text-red-300 text-sm font-medium mb-2">
+              ⚠️ ต้องแก้ไขข้อมูล
+            </p>
+            {editPayin.reject_reason && (
+              <p className="text-red-200 text-sm">
+                <strong>เหตุผล:</strong> {editPayin.reject_reason}
+              </p>
+            )}
+            {editPayin.admin_note && (
+              <p className="text-yellow-300 text-sm mt-2">
+                💬 <strong>หมายเหตุจากแอดมิน:</strong> {editPayin.admin_note}
+              </p>
+            )}
+          </div>
+        )}
+        {editPayin && editPayin.status === 'DRAFT' && (
+          <div className="mt-4 p-4 bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg">
+            <p className="text-gray-300 text-sm">
+              📝 แก้ไขร่างการชำระเงิน - ยังไม่ได้ส่งเข้าระบบ
             </p>
           </div>
         )}
@@ -323,7 +360,7 @@ export default function SubmitPayment() {
             </button>
             <button
               type="button"
-              onClick={() => window.location.href = '/resident/dashboard'}
+              onClick={() => navigate('/resident/dashboard')}
               disabled={submitting}
               className="btn-secondary flex-1 disabled:bg-gray-700 disabled:cursor-not-allowed"
             >

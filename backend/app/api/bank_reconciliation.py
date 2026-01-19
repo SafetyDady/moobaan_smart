@@ -47,7 +47,7 @@ async def match_transaction_with_payin(
     Validation rules:
     1. Transaction must be CREDIT > 0 (not debit)
     2. Transaction must not be already matched
-    3. Pay-in must be PENDING status
+    3. Pay-in must be in review-eligible state (SUBMITTED or legacy PENDING)
     4. Pay-in must not be already matched
     5. Amounts should match (warning if different)
     """
@@ -81,11 +81,12 @@ async def match_transaction_with_payin(
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    # Validation 3: Pay-in must be PENDING
-    if payin.status != PayinStatus.PENDING:
+    # Validation 3: Pay-in must be in review-eligible state (SUBMITTED or legacy PENDING)
+    review_eligible_states = [PayinStatus.SUBMITTED, PayinStatus.PENDING]
+    if payin.status not in review_eligible_states:
         raise HTTPException(
             status_code=400,
-            detail=f"Pay-in must be PENDING status (current: {payin.status.value}). Rejected pay-ins cannot be matched."
+            detail=f"Pay-in must be in review queue (SUBMITTED or PENDING). Current status: {payin.status.value}. Cannot match REJECTED_NEEDS_FIX or ACCEPTED pay-ins."
         )
     
     # Validation 4: Pay-in not already matched

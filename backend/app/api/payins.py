@@ -6,7 +6,7 @@ from app.models import (
     PayInReport as PayInReportSchema, PayInReportCreate, PayInReportUpdate,
     RejectPayInRequest, PayInStatus
 )
-from app.db.models.payin_report import PayinReport as PayinReportModel
+from app.db.models.payin_report import PayinReport as PayinReportModel, PayinStatus as PayinStatusEnum, PayinSource
 from app.db.models.house import House as HouseModel
 from app.db.models.user import User
 from app.db.models.income_transaction import IncomeTransaction
@@ -52,10 +52,16 @@ async def list_payin_reports(
         "transfer_hour": payin.transfer_hour,
         "transfer_minute": payin.transfer_minute,
         "slip_image_url": payin.slip_url,  # Map database field to frontend expectation
-        "status": payin.status,
+        "status": payin.status.value if hasattr(payin.status, 'value') else payin.status,
+        "display_status": PayinReportModel.get_display_status(payin.status),
         "reject_reason": payin.rejection_reason,
         "matched_statement_txn_id": str(payin.matched_statement_txn_id) if payin.matched_statement_txn_id else None,
         "is_matched": payin.matched_statement_txn_id is not None,
+        "source": payin.source.value if payin.source else "RESIDENT",
+        "created_by_admin_id": payin.created_by_admin_id,
+        "admin_note": payin.admin_note,
+        "can_edit": payin.can_be_edited(),
+        "can_submit": payin.can_be_submitted(),
         "created_at": payin.created_at,
         "updated_at": payin.updated_at
     } for payin in payins]
@@ -174,10 +180,12 @@ async def create_payin_report(
             transfer_hour=paid_at_datetime.hour,
             transfer_minute=paid_at_datetime.minute,
             slip_url=slip_url,
-            status="PENDING",
+            status=PayinStatusEnum.SUBMITTED,  # New: starts as SUBMITTED for immediate review
+            source=PayinSource.RESIDENT,
             rejection_reason=None,
             accepted_by=None,
-            accepted_at=None
+            accepted_at=None,
+            submitted_at=datetime.now()
         )
         
         db.add(new_payin)
@@ -209,7 +217,7 @@ async def create_payin_report(
 
 @router.put("/{payin_id}", response_model=dict)
 async def update_payin_report(payin_id: int, payin: PayInReportUpdate, db: Session = Depends(get_db)):
-    """Update a pay-in report (only when REJECTED)"""
+    """Update a pay-in report (only when DRAFT or REJECTED_NEEDS_FIX)"""
     existing = db.query(PayinReportModel).options(
         joinedload(PayinReportModel.house)
     ).filter(PayinReportModel.id == payin_id).first()
@@ -217,11 +225,11 @@ async def update_payin_report(payin_id: int, payin: PayInReportUpdate, db: Sessi
     if not existing:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    # Only allow update when status is REJECTED
-    if existing.status != "REJECTED":
+    # Only allow update when can be edited
+    if not existing.can_be_edited():
         raise HTTPException(
             status_code=400,
-            detail="Can only edit pay-in reports with REJECTED status"
+            detail=f"Can only edit pay-in reports in DRAFT or REJECTED_NEEDS_FIX status (current: {existing.status.value})"
         )
     
     # Update fields if provided
@@ -236,9 +244,10 @@ async def update_payin_report(payin_id: int, payin: PayInReportUpdate, db: Sessi
     if payin.slip_image_url is not None:
         existing.slip_url = payin.slip_image_url  # Database field is slip_url
     
-    # Reset to PENDING after edit
-    existing.status = "PENDING"  # Use correct enum value
+    # Reset to SUBMITTED after edit (resubmit for review)
+    existing.status = PayinStatusEnum.SUBMITTED
     existing.rejection_reason = None
+    existing.submitted_at = datetime.now()
     existing.updated_at = datetime.now()
     
     db.commit()
@@ -268,23 +277,24 @@ async def reject_payin_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_accounting)
 ):
-    """Reject a pay-in report (Admin or Accounting)"""
+    """Reject a pay-in report (Admin or Accounting) - transitions to REJECTED_NEEDS_FIX"""
     payin = db.query(PayinReportModel).options(
         joinedload(PayinReportModel.house)
     ).filter(PayinReportModel.id == payin_id).first()
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    if payin.status != "PENDING":
+    # Check if can be reviewed (SUBMITTED or PENDING)
+    if not payin.can_be_reviewed():
         raise HTTPException(
             status_code=400,
-            detail=f"Can only reject PENDING pay-in reports (current status: {payin.status})"
+            detail=f"Can only reject pay-ins in review state (current status: {payin.status.value})"
         )
     
     if not request.reason or not request.reason.strip():
         raise HTTPException(status_code=400, detail="Rejection reason is required")
     
-    payin.status = "REJECTED"
+    payin.status = PayinStatusEnum.REJECTED_NEEDS_FIX
     payin.rejection_reason = request.reason
     payin.updated_at = datetime.now()
     
@@ -317,14 +327,12 @@ async def accept_payin_report(
     Accept a pay-in report and create immutable ledger entry (Admin or Accounting)
     
     STRICT REQUIREMENTS:
-    1. Pay-in must be PENDING status
+    1. Pay-in must be in reviewable state (SUBMITTED/PENDING)
     2. Pay-in MUST be matched with bank statement first
     3. Creates EXACTLY ONE immutable IncomeTransaction (ledger entry)
     4. Locks pay-in to ACCEPTED status (irreversible)
     5. All operations are ATOMIC (both succeed or both fail)
     """
-    from app.db.models.payin_report import PayinStatus
-    
     # Fetch payin with relationships
     payin = db.query(PayinReportModel).options(
         joinedload(PayinReportModel.house),
@@ -335,17 +343,17 @@ async def accept_payin_report(
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
     # PRECONDITION 1: Already accepted?
-    if payin.status == PayinStatus.ACCEPTED:
+    if payin.status == PayinStatusEnum.ACCEPTED:
         raise HTTPException(
             status_code=400,
             detail="Pay-in report is already accepted"
         )
     
-    # PRECONDITION 2: Must be PENDING
-    if payin.status != PayinStatus.PENDING:
+    # PRECONDITION 2: Must be in reviewable state
+    if not payin.can_be_reviewed():
         raise HTTPException(
             status_code=400,
-            detail=f"Can only accept PENDING pay-in reports (current status: {payin.status.value})"
+            detail=f"Can only accept pay-ins in review state (current status: {payin.status.value})"
         )
     
     # PRECONDITION 3: CRITICAL - Must be matched with bank statement
@@ -368,7 +376,7 @@ async def accept_payin_report(
     # ATOMIC TRANSACTION: Update payin + Create ledger entry
     try:
         # 1. Update payin status to ACCEPTED (locks the pay-in)
-        payin.status = PayinStatus.ACCEPTED
+        payin.status = PayinStatusEnum.ACCEPTED
         payin.accepted_by = current_user.id
         payin.accepted_at = datetime.now()
         payin.updated_at = datetime.now()

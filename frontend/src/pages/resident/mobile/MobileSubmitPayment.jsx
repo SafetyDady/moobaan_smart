@@ -74,23 +74,36 @@ export default function MobileSubmitPayment() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     setSubmitting(true);
     setError(null);
 
-    try {
-      // Validate house ID
-      if (!currentHouseId) {
-        setError('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
-        navigate('/auth/login');
-        return;
-      }
+    console.log('📱📱📱 Mobile handleSubmit CALLED!');
+    console.log('🔍 formData:', formData);
+    console.log('🔍 currentHouseId:', currentHouseId);
 
-      // Validate slip image for CREATE
+    try {
+      // Validate slip image FIRST for CREATE (most common error)
       if (!editPayin && !formData.slip_image) {
-        setError('กรุณาแนบสลิปก่อนส่ง');
+        console.log('❌ VALIDATION FAILED: No slip attached');
+        const msg = '❌ กรุณาแนบสลิปก่อนส่ง / Please attach slip first';
+        setError(msg);
+        alert(msg);
         setSubmitting(false);
         return;
       }
+
+      // Validate house ID
+      if (!currentHouseId) {
+        console.log('❌ VALIDATION FAILED: No house ID');
+        const msg = 'ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง';
+        setError(msg);
+        alert(msg);
+        setSubmitting(false);
+        return;
+      }
+
+      console.log('✅ VALIDATION PASSED');
 
       // Parse time and build ISO datetime (local timezone)
       const [hour, minute] = formData.transfer_time.split(':');
@@ -139,20 +152,16 @@ export default function MobileSubmitPayment() {
         console.log('✅ Mobile - Success:', response.data);
         
         // Show success message
-        alert('✅ ส่งสลิปเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
+        alert('✅ ส่งสลิปเรียบร้อยแล้ว');
         
-        // Use window.location for full page reload to avoid auth state issues
-        setTimeout(() => {
-          window.location.href = '/resident/dashboard';
-        }, 300);
+        // Use navigate to preserve auth state
+        navigate('/resident/dashboard');
         return; // Prevent double navigation
       }
       
-      // For edit flow - also use window.location
+      // For edit flow - also use navigate
       alert('✅ แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
-      setTimeout(() => {
-        window.location.href = '/resident/dashboard';
-      }, 300);
+      navigate('/resident/dashboard');
     } catch (error) {
       console.error('❌ Mobile submit failed:', error);
       console.error('❌ Error response:', error.response?.data);

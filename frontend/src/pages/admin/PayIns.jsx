@@ -15,7 +15,7 @@ export default function PayIns() {
   
   const [payins, setPayins] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('PENDING'); // Default to PENDING for review queue
+  const [statusFilter, setStatusFilter] = useState('SUBMITTED'); // Default to SUBMITTED for review queue (new state machine)
   const [selectedPayin, setSelectedPayin] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -148,6 +148,8 @@ export default function PayIns() {
   const getStatusBadge = (status) => {
     const badges = {
       PENDING: 'badge-warning',
+      SUBMITTED: 'badge-warning',
+      REJECTED_NEEDS_FIX: 'badge-danger',
       ACCEPTED: 'badge-success',
       REJECTED: 'badge-danger',
     };
@@ -172,9 +174,11 @@ export default function PayIns() {
               className="input w-full"
             >
               <option value="">All Status</option>
-              <option value="PENDING">Pending Review</option>
+              <option value="SUBMITTED">Needs Review (SUBMITTED)</option>
+              <option value="PENDING">Pending Review (Legacy)</option>
+              <option value="REJECTED_NEEDS_FIX">Rejected - Needs Fix</option>
               <option value="ACCEPTED">Accepted</option>
-              <option value="REJECTED">Rejected</option>
+              <option value="REJECTED">Rejected (Legacy)</option>
             </select>
           </div>
         </div>
@@ -201,7 +205,7 @@ export default function PayIns() {
                 <tr><td colSpan="8" className="text-center py-8">Loading...</td></tr>
               ) : payins.length === 0 ? (
                 <tr><td colSpan="8" className="text-center py-8 text-gray-400">
-                  {statusFilter === 'PENDING' ? 'No pending pay-ins to review' : 'No pay-ins found'}
+                  {(statusFilter === 'PENDING' || statusFilter === 'SUBMITTED') ? 'No pay-ins pending review' : 'No pay-ins found'}
                 </td></tr>
               ) : (
                 payins.map((payin) => (
@@ -259,8 +263,8 @@ export default function PayIns() {
                           </button>
                         )}
                         
-                        {/* Actions for PENDING status */}
-                        {payin.status === 'PENDING' && canManagePayins && (
+                        {/* Actions for PENDING or SUBMITTED status */}
+                        {(payin.status === 'PENDING' || payin.status === 'SUBMITTED') && canManagePayins && (
                           <>
                             {/* Match/Unmatch button */}
                             {!payin.is_matched ? (
@@ -324,6 +328,13 @@ export default function PayIns() {
                           >
                             🗑 Cancel
                           </button>
+                        )}
+
+                        {/* REJECTED_NEEDS_FIX - waiting for resident to fix and resubmit */}
+                        {payin.status === 'REJECTED_NEEDS_FIX' && (
+                          <span className="text-orange-400 text-sm" title="Cannot match until resident resubmits">
+                            ⏳ Awaiting resident fix
+                          </span>
                         )}
                         
                         {/* Status indicators */}
