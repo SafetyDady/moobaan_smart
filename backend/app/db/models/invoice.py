@@ -33,6 +33,9 @@ class Invoice(Base):
     is_manual = Column(Boolean, nullable=False, default=False)
     manual_reason = Column(Text, nullable=True)  # Reason/description for manual invoice
     
+    # Phase F.2: Link to Chart of Accounts (REVENUE type only)
+    revenue_account_id = Column(Integer, ForeignKey("chart_of_accounts.id", ondelete="RESTRICT"), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -41,6 +44,7 @@ class Invoice(Base):
     creator = relationship("User")
     payments = relationship("InvoicePayment", back_populates="invoice")
     credit_notes = relationship("CreditNote", back_populates="invoice")
+    revenue_account = relationship("ChartOfAccount")  # Phase F.2
 
     def to_dict(self):
         """Convert model to dictionary"""
@@ -58,6 +62,9 @@ class Invoice(Base):
             "notes": self.notes,
             "is_manual": self.is_manual,
             "manual_reason": self.manual_reason,
+            "revenue_account_id": self.revenue_account_id,
+            "revenue_account_code": self.revenue_account.account_code if self.revenue_account else None,
+            "revenue_account_name": self.revenue_account.account_name if self.revenue_account else None,
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

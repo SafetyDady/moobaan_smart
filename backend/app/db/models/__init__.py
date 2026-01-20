@@ -1,7 +1,7 @@
 from .user import User
 from .house import House, HouseStatus
 from .house_member import HouseMember
-from .expense import Expense
+from .expense import Expense, ExpenseStatus, ExpenseCategory
 from .invoice import Invoice, InvoiceStatus
 from .payin_report import PayinReport, PayinStatus
 from .income_transaction import IncomeTransaction
@@ -11,6 +11,7 @@ from .bank_account import BankAccount
 from .bank_transaction import BankTransaction
 from .bank_statement_batch import BankStatementBatch
 from .promotion_policy import PromotionPolicy, PromotionScope, PromotionStatus
+from .chart_of_account import ChartOfAccount, AccountType
 
 __all__ = [
     "User",
@@ -18,6 +19,8 @@ __all__ = [
     "HouseStatus", 
     "HouseMember",
     "Expense",
+    "ExpenseStatus",
+    "ExpenseCategory",
     "Invoice",
     "InvoiceStatus",
     "PayinReport",
@@ -32,4 +35,6 @@ __all__ = [
     "PromotionPolicy",
     "PromotionScope",
     "PromotionStatus",
+    "ChartOfAccount",
+    "AccountType",
 ]

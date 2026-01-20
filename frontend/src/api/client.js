@@ -204,13 +204,15 @@ export const payinsAPI = {
   applyFifo: (id) => apiClient.post(`/api/payin-reports/${id}/apply-fifo`),
 };
 
-// Expenses API
+// Expenses API (Phase F.1: Expense Core)
 export const expensesAPI = {
   list: (params) => apiClient.get('/api/expenses', { params }),
   get: (id) => apiClient.get(`/api/expenses/${id}`),
   create: (data) => apiClient.post('/api/expenses', data),
   update: (id, data) => apiClient.put(`/api/expenses/${id}`, data),
-  delete: (id) => apiClient.delete(`/api/expenses/${id}`),
+  markPaid: (id, data) => apiClient.post(`/api/expenses/${id}/mark-paid`, data),
+  cancel: (id) => apiClient.post(`/api/expenses/${id}/cancel`),
+  getCategories: () => apiClient.get('/api/expenses/meta/categories'),
 };
 
 // Bank Statements API
@@ -305,6 +307,24 @@ export const reportsAPI = {
   invoiceAging: (params) => apiClient.get('/api/reports/invoice-aging', { params }),
   // Cash Flow vs AR Report - READ-ONLY
   cashflowVsAr: (params) => apiClient.get('/api/reports/cashflow-vs-ar', { params }),
+};
+
+// Chart of Accounts API (Phase F.2: COA Lite)
+export const accountsAPI = {
+  // List all accounts with optional filters
+  list: (params) => apiClient.get('/api/accounts', { params }),
+  // Get single account
+  get: (id) => apiClient.get(`/api/accounts/${id}`),
+  // Create new account
+  create: (data) => apiClient.post('/api/accounts', data),
+  // Update account (name, active only - code is immutable)
+  update: (id, data) => apiClient.put(`/api/accounts/${id}`, data),
+  // Soft delete account (super_admin only)
+  delete: (id) => apiClient.delete(`/api/accounts/${id}`),
+  // Export to CSV
+  exportCsv: () => apiClient.get('/api/accounts/export/csv', { responseType: 'blob' }),
+  // Get available account types
+  getTypes: () => apiClient.get('/api/accounts/meta/types'),
 };
 
 export default apiClient;

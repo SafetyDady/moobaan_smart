@@ -15,11 +15,12 @@ import AddResident from './pages/admin/AddResident';
 import Members from './pages/admin/Members';
 import Invoices from './pages/admin/Invoices';
 import PayIns from './pages/admin/PayIns';
-import Expenses from './pages/admin/Expenses';
+import Expenses from './pages/admin/ExpensesV2';  // Phase F.1: Expense Core
 import BankStatements from './pages/admin/BankStatements';
 import UnidentifiedReceipts from './pages/admin/UnidentifiedReceipts';
 import InvoiceAgingReport from './pages/admin/InvoiceAgingReport';
 import CashFlowReport from './pages/admin/CashFlowReport';
+import ChartOfAccounts from './pages/ChartOfAccounts';  // Phase F.2: COA Lite
 
 // Resident pages (with mobile detection)
 import { ResidentDashboardWrapper, ResidentSubmitPaymentWrapper, ResidentVillageDashboardWrapper, ResidentPaymentHistoryWrapper, ResidentProfileWrapper } from './pages/resident/ResidentRouteWrapper';
@@ -55,6 +56,7 @@ function App() {
                     <Route path="statements" element={<BankStatements />} />
                     <Route path="reports/aging" element={<InvoiceAgingReport />} />
                     <Route path="reports/cashflow" element={<CashFlowReport />} />
+                    <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
@@ -76,6 +78,7 @@ function App() {
                     <Route path="statements" element={<BankStatements />} />
                     <Route path="reports/aging" element={<InvoiceAgingReport />} />
                     <Route path="reports/cashflow" element={<CashFlowReport />} />
+                    <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>

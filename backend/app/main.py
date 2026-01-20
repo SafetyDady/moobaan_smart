@@ -23,7 +23,7 @@ from app.api.members import router as members_router
 from app.api.invoices import router as invoices_router
 from app.api.payins import router as payins_router
 from app.api.payin_state import router as payin_state_router
-from app.api.expenses import router as expenses_router
+from app.api.expenses_v2 import router as expenses_router  # Phase F.1: Expense Core
 from app.api.bank_accounts import router as bank_accounts_router
 from app.api.bank_statements import router as bank_statements_router
 from app.api.bank_reconciliation import router as bank_reconciliation_router
@@ -33,6 +33,7 @@ from app.api.users import router as users_router
 from app.api.credit_notes import router as credit_notes_router
 from app.api.promotions import router as promotions_router
 from app.api.reports import router as reports_router
+from app.api.accounts import router as accounts_router  # Phase F.2: Chart of Accounts
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -138,6 +139,7 @@ app.include_router(users_router)
 app.include_router(credit_notes_router)
 app.include_router(promotions_router)
 app.include_router(reports_router)
+app.include_router(accounts_router)
 
 # Mount static files for uploaded slips
 # This serves files at /uploads/* from the uploads/ directory
