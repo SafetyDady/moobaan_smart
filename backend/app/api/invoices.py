@@ -17,6 +17,7 @@ from app.db.models.payin_report import PayinStatus
 from app.db.models.house import HouseStatus
 from app.core.deps import get_db, require_admin_or_accounting, get_current_user
 from app.db.models.user import User
+from app.core.period_lock import validate_period_not_locked
 from decimal import Decimal
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
@@ -64,6 +65,9 @@ async def create_manual_invoice(
     # Validate due_date >= today
     if data.due_date < date.today():
         raise HTTPException(status_code=400, detail="Due date must be today or in the future")
+    
+    # Phase G.1: Check period lock for issue date
+    validate_period_not_locked(db, date.today(), "invoice")
     
     # Create manual invoice
     new_invoice = InvoiceDB(

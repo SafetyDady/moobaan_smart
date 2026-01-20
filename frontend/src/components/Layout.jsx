@@ -26,6 +26,7 @@ export default function Layout({ children }) {
         { name: 'Bank Statements', path: '/admin/statements', icon: '🏦' },
         { name: 'Unidentified Receipts', path: '/admin/unidentified-receipts', icon: '❓' },
         { name: 'Chart of Accounts', path: '/admin/chart-of-accounts', icon: '📋' },
+        { name: 'Period Closing', path: '/admin/period-closing', icon: '🔒' },
         { name: 'Aging Report', path: '/admin/reports/aging', icon: '📈' },
         { name: 'Cash Flow Report', path: '/admin/reports/cashflow', icon: '💹' },
       ];
@@ -38,6 +39,7 @@ export default function Layout({ children }) {
         { name: 'Bank Statements', path: '/accounting/statements', icon: '🏦' },
         { name: 'Unidentified Receipts', path: '/accounting/unidentified-receipts', icon: '❓' },
         { name: 'Chart of Accounts', path: '/accounting/chart-of-accounts', icon: '📋' },
+        { name: 'Period Closing', path: '/accounting/period-closing', icon: '🔒' },
         { name: 'Aging Report', path: '/accounting/reports/aging', icon: '📈' },
         { name: 'Cash Flow Report', path: '/accounting/reports/cashflow', icon: '💹' },
       ];

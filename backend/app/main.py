@@ -34,6 +34,7 @@ from app.api.credit_notes import router as credit_notes_router
 from app.api.promotions import router as promotions_router
 from app.api.reports import router as reports_router
 from app.api.accounts import router as accounts_router  # Phase F.2: Chart of Accounts
+from app.api.periods import router as periods_router  # Phase G.1: Period Closing
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -140,6 +141,7 @@ app.include_router(credit_notes_router)
 app.include_router(promotions_router)
 app.include_router(reports_router)
 app.include_router(accounts_router)
+app.include_router(periods_router)
 
 # Mount static files for uploaded slips
 # This serves files at /uploads/* from the uploads/ directory

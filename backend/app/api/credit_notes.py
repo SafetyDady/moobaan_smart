@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 from app.db.models import Invoice as InvoiceDB, CreditNote as CreditNoteDB
 from app.db.models.user import User
 from app.core.deps import get_db, require_admin_or_accounting
+from app.core.period_lock import validate_period_not_locked
+from datetime import date
 
 
 router = APIRouter(prefix="/api/credit-notes", tags=["credit-notes"])
@@ -74,6 +76,9 @@ async def create_credit_note(
     invoice = db.query(InvoiceDB).filter(InvoiceDB.id == data.invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Phase G.1: Check period lock for today (credit note issue date)
+    validate_period_not_locked(db, date.today(), "credit note")
     
     # 2. Check if already fully credited
     if invoice.is_fully_credited():

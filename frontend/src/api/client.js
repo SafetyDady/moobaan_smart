@@ -327,6 +327,22 @@ export const accountsAPI = {
   getTypes: () => apiClient.get('/api/accounts/meta/types'),
 };
 
+// Period Closing API (Phase G.1: Period Closing & Snapshot)
+export const periodsAPI = {
+  // List all period snapshots
+  list: (params) => apiClient.get('/api/periods', { params }),
+  // Check if period is locked
+  check: (year, month) => apiClient.get(`/api/periods/check/${year}/${month}`),
+  // Get specific period snapshot (or preview if not exists)
+  get: (year, month) => apiClient.get(`/api/periods/${year}/${month}`),
+  // Create snapshot and lock period
+  lock: (year, month, data = {}) => apiClient.post(`/api/periods/${year}/${month}/snapshot`, data),
+  // Unlock period (super_admin only, reason required)
+  unlock: (year, month, reason) => apiClient.post(`/api/periods/${year}/${month}/unlock`, { reason }),
+  // Get unlock audit logs
+  getUnlockLogs: (year, month) => apiClient.get(`/api/periods/${year}/${month}/unlock-logs`),
+};
+
 export default apiClient;
 
 // Export alias for AuthContext compatibility

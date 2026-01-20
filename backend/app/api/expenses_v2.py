@@ -22,6 +22,7 @@ from decimal import Decimal
 from app.db.session import get_db
 from app.db.models import Expense, ExpenseStatus, House, User, ChartOfAccount, AccountType
 from app.core.deps import require_admin_or_accounting, require_admin, get_current_user
+from app.core.period_lock import validate_period_not_locked
 
 
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
@@ -227,6 +228,9 @@ async def create_expense(
         if not house:
             raise HTTPException(status_code=404, detail="House not found")
     
+    # Phase G.1: Check period lock
+    validate_period_not_locked(db, data.expense_date, "expense")
+    
     # Validate account if provided (must be EXPENSE type)
     if data.account_id:
         account = db.query(ChartOfAccount).filter(ChartOfAccount.id == data.account_id).first()
@@ -291,6 +295,9 @@ async def update_expense(
     
     if expense.status == ExpenseStatus.CANCELLED:
         raise HTTPException(status_code=400, detail="Cannot update cancelled expense")
+    
+    # Phase G.1: Check period lock for original date
+    validate_period_not_locked(db, expense.expense_date, "expense")
     
     # For PAID expenses, only allow updating notes
     if expense.status == ExpenseStatus.PAID:

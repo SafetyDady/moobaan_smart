@@ -13,6 +13,7 @@ from app.db.models.income_transaction import IncomeTransaction
 from app.db.session import get_db
 from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_user_house_id
 from app.core.uploads import save_slip_file
+from app.core.period_lock import validate_period_not_locked
 
 router = APIRouter(prefix="/api/payin-reports", tags=["payin-reports"])
 
@@ -160,6 +161,9 @@ async def create_payin_report(
             paid_at_datetime = date_parser.isoparse(paid_at)
         except (ValueError, TypeError) as e:
             raise HTTPException(status_code=400, detail=f"Invalid paid_at format: {str(e)}")
+        
+        # Phase G.1: Check period lock for payment date
+        validate_period_not_locked(db, paid_at_datetime.date(), "pay-in report")
         
         # Handle slip file upload
         slip_url = None
