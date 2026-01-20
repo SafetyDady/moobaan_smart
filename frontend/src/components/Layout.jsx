@@ -25,6 +25,8 @@ export default function Layout({ children }) {
         { name: 'Expenses', path: '/admin/expenses', icon: '💸' },
         { name: 'Bank Statements', path: '/admin/statements', icon: '🏦' },
         { name: 'Unidentified Receipts', path: '/admin/unidentified-receipts', icon: '❓' },
+        { name: 'Aging Report', path: '/admin/reports/aging', icon: '📈' },
+        { name: 'Cash Flow Report', path: '/admin/reports/cashflow', icon: '💹' },
       ];
     } else if (user.role === 'accounting') {
       return [
@@ -34,6 +36,8 @@ export default function Layout({ children }) {
         { name: 'Expenses', path: '/accounting/expenses', icon: '💸' },
         { name: 'Bank Statements', path: '/accounting/statements', icon: '🏦' },
         { name: 'Unidentified Receipts', path: '/accounting/unidentified-receipts', icon: '❓' },
+        { name: 'Aging Report', path: '/accounting/reports/aging', icon: '📈' },
+        { name: 'Cash Flow Report', path: '/accounting/reports/cashflow', icon: '💹' },
       ];
     } else if (user.role === 'resident') {
       return [

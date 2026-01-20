@@ -299,6 +299,14 @@ export const membersAPI = {
   delete: (id) => apiClient.delete(`/api/members/${id}`),
 };
 
+// Reports API (Phase E.1, E.2)
+export const reportsAPI = {
+  // Invoice Aging Report - READ-ONLY
+  invoiceAging: (params) => apiClient.get('/api/reports/invoice-aging', { params }),
+  // Cash Flow vs AR Report - READ-ONLY
+  cashflowVsAr: (params) => apiClient.get('/api/reports/cashflow-vs-ar', { params }),
+};
+
 export default apiClient;
 
 // Export alias for AuthContext compatibility

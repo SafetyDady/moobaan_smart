@@ -32,6 +32,7 @@ from app.api.accounting import router as accounting_router
 from app.api.users import router as users_router
 from app.api.credit_notes import router as credit_notes_router
 from app.api.promotions import router as promotions_router
+from app.api.reports import router as reports_router
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -136,6 +137,7 @@ app.include_router(accounting_router)
 app.include_router(users_router)
 app.include_router(credit_notes_router)
 app.include_router(promotions_router)
+app.include_router(reports_router)
 
 # Mount static files for uploaded slips
 # This serves files at /uploads/* from the uploads/ directory

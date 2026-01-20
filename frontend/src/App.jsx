@@ -18,6 +18,8 @@ import PayIns from './pages/admin/PayIns';
 import Expenses from './pages/admin/Expenses';
 import BankStatements from './pages/admin/BankStatements';
 import UnidentifiedReceipts from './pages/admin/UnidentifiedReceipts';
+import InvoiceAgingReport from './pages/admin/InvoiceAgingReport';
+import CashFlowReport from './pages/admin/CashFlowReport';
 
 // Resident pages (with mobile detection)
 import { ResidentDashboardWrapper, ResidentSubmitPaymentWrapper, ResidentVillageDashboardWrapper, ResidentPaymentHistoryWrapper, ResidentProfileWrapper } from './pages/resident/ResidentRouteWrapper';
@@ -51,6 +53,8 @@ function App() {
                     <Route path="unidentified-receipts" element={<UnidentifiedReceipts />} />
                     <Route path="expenses" element={<Expenses />} />
                     <Route path="statements" element={<BankStatements />} />
+                    <Route path="reports/aging" element={<InvoiceAgingReport />} />
+                    <Route path="reports/cashflow" element={<CashFlowReport />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
@@ -70,6 +74,8 @@ function App() {
                     <Route path="unidentified-receipts" element={<UnidentifiedReceipts />} />
                     <Route path="expenses" element={<Expenses />} />
                     <Route path="statements" element={<BankStatements />} />
+                    <Route path="reports/aging" element={<InvoiceAgingReport />} />
+                    <Route path="reports/cashflow" element={<CashFlowReport />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
