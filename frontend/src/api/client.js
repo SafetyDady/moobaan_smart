@@ -2,9 +2,6 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
-// Log API base URL on startup
-console.log('🌐 API_BASE_URL =', API_BASE_URL);
-
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -37,9 +34,18 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     // Handle 401 authentication errors
+    // IMPORTANT: Don't auto-redirect on 401 during auth check (/api/auth/me)
+    // Let the AuthContext handle auth state management
     if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
-      window.location.href = '/auth/login';
+      const requestUrl = error.config?.url || '';
+      
+      // Only clear token and redirect for non-auth-check requests
+      // Auth check failures are handled gracefully by AuthContext.checkAuth()
+      if (!requestUrl.includes('/api/auth/me')) {
+        localStorage.removeItem('auth_token');
+        // Use correct path: /login (not /auth/login)
+        window.location.href = '/login';
+      }
       return Promise.reject(error);
     }
     

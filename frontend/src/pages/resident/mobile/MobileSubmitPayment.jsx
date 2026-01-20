@@ -25,6 +25,7 @@ export default function MobileSubmitPayment() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   // File size limit: 8MB
   const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -125,7 +126,9 @@ export default function MobileSubmitPayment() {
           slip_image_url: formData.slip_preview || 'https://example.com/slips/updated.jpg'
         };
         await payinsAPI.update(editPayin.id, jsonData);
-        alert('✅ แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
+        setSuccessMessage('✅ แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
+        setTimeout(() => navigate('/resident/dashboard'), 1500);
+        return;
       } else {
         // For create, use FormData
         const submitFormData = new FormData();
@@ -137,16 +140,13 @@ export default function MobileSubmitPayment() {
         }
 
         const response = await payinsAPI.createFormData(submitFormData);
-        alert('✅ ส่งสลิปเรียบร้อยแล้ว');
-        navigate('/resident/dashboard');
+        setSuccessMessage('✅ ส่งสลิปเรียบร้อยแล้ว');
+        setTimeout(() => navigate('/resident/dashboard'), 1500);
         return;
       }
       
       navigate('/resident/dashboard');
     } catch (error) {
-      console.error('❌ Mobile submit failed:', error);
-      console.error('Error response:', error.response?.data);
-      
       // Handle 409 - pay-in already exists
       if (error.response?.status === 409) {
         const errorData = error.response?.data;
@@ -233,7 +233,14 @@ export default function MobileSubmitPayment() {
         {/* Error Message */}
         {error && (
           <div className="mb-4 bg-red-900/30 border border-red-600 rounded-lg p-3">
-            <p className="text-sm text-red-300">{error}</p>
+            <p className="text-sm text-red-300 whitespace-pre-line">{error}</p>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-4 bg-green-900/30 border border-green-600 rounded-lg p-3">
+            <p className="text-sm text-green-300">{successMessage}</p>
           </div>
         )}
 

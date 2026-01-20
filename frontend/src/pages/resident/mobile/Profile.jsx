@@ -9,6 +9,12 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { currentHouseCode, currentHouseId } = useRole();
+  const [toast, setToast] = useState(null);
+  
+  const showToast = (message) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2000);
+  };
   
   const handleLogout = async () => {
     if (confirm('ต้องการออกจากระบบหรือไม่?')) {
@@ -19,6 +25,13 @@ export default function Profile() {
   
   return (
     <MobileLayout>
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed top-4 left-4 right-4 z-50 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
+          <p className="text-sm text-gray-200 text-center">{toast}</p>
+        </div>
+      )}
+      
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="bg-gray-800 border-b border-gray-700 p-4 flex items-center gap-3">
@@ -93,7 +106,7 @@ export default function Profile() {
             
             <button
               className="w-full p-4 flex items-center justify-between text-left active:bg-gray-750"
-              onClick={() => alert('ฟีเจอร์นี้กำลังพัฒนา')}
+              onClick={() => showToast('🚧 ฟีเจอร์นี้กำลังพัฒนา')}
             >
               <span className="text-white">เปลี่ยนรหัสผ่าน</span>
               <span className="text-gray-400">›</span>
@@ -101,7 +114,7 @@ export default function Profile() {
             
             <button
               className="w-full p-4 flex items-center justify-between text-left active:bg-gray-750 border-t border-gray-700"
-              onClick={() => alert('ฟีเจอร์นี้กำลังพัฒนา')}
+              onClick={() => showToast('🚧 ฟีเจอร์นี้กำลังพัฒนา')}
             >
               <span className="text-white">การแจ้งเตือน</span>
               <span className="text-gray-400">›</span>

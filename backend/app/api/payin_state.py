@@ -16,6 +16,7 @@ from app.db.models.house import House
 from app.db.models.user import User
 from app.db.session import get_db
 from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_user_house_id
+from app.core.uploads import save_slip_file
 
 router = APIRouter(prefix="/api/payin-state", tags=["payin-state-machine"])
 
@@ -227,8 +228,11 @@ async def save_payin_draft(
         payin.transfer_minute = transfer_minute
     
     if slip:
-        # Handle file upload (mock for now)
-        payin.slip_url = f"https://example.com/slips/{slip.filename}"
+        # Handle file upload
+        try:
+            payin.slip_url = await save_slip_file(slip, payin.house_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     
     db.commit()
     db.refresh(payin)
@@ -252,8 +256,13 @@ async def list_unidentified_bank_credits(
     These are money received in bank but no pay-in report exists.
     Admin can create pay-in from these.
     """
+    from app.db.models.bank_account import BankAccount
+    
     # Find CREDIT transactions that are not matched to any pay-in
-    unidentified = db.query(BankTransaction).filter(
+    # Join with BankAccount to get bank_code (bank name)
+    unidentified = db.query(BankTransaction).options(
+        joinedload(BankTransaction.bank_account)
+    ).filter(
         and_(
             BankTransaction.credit.isnot(None),
             BankTransaction.credit > 0,
@@ -271,6 +280,7 @@ async def list_unidentified_bank_credits(
                 "description": txn.description,
                 "channel": txn.channel,
                 "bank_account_id": str(txn.bank_account_id),
+                "bank_name": txn.bank_account.bank_code if txn.bank_account else None,
                 "created_at": txn.created_at.isoformat() if txn.created_at else None
             }
             for txn in unidentified
@@ -398,8 +408,12 @@ async def attach_slip_to_payin(
             detail="Cannot modify accepted pay-in"
         )
     
-    # Handle file upload (mock for now, Phase 2+ use S3)
-    slip_url = f"https://example.com/slips/{slip.filename}"
+    # Handle file upload
+    try:
+        slip_url = await save_slip_file(slip, payin.house_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
     payin.slip_url = slip_url
     
     db.commit()

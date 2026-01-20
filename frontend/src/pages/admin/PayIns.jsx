@@ -8,11 +8,6 @@ export default function PayIns() {
   // Allow super_admin and accounting roles to manage pay-ins
   const canManagePayins = currentRole === 'super_admin' || currentRole === 'accounting';
   
-  // Debug logging
-  console.log('PayIns - currentRole:', currentRole);
-  console.log('PayIns - canManagePayins:', canManagePayins);
-  console.log('PayIns - roleLoading:', roleLoading);
-  
   const [payins, setPayins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('SUBMITTED'); // Default to SUBMITTED for review queue (new state machine)
@@ -49,9 +44,6 @@ export default function PayIns() {
       // Use the new Pay-in Centric endpoint that returns pre-filtered candidates
       const response = await bankReconciliationAPI.getCandidatesForPayin(payin.id);
       const candidates = response.data.candidates || [];
-      
-      console.log(`Found ${candidates.length} candidate transactions for pay-in ${payin.id}`);
-      console.log('Matching criteria:', response.data.criteria);
       
       setBankTransactions(candidates);
     } catch (error) {

@@ -21,6 +21,7 @@ export default function ResidentDashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloadingStatement, setDownloadingStatement] = useState(false);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -49,11 +50,14 @@ export default function ResidentDashboard() {
     }
     try {
       await payinsAPI.delete(payinId);
-      alert('ลบรายการสำเร็จ');
+      setNotification({ type: 'success', message: 'ลบรายการสำเร็จ' });
+      setTimeout(() => setNotification(null), 3000);
       loadData();
     } catch (error) {
       console.error('Failed to delete payin:', error);
-      alert(error.response?.data?.detail || 'ลบรายการไม่สำเร็จ');
+      const msg = error.response?.data?.detail || 'ลบรายการไม่สำเร็จ';
+      setNotification({ type: 'error', message: msg });
+      setTimeout(() => setNotification(null), 5000);
     }
   };
 
@@ -93,7 +97,8 @@ export default function ResidentDashboard() {
 
     } catch (error) {
       console.error('Download failed:', error);
-      alert(`Download failed: ${error.message}`);
+      setNotification({ type: 'error', message: `ดาวน์โหลดไม่สำเร็จ: ${error.message}` });
+      setTimeout(() => setNotification(null), 5000);
     } finally {
       setDownloadingStatement(false);
     }

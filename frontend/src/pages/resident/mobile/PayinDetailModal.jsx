@@ -86,11 +86,21 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
           </div>
 
           {/* Rejection Reason - Prominent when rejected */}
-          {(payin.status === 'REJECTED_NEEDS_FIX' || payin.status === 'REJECTED') && (payin.rejection_reason || payin.reject_reason || payin.admin_note) && (
+          {(payin.status === 'REJECTED_NEEDS_FIX' || payin.status === 'REJECTED') && payin.rejection_reason && (
             <div className="bg-red-900 bg-opacity-40 border border-red-600 rounded-lg p-4">
               <p className="text-sm font-medium text-red-300 mb-1">⚠️ เหตุผลที่ปฏิเสธ</p>
               <p className="text-white">
-                {payin.rejection_reason || payin.reject_reason || payin.admin_note}
+                {payin.rejection_reason}
+              </p>
+            </div>
+          )}
+
+          {/* Admin Note - Display separately if present (read-only) */}
+          {payin.admin_note && (
+            <div className="bg-gray-700 rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-400 mb-1">📝 หมายเหตุจากผู้ดูแล</p>
+              <p className="text-white text-sm">
+                {payin.admin_note}
               </p>
             </div>
           )}
@@ -122,18 +132,18 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
             </div>
           </div>
 
-          {/* Slip Preview */}
-          {payin.slip_image_url && (
+          {/* Slip Preview - support both slip_url (backend) and slip_image_url (legacy) */}
+          {(payin.slip_url || payin.slip_image_url) && (
             <div className="bg-gray-700 rounded-lg p-4">
               <p className="text-xs text-gray-400 mb-2">สลิป</p>
               <a 
-                href={payin.slip_image_url} 
+                href={payin.slip_url || payin.slip_image_url} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="block"
               >
                 <img
-                  src={payin.slip_image_url}
+                  src={payin.slip_url || payin.slip_image_url}
                   alt="สลิปการโอนเงิน"
                   className="w-full max-h-64 object-contain rounded-lg border border-gray-600"
                   onError={(e) => {

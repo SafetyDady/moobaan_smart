@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import logging
 
 # Configure logging EARLY
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 # Import and validate config FIRST - FAIL FAST
 try:
     from app.core.config import settings
+    from app.core.uploads import get_upload_dir
     logger.info(f"✅ Configuration loaded successfully for {settings.APP_NAME}")
 except Exception as e:
     logger.error(f"❌ Configuration validation failed: {e}")
@@ -83,6 +85,17 @@ app.include_router(bank_statements_router)
 app.include_router(bank_reconciliation_router)
 app.include_router(accounting_router)
 app.include_router(users_router)
+
+# Mount static files for uploaded slips
+# This serves files at /uploads/* from the uploads/ directory
+uploads_dir = get_upload_dir()
+if uploads_dir.exists():
+    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+    logger.info(f"📁 Static files mounted at /uploads from {uploads_dir}")
+else:
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+    logger.info(f"📁 Created uploads directory and mounted at /uploads")
 
 
 @app.get("/")

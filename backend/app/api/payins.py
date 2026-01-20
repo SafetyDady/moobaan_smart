@@ -12,6 +12,7 @@ from app.db.models.user import User
 from app.db.models.income_transaction import IncomeTransaction
 from app.db.session import get_db
 from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_user_house_id
+from app.core.uploads import save_slip_file
 
 router = APIRouter(prefix="/api/payin-reports", tags=["payin-reports"])
 
@@ -157,22 +158,16 @@ async def create_payin_report(
         from dateutil import parser as date_parser
         try:
             paid_at_datetime = date_parser.isoparse(paid_at)
-            
-            # Debug logging
-            print(f"🔍 DEBUG - Received paid_at: {paid_at}")
-            print(f"🔍 DEBUG - Parsed datetime: {paid_at_datetime}")
-            print(f"🔍 DEBUG - Hour: {paid_at_datetime.hour}, Minute: {paid_at_datetime.minute}")
-            print(f"🔍 DEBUG - Timezone info: {paid_at_datetime.tzinfo}")
-            
         except (ValueError, TypeError) as e:
             raise HTTPException(status_code=400, detail=f"Invalid paid_at format: {str(e)}")
         
-        # Handle slip file upload (mock for Phase 1)
+        # Handle slip file upload
         slip_url = None
         if slip:
-            # Phase 1: Generate mock URL from filename
-            slip_url = f"https://example.com/slips/{slip.filename}"
-            # Phase 2+: Upload to S3 and get real URL
+            try:
+                slip_url = await save_slip_file(slip, user_house_id)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
         
         new_payin = PayinReportModel(
             house_id=user_house_id,

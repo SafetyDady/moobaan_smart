@@ -20,17 +20,22 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const success = await login(formData);
+      const userData = await login(formData);
       
-      if (success) {
-        // Redirect to the page user was trying to access, or default to dashboard
+      if (userData) {
+        // Redirect to the page user was trying to access, or default based on role
         const from = location.state?.from?.pathname;
         
         // Don't redirect back to login page
         if (from && from !== '/login') {
           navigate(from, { replace: true });
         } else {
-          navigate('/admin/dashboard', { replace: true });
+          // Redirect based on user role
+          if (userData.role === 'resident') {
+            navigate('/resident/dashboard', { replace: true });
+          } else {
+            navigate('/admin/dashboard', { replace: true });
+          }
         }
       }
     } catch (err) {

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../api/client';
 import { safeParseDate, formatThaiDate, formatThaiTime } from '../../utils/payinStatus';
 
@@ -9,6 +10,9 @@ export default function UnidentifiedReceipts() {
   const [showModal, setShowModal] = useState(false);
   const [selectedTx, setSelectedTx] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [slipFile, setSlipFile] = useState(null);
+  const [slipPreview, setSlipPreview] = useState(null);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     house_id: '',
     source: 'ADMIN_CREATED',
@@ -44,7 +48,38 @@ export default function UnidentifiedReceipts() {
       source: 'ADMIN_CREATED',
       admin_note: ''
     });
+    setSlipFile(null);
+    setSlipPreview(null);
     setShowModal(true);
+  };
+
+  const handleSlipChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('ไฟล์ต้องมีขนาดไม่เกิน 5MB');
+        return;
+      }
+      setSlipFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => setSlipPreview(e.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearSlip = () => {
+    setSlipFile(null);
+    setSlipPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleCreate = async () => {
@@ -52,21 +87,42 @@ export default function UnidentifiedReceipts() {
       alert('กรุณาเลือกบ้าน');
       return;
     }
+    
+    // Slip is REQUIRED for audit completeness
+    if (!slipFile) {
+      alert('กรุณาแนบสลิปการโอนเงิน (จำเป็นสำหรับการตรวจสอบ)');
+      return;
+    }
 
     setCreating(true);
     try {
-      await api.post('/api/payin-state/admin-create-from-bank', {
+      // Step 1: Create Pay-in from bank transaction
+      const createRes = await api.post('/api/payin-state/admin-create-from-bank', {
         bank_transaction_id: selectedTx.id,
         house_id: parseInt(formData.house_id),
         source: formData.source,
-        admin_note: formData.admin_note || null
+        note: formData.admin_note || null
       });
-      alert('สร้าง Pay-in สำเร็จ');
+      
+      const newPayinId = createRes.data?.payin?.id;
+      
+      // Step 2: Attach slip to the created Pay-in
+      if (newPayinId && slipFile) {
+        const slipFormData = new FormData();
+        slipFormData.append('slip', slipFile);
+        
+        await api.post(`/api/payin-state/${newPayinId}/attach-slip`, slipFormData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+      
+      alert('สร้าง Pay-in และแนบสลิปสำเร็จ');
       setShowModal(false);
       loadData();
     } catch (error) {
       console.error('Failed to create pay-in:', error);
-      alert(error.response?.data?.detail || 'สร้าง Pay-in ไม่สำเร็จ');
+      const errorMsg = error.response?.data?.detail || 'สร้าง Pay-in ไม่สำเร็จ';
+      alert(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg);
     } finally {
       setCreating(false);
     }
@@ -197,6 +253,48 @@ export default function UnidentifiedReceipts() {
                   rows="2"
                   placeholder="เช่น ลูกบ้านโทรมาแจ้ง..."
                 />
+              </div>
+
+              {/* Slip Upload - REQUIRED */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">
+                  สลิปการโอนเงิน <span className="text-red-400">*</span>
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSlipChange}
+                  className="hidden"
+                />
+                
+                {!slipPreview ? (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-primary-500 transition-colors"
+                  >
+                    <Upload className="mx-auto mb-2 text-gray-400" size={24} />
+                    <p className="text-sm text-gray-400">คลิกเพื่อเลือกรูปสลิป</p>
+                    <p className="text-xs text-gray-500 mt-1">รองรับ JPG, PNG (สูงสุด 5MB)</p>
+                  </button>
+                ) : (
+                  <div className="relative">
+                    <img
+                      src={slipPreview}
+                      alt="Slip preview"
+                      className="w-full max-h-48 object-contain rounded-lg border border-gray-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={clearSlip}
+                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
+                    >
+                      <X size={16} />
+                    </button>
+                    <p className="text-xs text-gray-400 mt-1 text-center">{slipFile?.name}</p>
+                  </div>
+                )}
               </div>
             </div>
 

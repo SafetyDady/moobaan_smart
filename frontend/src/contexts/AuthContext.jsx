@@ -52,12 +52,14 @@ export function AuthProvider({ children }) {
       
       // Get user info
       const userResponse = await api.get('/api/auth/me');
+      const userData = userResponse.data;
       
       // Set both token and user in state together
       setToken(access_token);
-      setUser(userResponse.data);
+      setUser(userData);
 
-      return true;
+      // Return user data so caller can determine redirect
+      return userData;
     } catch (error) {
       throw error;
     }
@@ -88,7 +90,10 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
-    isAuthenticated: !!user && (!!token || !!localStorage.getItem('auth_token')),
+    // AUTHORITATIVE AUTH RULE: Token presence = authenticated
+    // User state is for display/role info, not auth gate
+    // This prevents race condition during page refresh
+    isAuthenticated: !!token || !!localStorage.getItem('auth_token'),
     isAdmin: user?.role === 'super_admin',
     isAccounting: user?.role === 'accounting',
     isResident: user?.role === 'resident',

@@ -23,6 +23,7 @@ export default function MobileDashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedPayin, setSelectedPayin] = useState(null);
+  const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: string }
 
   // Check if there's a blocking pay-in (DRAFT or PENDING)
   const hasBlockingPayin = payins.some(isBlockingPayin);
@@ -53,6 +54,8 @@ export default function MobileDashboard() {
     try {
       await payinsAPI.delete(payinId);
       setSelectedPayin(null);
+      setNotification({ type: 'success', message: '✅ ลบรายการสำเร็จ' });
+      setTimeout(() => setNotification(null), 3000);
       loadData();
     } catch (error) {
       console.error('Failed to delete payin:', error);
@@ -71,7 +74,8 @@ export default function MobileDashboard() {
         }
       }
       
-      alert(errorMessage);
+      setNotification({ type: 'error', message: `❌ ${errorMessage}` });
+      setTimeout(() => setNotification(null), 5000);
     }
   };
 
@@ -118,6 +122,21 @@ export default function MobileDashboard() {
 
   return (
     <MobileLayout>
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 left-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+          notification.type === 'success' 
+            ? 'bg-green-900/90 border border-green-600' 
+            : 'bg-red-900/90 border border-red-600'
+        }`}>
+          <p className={`text-sm ${
+            notification.type === 'success' ? 'text-green-300' : 'text-red-300'
+          }`}>
+            {notification.message}
+          </p>
+        </div>
+      )}
+
       {/* Sticky Balance Card */}
       <div className="sticky top-0 z-10 bg-gray-900 p-4">
         <div className={`rounded-xl p-5 shadow-lg ${
