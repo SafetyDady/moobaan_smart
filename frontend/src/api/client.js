@@ -180,6 +180,15 @@ export const creditNotesAPI = {
   // NOTE: No update/delete - Credit notes are IMMUTABLE
 };
 
+// Promotions API (Phase D.4)
+export const promotionsAPI = {
+  list: (params) => apiClient.get('/api/promotions', { params }),
+  get: (id) => apiClient.get(`/api/promotions/${id}`),
+  create: (data) => apiClient.post('/api/promotions', data),
+  // CORE: Evaluate promotions for a pay-in (READ-ONLY, no side effects)
+  evaluate: (payinId) => apiClient.get('/api/promotions/evaluate', { params: { payin_id: payinId } }),
+};
+
 // Pay-in Reports API
 export const payinsAPI = {
   list: (params) => apiClient.get('/api/payin-reports', { params }),
@@ -191,6 +200,8 @@ export const payinsAPI = {
   reject: (id, reason) => apiClient.post(`/api/payin-reports/${id}/reject`, { reason }),
   accept: (id) => apiClient.post(`/api/payin-reports/${id}/accept`),
   cancel: (id, reason) => apiClient.post(`/api/payin-reports/${id}/cancel`, { reason }),
+  // Phase D.3: FIFO Allocation
+  applyFifo: (id) => apiClient.post(`/api/payin-reports/${id}/apply-fifo`),
 };
 
 // Expenses API

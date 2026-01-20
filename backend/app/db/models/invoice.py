@@ -103,13 +103,26 @@ class Invoice(Base):
         return self.get_remaining_balance()
 
     def update_status(self):
-        """Update invoice status based on payments"""
-        total_paid = self.get_total_paid()
-        total_amount = float(self.total_amount)
+        """Update invoice status based on payments and credits
         
-        if total_paid <= 0:
-            self.status = InvoiceStatus.ISSUED
-        elif total_paid >= total_amount:
+        Phase D.3: Consider both payments AND credit notes
+        """
+        outstanding = self.get_outstanding_amount()
+        total_paid = self.get_total_paid()
+        total_credited = self.get_total_credited()
+        
+        # Fully credited = CANCELLED (via credit notes)
+        if self.is_fully_credited():
+            self.status = InvoiceStatus.CANCELLED
+        # Outstanding = 0 and has payments = PAID
+        elif outstanding <= 0 and total_paid > 0:
             self.status = InvoiceStatus.PAID
-        else:
+        # Outstanding = 0 and no payments (shouldn't happen normally)
+        elif outstanding <= 0:
+            self.status = InvoiceStatus.PAID
+        # Has some payment but not fully paid
+        elif total_paid > 0:
             self.status = InvoiceStatus.PARTIALLY_PAID
+        # No payment yet
+        else:
+            self.status = InvoiceStatus.ISSUED

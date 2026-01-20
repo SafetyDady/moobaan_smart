@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
-import { creditNotesAPI } from '../api/client';
+import { creditNotesAPI, promotionsAPI } from '../api/client';
 
 /**
- * Credit Note Modal (Phase D.2-UI)
+ * Credit Note Modal (Phase D.2-UI + D.4 Promotion Suggestions)
  * 
  * Allows Admin to create a credit note to reduce invoice outstanding amount.
  * Credit notes are IMMUTABLE - cannot be edited/deleted after creation.
+ * 
+ * Phase D.4: If payinId is provided, evaluates promotions and shows suggestions.
+ * ❌ Never auto-creates credit notes
+ * ❌ Never auto-applies credit
+ * ✅ Only SUGGESTS amounts - human decides
  */
-export default function CreditNoteModal({ isOpen, onClose, invoice, onSuccess }) {
+export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onSuccess }) {
   const [form, setForm] = useState({
     credit_amount: '',
     reason: '',
@@ -16,6 +21,10 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, onSuccess })
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  
+  // Phase D.4: Promotion suggestion state
+  const [promotionSuggestion, setPromotionSuggestion] = useState(null);
+  const [loadingPromotion, setLoadingPromotion] = useState(false);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -27,8 +36,31 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, onSuccess })
         confirm: false
       });
       setError('');
+      setPromotionSuggestion(null);
     }
   }, [isOpen, invoice]);
+
+  // Phase D.4: Fetch promotion suggestions if payinId is provided
+  useEffect(() => {
+    if (isOpen && payinId) {
+      setLoadingPromotion(true);
+      promotionsAPI.evaluate(payinId)
+        .then((res) => {
+          // Find first eligible promotion
+          const eligible = res.data.suggestions?.find(s => s.eligible);
+          if (eligible) {
+            setPromotionSuggestion(eligible);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to evaluate promotions:', err);
+          // Silent fail - promotion suggestion is optional
+        })
+        .finally(() => {
+          setLoadingPromotion(false);
+        });
+    }
+  }, [isOpen, payinId]);
 
   // Handle full credit checkbox - auto-fill amount
   useEffect(() => {
@@ -43,6 +75,18 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, onSuccess })
   if (!isOpen || !invoice) return null;
 
   const outstanding = invoice.outstanding ?? (invoice.total - (invoice.paid || 0));
+
+  // Phase D.4: Apply promotion suggestion to form
+  const handleUseSuggestion = () => {
+    if (!promotionSuggestion) return;
+    const suggestedAmount = Math.min(promotionSuggestion.suggested_credit, outstanding);
+    setForm(prev => ({
+      ...prev,
+      credit_amount: suggestedAmount.toString(),
+      reason: `โปรโมชัน: ${promotionSuggestion.promotion_name} (${promotionSuggestion.promotion_code})`,
+      is_full_credit: false
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -145,6 +189,41 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, onSuccess })
               <span className="text-yellow-400 font-bold">฿{outstanding.toLocaleString()}</span>
             </div>
           </div>
+
+          {/* Phase D.4: Promotion Suggestion Banner */}
+          {loadingPromotion && (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 flex items-center gap-2">
+              <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
+              <span className="text-blue-300 text-sm">กำลังตรวจสอบโปรโมชัน...</span>
+            </div>
+          )}
+          
+          {promotionSuggestion && !loadingPromotion && (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🎁</div>
+                <div className="flex-1">
+                  <p className="text-green-300 font-medium text-sm">
+                    โปรโมชัน: {promotionSuggestion.promotion_name}
+                  </p>
+                  <p className="text-green-400 text-xs mt-1">
+                    รหัส: {promotionSuggestion.promotion_code}
+                  </p>
+                  <p className="text-white mt-2">
+                    แนะนำ Credit: <span className="font-bold text-green-400">฿{promotionSuggestion.suggested_credit.toLocaleString()}</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleUseSuggestion}
+                    className="mt-3 px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm rounded-lg transition-colors"
+                    disabled={submitting}
+                  >
+                    ใช้จำนวนที่แนะนำ
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Full Credit Checkbox */}
           <div className="flex items-center gap-3">

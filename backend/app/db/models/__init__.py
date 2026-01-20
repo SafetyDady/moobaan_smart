@@ -10,6 +10,7 @@ from .credit_note import CreditNote, CreditNoteStatus
 from .bank_account import BankAccount
 from .bank_transaction import BankTransaction
 from .bank_statement_batch import BankStatementBatch
+from .promotion_policy import PromotionPolicy, PromotionScope, PromotionStatus
 
 __all__ = [
     "User",
@@ -28,4 +29,7 @@ __all__ = [
     "BankAccount",
     "BankTransaction",
     "BankStatementBatch",
+    "PromotionPolicy",
+    "PromotionScope",
+    "PromotionStatus",
 ]

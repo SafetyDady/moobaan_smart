@@ -82,8 +82,8 @@ require_role = require_roles
 require_user = get_current_user
 require_resident = require_roles(["resident"])
 require_accounting = require_roles(["accounting", "super_admin"])
-require_admin = require_roles(["super_admin"])
-require_admin_or_accounting = require_roles(["accounting", "super_admin"])
+require_admin = require_roles(["admin", "super_admin"])  # Phase D.4: admin can create promotions
+require_admin_or_accounting = require_roles(["accounting", "admin", "super_admin"])
 
 
 def get_user_house_id(
