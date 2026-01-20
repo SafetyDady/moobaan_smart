@@ -4,7 +4,7 @@ import { invoicesAPI, payinsAPI, api } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import PayinDetailModal from './PayinDetailModal';
-import PaymentHistoryTable from './PaymentHistoryTable';
+import PaymentHistoryCompactList from './PaymentHistoryCompactList';
 import {
   canEditPayin,
   canDeletePayin,
@@ -228,7 +228,7 @@ export default function MobileDashboard() {
             )}
           </div>
         ) : (
-          <PaymentHistoryTable
+          <PaymentHistoryCompactList
             payins={payins}
             onView={(payin) => setSelectedPayin(payin)}
             onEdit={(payin) => navigate('/resident/submit', { state: { editPayin: payin } })}
