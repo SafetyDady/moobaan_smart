@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str = "your-secret-key-here-change-in-production-use-openssl-rand-hex-32"
     
+    # Cookie Security (auto-detect from ENV)
+    COOKIE_SECURE: bool = False  # Set True for production (HTTPS)
+    
     # Statement Configuration
     PROJECT_NAME_TH: str = "หมู่บ้านสมาร์ท"
     PROJECT_NAME_EN: str = "Smart Village"
@@ -24,9 +27,14 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
-
-    def __post_init__(self):
-        """Validate configuration on startup - FAIL FAST on misconfiguration"""
+    
+    def model_post_init(self, __context):
+        """Auto-configure based on environment and validate"""
+        # Auto-enable secure cookies for production
+        if self.ENV in ["production", "prod"]:
+            object.__setattr__(self, 'COOKIE_SECURE', True)
+        
+        # Run validation
         self._validate_database_url()
         self._log_database_config()
 
@@ -69,9 +77,9 @@ class Settings(BaseSettings):
 
 
 # Initialize settings with validation
+# model_post_init is called automatically by pydantic
 try:
     settings = Settings()
-    settings.__post_init__()
 except Exception as e:
     logger.error(f"❌ Configuration validation failed: {e}")
     raise

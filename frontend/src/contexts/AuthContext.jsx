@@ -3,10 +3,15 @@ import { api } from '../api/client';
 
 const AuthContext = createContext(null);
 
+// Helper to check if CSRF cookie exists (indicates logged in via cookies)
+function hasCsrfToken() {
+  return document.cookie.includes('csrf_token=');
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(null);
+  const [isAuth, setIsAuth] = useState(false);
 
   // Check for existing auth on mount
   useEffect(() => {
@@ -15,21 +20,26 @@ export function AuthProvider({ children }) {
 
   const checkAuth = async () => {
     try {
-      // Check localStorage first 
-      let storedToken = localStorage.getItem('auth_token');
+      // Check if we have httpOnly cookie (via CSRF cookie presence)
+      const hasAuthCookie = hasCsrfToken();
       
-      if (storedToken) {
-        // Set Authorization header
-        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-        
-        // Verify token is still valid using /auth/me endpoint
+      if (hasAuthCookie) {
+        // Verify auth is still valid using /auth/me endpoint
+        // Cookie is sent automatically with withCredentials: true
         try {
           const response = await api.get('/api/auth/me');
-          setToken(storedToken);
+          setIsAuth(true);
           setUser(response.data);
         } catch (error) {
-          // Token expired or invalid
-          clearAuth();
+          // Token expired - try refresh
+          try {
+            await api.post('/api/auth/refresh');
+            const response = await api.get('/api/auth/me');
+            setIsAuth(true);
+            setUser(response.data);
+          } catch (refreshError) {
+            clearAuth();
+          }
         }
       }
     } catch (error) {
@@ -41,21 +51,15 @@ export function AuthProvider({ children }) {
 
   const login = async (formData) => {
     try {
-      const response = await api.post('/api/auth/login', formData);
-      const { access_token } = response.data;
-
-      // Store token in localStorage FIRST before setting state
-      localStorage.setItem('auth_token', access_token);
+      // Login sets httpOnly cookies automatically
+      await api.post('/api/auth/login', formData);
       
-      // Set Authorization header for future requests
-      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-      
-      // Get user info
+      // Get user info (cookie sent automatically)
       const userResponse = await api.get('/api/auth/me');
       const userData = userResponse.data;
       
-      // Set both token and user in state together
-      setToken(access_token);
+      // Set auth state
+      setIsAuth(true);
       setUser(userData);
 
       // Return user data so caller can determine redirect
@@ -67,9 +71,8 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      if (token) {
-        await api.post('/api/auth/logout');
-      }
+      // Call logout endpoint (clears httpOnly cookies)
+      await api.post('/api/auth/logout');
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
@@ -78,22 +81,19 @@ export function AuthProvider({ children }) {
   };
 
   const clearAuth = () => {
-    setToken(null);
+    setIsAuth(false);
     setUser(null);
-    localStorage.removeItem('auth_token');
-    delete api.defaults.headers.common['Authorization'];
   };
 
   const value = {
     user,
-    token,
     loading,
     login,
     logout,
-    // AUTHORITATIVE AUTH RULE: Token presence = authenticated
+    // AUTHORITATIVE AUTH RULE: Cookie presence = authenticated
     // User state is for display/role info, not auth gate
     // This prevents race condition during page refresh
-    isAuthenticated: !!token || !!localStorage.getItem('auth_token'),
+    isAuthenticated: isAuth || hasCsrfToken(),
     isAdmin: user?.role === 'super_admin',
     isAccounting: user?.role === 'accounting',
     isResident: user?.role === 'resident',

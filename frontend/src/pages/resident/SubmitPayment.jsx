@@ -70,9 +70,8 @@ export default function SubmitPayment() {
       
       // Try to get user data directly from API
       try {
-        const token = localStorage.getItem('auth_token');
         const response = await fetch('http://127.0.0.1:8000/api/auth/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include'  // Send httpOnly cookies
         });
         const userData = await response.json();
         console.log('🔍 Direct API check - userData:', userData);

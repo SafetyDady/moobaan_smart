@@ -72,9 +72,7 @@ export default function ResidentDashboard() {
       const response = await fetch(
         `/api/accounting/statement/${currentHouseId}?year=${year}&month=${month}&format=${format}`,
         {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
+          credentials: 'include'  // Send httpOnly cookies
         }
       );
 

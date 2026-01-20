@@ -64,11 +64,58 @@ app.add_middleware(
         "origin",
         "user-agent",
         "x-csrftoken",
+        "x-csrf-token",  # Our custom CSRF header
         "x-requested-with"
     ],
     expose_headers=["*"],
     max_age=86400,
 )
+
+
+# CSRF Protection Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import JSONResponse
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """
+    CSRF Protection using double-submit cookie pattern.
+    For POST/PUT/DELETE/PATCH requests:
+    - Check that X-CSRF-Token header matches csrf_token cookie
+    - Skip for auth login endpoint (no token yet) and logout
+    """
+    EXEMPT_PATHS = [
+        "/api/auth/login",
+        "/api/auth/logout",
+        "/api/auth/refresh",
+        "/docs",
+        "/openapi.json",
+        "/",
+    ]
+    
+    async def dispatch(self, request: StarletteRequest, call_next):
+        # Only check CSRF for state-changing methods
+        if request.method in ["POST", "PUT", "DELETE", "PATCH"]:
+            # Skip exempt paths
+            if not any(request.url.path.startswith(path) for path in self.EXEMPT_PATHS):
+                csrf_cookie = request.cookies.get("csrf_token")
+                csrf_header = request.headers.get("X-CSRF-Token")
+                
+                # Only enforce if user has a CSRF cookie (logged in via cookie)
+                if csrf_cookie and csrf_cookie != csrf_header:
+                    # Log warning but don't block yet (for backward compatibility)
+                    logger.warning(f"CSRF token mismatch: cookie={csrf_cookie[:8]}..., header={csrf_header[:8] if csrf_header else 'None'}...")
+                    # Uncomment below to enforce CSRF (after testing):
+                    # return JSONResponse(
+                    #     status_code=403,
+                    #     content={"detail": "CSRF token mismatch"}
+                    # )
+        
+        response = await call_next(request)
+        return response
+
+# Add CSRF middleware (after CORS)
+app.add_middleware(CSRFMiddleware)
 
 # Include routers
 app.include_router(auth_router)

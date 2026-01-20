@@ -7,15 +7,32 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,  // CRITICAL: Send/receive httpOnly cookies
 });
 
-// Request interceptor to add JWT token
+// Helper to get CSRF token from cookie
+function getCsrfToken() {
+  const match = document.cookie.match(/(^|;)\s*csrf_token=([^;]+)/);
+  return match ? match[2] : null;
+}
+
+// Flag to prevent multiple refresh attempts
+let isRefreshing = false;
+let refreshPromise = null;
+
+// Request interceptor to add CSRF token (auth via httpOnly cookie automatically)
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Add CSRF token for non-GET requests
+    if (config.method !== 'get') {
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
     }
+    
+    // Auth token is sent via httpOnly cookie automatically (withCredentials: true)
+    // No need for Authorization header
     
     // Auto-detect FormData and set correct Content-Type
     if (config.data instanceof FormData) {
@@ -32,21 +49,49 @@ apiClient.interceptors.request.use(
 // Response interceptor for handling authentication errors and business rule warnings
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // Handle 401 authentication errors
-    // IMPORTANT: Don't auto-redirect on 401 during auth check (/api/auth/me)
-    // Let the AuthContext handle auth state management
-    if (error.response?.status === 401) {
-      const requestUrl = error.config?.url || '';
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Handle 401 authentication errors with token refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const requestUrl = originalRequest?.url || '';
       
-      // Only clear token and redirect for non-auth-check requests
-      // Auth check failures are handled gracefully by AuthContext.checkAuth()
-      if (!requestUrl.includes('/api/auth/me')) {
-        localStorage.removeItem('auth_token');
-        // Use correct path: /login (not /auth/login)
-        window.location.href = '/login';
+      // Don't retry for login, logout, or refresh endpoints
+      if (requestUrl.includes('/api/auth/login') || 
+          requestUrl.includes('/api/auth/logout') ||
+          requestUrl.includes('/api/auth/refresh')) {
+        return Promise.reject(error);
       }
-      return Promise.reject(error);
+      
+      // Auth check failures (/api/auth/me) are handled gracefully by AuthContext
+      if (requestUrl.includes('/api/auth/me')) {
+        return Promise.reject(error);
+      }
+      
+      // Try to refresh token
+      originalRequest._retry = true;
+      
+      try {
+        // Prevent multiple concurrent refresh attempts
+        if (!isRefreshing) {
+          isRefreshing = true;
+          refreshPromise = apiClient.post('/api/auth/refresh');
+        }
+        
+        await refreshPromise;
+        isRefreshing = false;
+        refreshPromise = null;
+        
+        // Retry the original request with new cookie
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        isRefreshing = false;
+        refreshPromise = null;
+        
+        // Refresh failed - redirect to login (cookies cleared by server)
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
     }
     
     // Handle 409 business rule warnings (don't log to console)
@@ -79,6 +124,7 @@ apiClient.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => apiClient.post('/api/auth/login', credentials),
   logout: () => apiClient.post('/api/auth/logout'),
+  refresh: () => apiClient.post('/api/auth/refresh'),
   getMe: () => apiClient.get('/api/auth/me'),
   changePassword: (data) => apiClient.post('/api/auth/change-password', data),
 };

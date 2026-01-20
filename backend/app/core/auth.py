@@ -2,9 +2,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Union
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Request
 from app.core.config import settings
 import logging
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,13 @@ pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 # JWT settings
 SECRET_KEY = settings.SECRET_KEY  # Will add this to config
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 15  # Short-lived access token
+REFRESH_TOKEN_EXPIRE_DAYS = 7    # Long-lived refresh token
+
+# Cookie settings (from config)
+COOKIE_SECURE = settings.COOKIE_SECURE  # True in production (HTTPS)
+COOKIE_SAMESITE = "lax"  # Balance between security and usability
+COOKIE_DOMAIN = None  # None = current domain only
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -49,17 +56,30 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
-def verify_token(token: str) -> Optional[dict]:
+def create_refresh_token(data: dict) -> str:
+    """Create a JWT refresh token (longer-lived)"""
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
     """Verify and decode a JWT token"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: int = payload.get("sub")
         if user_id is None:
+            return None
+        # Verify token type matches expected
+        if payload.get("type") != token_type:
+            logger.warning(f"Token type mismatch: expected {token_type}, got {payload.get('type')}")
             return None
         token_data = {
             "user_id": user_id,
@@ -67,8 +87,14 @@ def verify_token(token: str) -> Optional[dict]:
             "house_id": payload.get("house_id")
         }
         return token_data
-    except JWTError:
+    except JWTError as e:
+        logger.debug(f"JWT verification failed: {e}")
         return None
+
+
+def generate_csrf_token() -> str:
+    """Generate a cryptographically secure CSRF token"""
+    return secrets.token_urlsafe(32)
 
 
 def authenticate_user(email: str, password: str, db) -> Union[object, bool]:

@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -7,20 +7,44 @@ from app.db.session import get_db
 from app.db.models.user import User
 from app.db.models.house_member import HouseMember
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # Don't auto-error, we'll check cookie too
+
+
+def get_token_from_request(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Optional[str]:
+    """Extract token from Authorization header OR httpOnly cookie"""
+    # 1. Try Authorization header first (for backward compatibility / API clients)
+    if credentials and credentials.credentials:
+        return credentials.credentials
+    
+    # 2. Try httpOnly cookie
+    cookie_token = request.cookies.get("access_token")
+    if cookie_token:
+        return cookie_token
+    
+    return None
+
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """Get the current authenticated user"""
+    """Get the current authenticated user from token (header or cookie)"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    token_data = verify_token(credentials.credentials)
+    # Get token from header or cookie
+    token = get_token_from_request(request, credentials)
+    if not token:
+        raise credentials_exception
+    
+    token_data = verify_token(token, token_type="access")
     if token_data is None:
         raise credentials_exception
     

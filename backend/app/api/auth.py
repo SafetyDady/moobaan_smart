@@ -1,13 +1,19 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Response, Request
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.db.session import get_db
 from app.db.models.user import User
 from app.db.models.house_member import HouseMember
-from app.core.auth import authenticate_user, create_user_token, verify_password, get_password_hash
+from app.core.auth import (
+    authenticate_user, create_user_token, verify_password, get_password_hash,
+    create_refresh_token, verify_token, generate_csrf_token,
+    COOKIE_SECURE, COOKIE_SAMESITE, COOKIE_DOMAIN, REFRESH_TOKEN_EXPIRE_DAYS
+)
 from app.core.deps import get_current_user
 from app.models import LoginRequest, TokenResponse, UserResponse
+from datetime import timedelta
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -20,9 +26,55 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@router.post("/login", response_model=TokenResponse)
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str, csrf_token: str):
+    """Set httpOnly cookies for authentication"""
+    # Access token - httpOnly, short-lived
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=15 * 60,  # 15 minutes
+        path="/",
+        domain=COOKIE_DOMAIN
+    )
+    
+    # Refresh token - httpOnly, long-lived
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # 7 days
+        path="/api/auth/refresh",  # Only sent to refresh endpoint
+        domain=COOKIE_DOMAIN
+    )
+    
+    # CSRF token - NOT httpOnly (JS needs to read it)
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,  # Must be readable by JS
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/",
+        domain=COOKIE_DOMAIN
+    )
+
+
+def clear_auth_cookies(response: Response):
+    """Clear all auth cookies on logout"""
+    response.delete_cookie(key="access_token", path="/", domain=COOKIE_DOMAIN)
+    response.delete_cookie(key="refresh_token", path="/api/auth/refresh", domain=COOKIE_DOMAIN)
+    response.delete_cookie(key="csrf_token", path="/", domain=COOKIE_DOMAIN)
+
+
+@router.post("/login")
 async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
-    """Authenticate user and return access token"""
+    """Authenticate user and return access token via httpOnly cookie"""
     # Debug: Log received credentials (mask password for security)
     logger.info(f"Login attempt: email={login_data.email}, password_len={len(login_data.password)}")
     
@@ -50,15 +102,142 @@ async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         house_member = db.query(HouseMember).filter(HouseMember.user_id == user.id).first()
         house_id = house_member.house_id if house_member else None
     
+    # Create tokens
     access_token = create_user_token(user, house_id)
+    refresh_token_value = create_refresh_token({"sub": str(user.id), "role": user.role})
+    csrf_token = generate_csrf_token()
     
-    return TokenResponse(access_token=access_token, token_type="bearer")
+    # Create response with cookies
+    response = JSONResponse(content={
+        "access_token": access_token,
+        "token_type": "bearer"
+    })
+    
+    # Set httpOnly cookies on the response
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=15 * 60,
+        path="/"
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token_value,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/auth"
+    )
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/"
+    )
+    
+    logger.info(f"Login successful for {user.email}, cookies set")
+    return response
+
+
+@router.post("/refresh")
+async def refresh_token(request: Request, db: Session = Depends(get_db)):
+    """Refresh access token using refresh token from httpOnly cookie"""
+    refresh_token_cookie = request.cookies.get("refresh_token")
+    
+    if not refresh_token_cookie:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token provided"
+        )
+    
+    # Verify refresh token
+    token_data = verify_token(refresh_token_cookie, token_type="refresh")
+    if not token_data:
+        # Return response that clears cookies
+        response = JSONResponse(
+            status_code=401,
+            content={"detail": "Invalid or expired refresh token"}
+        )
+        response.delete_cookie(key="access_token", path="/")
+        response.delete_cookie(key="refresh_token", path="/api/auth")
+        response.delete_cookie(key="csrf_token", path="/")
+        return response
+    
+    # Get user
+    user = db.query(User).filter(User.id == int(token_data["user_id"])).first()
+    if not user or not user.is_active:
+        response = JSONResponse(
+            status_code=401,
+            content={"detail": "User not found or inactive"}
+        )
+        response.delete_cookie(key="access_token", path="/")
+        response.delete_cookie(key="refresh_token", path="/api/auth")
+        response.delete_cookie(key="csrf_token", path="/")
+        return response
+    
+    # Get house_id for resident users
+    house_id = None
+    if user.role == "resident":
+        house_member = db.query(HouseMember).filter(HouseMember.user_id == user.id).first()
+        house_id = house_member.house_id if house_member else None
+    
+    # Create new tokens (rotate refresh token for security)
+    new_access_token = create_user_token(user, house_id)
+    new_refresh_token = create_refresh_token({"sub": str(user.id), "role": user.role})
+    csrf_token = generate_csrf_token()
+    
+    # Create response with new cookies
+    response = JSONResponse(content={
+        "message": "Token refreshed",
+        "access_token": new_access_token
+    })
+    response.set_cookie(
+        key="access_token",
+        value=new_access_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=15 * 60,
+        path="/"
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/auth"
+    )
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/"
+    )
+    
+    logger.info(f"Token refreshed for user {user.id} ({user.email})")
+    return response
 
 
 @router.post("/logout")
 async def logout():
-    """Logout user (stateless, just return success)"""
-    return {"message": "Successfully logged out"}
+    """Logout user - clear all auth cookies"""
+    response = JSONResponse(content={"message": "Successfully logged out"})
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/api/auth")
+    response.delete_cookie(key="csrf_token", path="/")
+    return response
 
 
 @router.get("/me", response_model=UserResponse)
