@@ -145,23 +145,42 @@ export default function MobileSubmitPayment() {
       navigate('/resident/dashboard');
     } catch (error) {
       console.error('❌ Mobile submit failed:', error);
+      console.error('Error response:', error.response?.data);
       
       // Handle 409 - pay-in already exists
       if (error.response?.status === 409) {
         const errorData = error.response?.data;
-        const code = errorData?.detail?.code;
-        if (code === 'PAYIN_ALREADY_OPEN' || code === 'INCOMPLETE_PAYIN_EXISTS' || code === 'PAYIN_PENDING_EXISTS') {
-          const msg = errorData.detail.message || 'คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน';
+        const detail = errorData?.detail;
+        
+        // Check for PAYIN_ALREADY_OPEN code
+        if (detail?.code === 'PAYIN_ALREADY_OPEN' || 
+            detail?.code === 'INCOMPLETE_PAYIN_EXISTS' || 
+            detail?.code === 'PAYIN_PENDING_EXISTS') {
+          const existingStatus = detail.existing_status || '';
+          let statusText = '';
+          switch(existingStatus) {
+            case 'PENDING': statusText = '(รอตรวจสอบ)'; break;
+            case 'DRAFT': statusText = '(แบบร่าง)'; break;
+            case 'REJECTED_NEEDS_FIX': statusText = '(ถูกปฏิเสธ-รอแก้ไข)'; break;
+            case 'SUBMITTED': statusText = '(ส่งแล้ว)'; break;
+            default: statusText = '';
+          }
+          const msg = `⚠️ คุณมีรายการส่งสลิปค้างอยู่ ${statusText}\n\nกรุณากลับไปดำเนินการรายการเดิมให้เสร็จก่อน หรือลบรายการเดิมออก`;
           setError(msg);
           setSubmitting(false);
-          setTimeout(() => navigate('/resident/dashboard'), 1500);
           return;
         }
+        
+        // Generic 409 message
+        const msg = detail?.message || 'มีรายการค้างอยู่ กรุณาตรวจสอบ';
+        setError(`⚠️ ${msg}`);
+        setSubmitting(false);
+        return;
       }
       
       // Handle network error
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        setError('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (CORS/Network)');
+        setError('❌ เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
         setSubmitting(false);
         return;
       }
@@ -401,7 +420,7 @@ export default function MobileSubmitPayment() {
       </div>
 
       {/* Custom Calendar Styles */}
-      <style jsx global>{`
+      <style>{`
         .custom-calendar {
           background: white;
           border: 1px solid #e5e7eb;

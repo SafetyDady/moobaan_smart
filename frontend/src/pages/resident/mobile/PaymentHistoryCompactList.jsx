@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatPayinDateTime, getPayinStatusColor, getPayinStatusText } from '../../../utils/payinStatus';
+import { formatPayinDateTime, getStatusBadgeColor, getStatusText } from '../../../utils/payinStatus';
 
 /**
  * PaymentHistoryCompactList Component
@@ -66,10 +66,10 @@ const PaymentHistoryCompactList = ({ payins = [], onView, onEdit }) => {
             <span
               className={`
                 inline-block px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap
-                ${getPayinStatusColor(payin.status)}
+                ${getStatusBadgeColor(payin.status)}
               `}
             >
-              {getPayinStatusText(payin.status)}
+              {getStatusText(payin.status)}
             </span>
           </div>
 

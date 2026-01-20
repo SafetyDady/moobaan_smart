@@ -82,21 +82,25 @@ export default function MobileDashboard() {
 
   // Invoice status colors (separate from Pay-in)
   const getInvoiceStatusColor = (status) => {
+    const upperStatus = status?.toUpperCase();
     const colors = {
-      pending: 'bg-yellow-500 text-black',  // เหลือง - รอชำระ
-      paid: 'bg-green-500 text-white',      // เขียว - ชำระแล้ว
-      overdue: 'bg-red-500 text-white',     // แดง - เกินกำหนด
+      PENDING: 'bg-yellow-500 text-black',  // เหลือง - รอชำระ
+      UNPAID: 'bg-yellow-500 text-black',   // เหลือง - ยังไม่ชำระ
+      PAID: 'bg-green-500 text-white',      // เขียว - ชำระแล้ว
+      OVERDUE: 'bg-red-500 text-white',     // แดง - เกินกำหนด
     };
-    return colors[status] || 'bg-gray-500 text-white';
+    return colors[upperStatus] || 'bg-gray-500 text-white';
   };
 
   const getInvoiceStatusText = (status) => {
+    const upperStatus = status?.toUpperCase();
     const texts = {
-      pending: 'รอชำระ',
-      paid: 'ชำระแล้ว',
-      overdue: 'เกินกำหนด',
+      PENDING: 'รอชำระ',
+      UNPAID: 'ยังไม่ชำระ',
+      PAID: 'ชำระแล้ว',
+      OVERDUE: 'เกินกำหนด',
     };
-    return texts[status] || status;
+    return texts[upperStatus] || status;
   };
 
   if (loading) {

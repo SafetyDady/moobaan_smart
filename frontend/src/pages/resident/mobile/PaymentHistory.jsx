@@ -241,10 +241,10 @@ export default function PaymentHistory() {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <div className="text-sm font-medium text-gray-300">
-                            {invoice.period || 'N/A'}
+                            {invoice.cycle || 'N/A'}
                           </div>
                           <div className="text-2xl font-bold text-white mt-1">
-                            ฿{invoice.total_amount?.toLocaleString('th-TH') || '0'}
+                            ฿{invoice.total?.toLocaleString('th-TH') || '0'}
                           </div>
                         </div>
                         <span
