@@ -159,6 +159,7 @@ export const invoicesAPI = {
   get: (id) => apiClient.get(`/api/invoices/${id}`),
   getDetail: (id) => apiClient.get(`/api/invoices/${id}/detail`),
   create: (data) => apiClient.post('/api/invoices', data),
+  createManual: (data) => apiClient.post('/api/invoices/manual', data),
   update: (id, data) => apiClient.put(`/api/invoices/${id}`, data),
   delete: (id) => apiClient.delete(`/api/invoices/${id}`),
   generateMonthly: () => apiClient.post('/api/invoices/generate-monthly'),
@@ -169,6 +170,14 @@ export const invoicesAPI = {
     apiClient.post(`/api/invoices/${invoiceId}/apply-payment`, data),
   getPayments: (invoiceId) => 
     apiClient.get(`/api/invoices/${invoiceId}/payments`),
+};
+
+// Credit Notes API (Phase D.2)
+export const creditNotesAPI = {
+  list: (invoiceId) => apiClient.get('/api/credit-notes', { params: invoiceId ? { invoice_id: invoiceId } : {} }),
+  get: (id) => apiClient.get(`/api/credit-notes/${id}`),
+  create: (data) => apiClient.post('/api/credit-notes', data),
+  // NOTE: No update/delete - Credit notes are IMMUTABLE
 };
 
 // Pay-in Reports API

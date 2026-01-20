@@ -12,19 +12,99 @@ from app.db.models import (
     InvoicePayment,
     PayinReport
 )
+from app.db.models.invoice import InvoiceStatus as InvoiceStatusEnum
 from app.db.models.payin_report import PayinStatus
-from app.core.deps import get_db, require_admin_or_accounting
+from app.db.models.house import HouseStatus
+from app.core.deps import get_db, require_admin_or_accounting, get_current_user
 from app.db.models.user import User
 from decimal import Decimal
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
 
+# ============================================
+# Manual Invoice Request Schema (Phase D.1)
+# ============================================
+class ManualInvoiceCreate(BaseModel):
+    """Schema for creating a manual invoice"""
+    house_id: int = Field(..., description="Target house ID")
+    amount: float = Field(..., gt=0, description="Invoice amount (must be > 0)")
+    description: str = Field(..., min_length=1, description="Reason/description for invoice")
+    due_date: date = Field(..., description="Payment due date")
+    note: Optional[str] = Field(None, description="Additional notes")
+
+
+# ============================================
+# Manual Invoice Endpoint (Phase D.1)
+# ============================================
+@router.post("/manual")
+async def create_manual_invoice(
+    data: ManualInvoiceCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting)
+):
+    """
+    Create a manual invoice for special cases.
+    
+    Permission: SUPER_ADMIN, ACCOUNTING only
+    
+    Rules:
+    - is_manual = true (always)
+    - cycle_year = 0, cycle_month = 0 (not tied to billing cycle)
+    - Cannot edit existing invoices via this endpoint
+    """
+    # Validate house exists and is active
+    house = db.query(HouseDB).filter(HouseDB.id == data.house_id).first()
+    if not house:
+        raise HTTPException(status_code=404, detail="House not found")
+    
+    if house.house_status != HouseStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="House is not active")
+    
+    # Validate due_date >= today
+    if data.due_date < date.today():
+        raise HTTPException(status_code=400, detail="Due date must be today or in the future")
+    
+    # Create manual invoice
+    new_invoice = InvoiceDB(
+        house_id=data.house_id,
+        cycle_year=0,  # Manual invoices don't belong to a billing cycle
+        cycle_month=0,
+        issue_date=date.today(),
+        due_date=data.due_date,
+        total_amount=Decimal(str(data.amount)),
+        status=InvoiceStatusEnum.ISSUED,
+        notes=data.note,
+        created_by=current_user.id,
+        is_manual=True,
+        manual_reason=data.description
+    )
+    
+    db.add(new_invoice)
+    db.commit()
+    db.refresh(new_invoice)
+    
+    return {
+        "id": new_invoice.id,
+        "house_id": new_invoice.house_id,
+        "house_code": house.house_code,
+        "amount": float(new_invoice.total_amount),
+        "description": new_invoice.manual_reason,
+        "due_date": new_invoice.due_date.isoformat(),
+        "status": new_invoice.status.value,
+        "is_manual": True,
+        "created_by": current_user.id,
+        "created_at": new_invoice.created_at.isoformat() if new_invoice.created_at else None,
+        "message": "Manual invoice created successfully"
+    }
+
+
 @router.get("", response_model=List[InvoiceSchema])
 async def list_invoices(
     db: Session = Depends(get_db),
     house_id: int = None,
-    status: str = None
+    status: str = None,
+    is_manual: bool = None
 ):
     """List all invoices with optional filters"""
     query = db.query(InvoiceDB)
@@ -35,6 +115,10 @@ async def list_invoices(
     if status:
         query = query.filter(InvoiceDB.status == status)
     
+    # Filter by manual/auto-generated
+    if is_manual is not None:
+        query = query.filter(InvoiceDB.is_manual == is_manual)
+    
     invoices = query.all()
     
     # Convert to schema format
@@ -42,22 +126,37 @@ async def list_invoices(
     for idx, inv in enumerate(invoices):
         house = db.query(HouseDB).filter(HouseDB.id == inv.house_id).first()
         
-        # Calculate paid and outstanding
+        # Calculate paid and outstanding (now considering credits)
         paid_amount = inv.get_total_paid()
-        outstanding_amount = inv.get_outstanding_amount()
+        total_credited = inv.get_total_credited()
+        net_amount = inv.get_net_amount()
+        outstanding_amount = inv.get_remaining_balance()
+        is_fully_credited = inv.is_fully_credited()
         
         # Determine status from actual data
-        if inv.status:
+        if is_fully_credited:
+            actual_status = "CREDITED"  # Cancelled by credit note
+        elif inv.status:
             actual_status = inv.status.value
         else:
             actual_status = "ISSUED"
+        
+        # Determine invoice type and cycle based on is_manual
+        if inv.is_manual:
+            inv_type = InvoiceType.MANUAL
+            cycle_str = "MANUAL"
+            description = inv.manual_reason or "Manual Invoice"
+        else:
+            inv_type = InvoiceType.AUTO_MONTHLY
+            cycle_str = f"{inv.cycle_year}-{inv.cycle_month:02d}"
+            description = inv.notes or "ค่าส่วนกลาง"
         
         result.append(InvoiceSchema(
             id=inv.id,
             house_id=inv.house_id,
             house_number=house.house_code if house else "Unknown",
-            invoice_type=InvoiceType.AUTO_MONTHLY,
-            cycle=f"{inv.cycle_year}-{inv.cycle_month:02d}",
+            invoice_type=inv_type,
+            cycle=cycle_str,
             total=float(inv.total_amount),
             paid=paid_amount,
             outstanding=outstanding_amount,
@@ -66,11 +165,17 @@ async def list_invoices(
             items=[
                 InvoiceItem(
                     id=0,
-                    description=inv.notes or "ค่าส่วนกลาง",
+                    description=description,
                     amount=float(inv.total_amount)
                 )
             ],
-            created_at=inv.created_at
+            created_at=inv.created_at,
+            is_manual=inv.is_manual,
+            manual_reason=inv.manual_reason,
+            # Phase D.2: Credit note fields
+            total_credited=total_credited,
+            net_amount=net_amount,
+            is_fully_credited=is_fully_credited
         ))
     
     return result

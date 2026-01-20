@@ -166,6 +166,13 @@ class Invoice(BaseModel):
     due_date: date
     items: List[InvoiceItem]
     created_at: datetime
+    # Phase D.1: Manual invoice fields
+    is_manual: Optional[bool] = False
+    manual_reason: Optional[str] = None
+    # Phase D.2: Credit note fields
+    total_credited: Optional[float] = 0  # Total credit notes applied
+    net_amount: Optional[float] = None  # Amount after credits (total - credited)
+    is_fully_credited: Optional[bool] = False  # Invoice cancelled by credit note
 
     class Config:
         from_attributes = True

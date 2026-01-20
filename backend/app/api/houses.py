@@ -15,7 +15,12 @@ async def list_houses(status: Optional[str] = None, search: Optional[str] = None
     query = db.query(HouseModel)
     
     if status:
-        query = query.filter(HouseModel.house_status == status)
+        # Convert string to HouseStatus enum
+        try:
+            status_enum = HouseStatus(status.upper())
+            query = query.filter(HouseModel.house_status == status_enum)
+        except ValueError:
+            pass  # Invalid status, ignore filter
     
     if search:
         search_lower = search.lower()

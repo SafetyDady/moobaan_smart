@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { invoicesAPI } from '../../api/client';
+import { invoicesAPI, housesAPI, creditNotesAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
+import CreditNoteModal from '../../components/CreditNoteModal';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -17,14 +18,44 @@ export default function Invoices() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [payments, setPayments] = useState([]);
 
+  // Manual Invoice Modal state (Phase D.1)
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [houses, setHouses] = useState([]);
+  const [manualForm, setManualForm] = useState({
+    house_id: '',
+    amount: '',
+    description: '',
+    due_date: '',
+    note: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  // Credit Note Modal state (Phase D.2)
+  const [showCreditNoteModal, setShowCreditNoteModal] = useState(false);
+  const [creditNoteInvoice, setCreditNoteInvoice] = useState(null);
+
   useEffect(() => {
     loadInvoices();
   }, [activeTab]);
 
+  // Load houses for manual invoice form
+  useEffect(() => {
+    loadHouses();
+  }, []);
+
+  const loadHouses = async () => {
+    try {
+      const response = await housesAPI.list({ status: 'active' });
+      setHouses(response.data || []);
+    } catch (error) {
+      console.error('Failed to load houses:', error);
+    }
+  };
+
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const params = { invoice_type: activeTab === 'auto' ? 'auto_monthly' : 'manual' };
+      const params = { is_manual: activeTab === 'manual' };
       const response = await invoicesAPI.list(params);
       setInvoices(response.data);
     } catch (error) {
@@ -85,28 +116,118 @@ export default function Invoices() {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, outstanding, total) => {
+    // Phase D.2: Credit Note status badges
+    // Priority: Check outstanding-based credit status first
+    if (outstanding === 0 && total > 0) {
+      // Fully credited/paid
+      return 'bg-gray-500/20 text-gray-400';
+    }
+    if (outstanding > 0 && outstanding < total) {
+      // Partially credited/paid
+      return 'bg-orange-500/20 text-orange-400';
+    }
+    
     const badges = {
       pending: 'bg-yellow-500/20 text-yellow-400',
       ISSUED: 'bg-yellow-500/20 text-yellow-400',
       paid: 'bg-green-500/20 text-green-400',
       PAID: 'bg-green-500/20 text-green-400',
       PARTIALLY_PAID: 'bg-blue-500/20 text-blue-400',
+      CREDITED: 'bg-gray-500/20 text-gray-400',
+      PARTIALLY_CREDITED: 'bg-orange-500/20 text-orange-400',
       overdue: 'bg-red-500/20 text-red-400',
     };
-    return badges[status] || 'bg-gray-500/20 text-gray-400';
+    return badges[status] || 'bg-yellow-500/20 text-yellow-400';
   };
 
-  const formatStatus = (status) => {
+  const formatStatus = (status, outstanding, total) => {
+    // Phase D.2: Dynamic status based on outstanding
+    if (outstanding === 0 && total > 0) {
+      return 'Credited';
+    }
+    if (outstanding > 0 && outstanding < total) {
+      return 'Partial';
+    }
+    
     const labels = {
       pending: 'Pending',
       ISSUED: 'Pending',
       paid: 'Paid',
       PAID: 'Paid',
       PARTIALLY_PAID: 'Partial',
+      CREDITED: 'Credited',
+      PARTIALLY_CREDITED: 'Partial',
       overdue: 'Overdue',
     };
     return labels[status] || status;
+  };
+
+  // Credit Note handler (Phase D.2)
+  const handleOpenCreditNote = (invoice, e) => {
+    e?.stopPropagation();
+    setCreditNoteInvoice({
+      ...invoice,
+      outstanding: invoice.outstanding ?? (invoice.total - (invoice.paid || 0))
+    });
+    setShowCreditNoteModal(true);
+  };
+
+  const handleCreditNoteSuccess = () => {
+    loadInvoices();
+    // Refresh detail if open
+    if (showDetailModal && selectedInvoice) {
+      handleRowClick(selectedInvoice);
+    }
+  };
+
+  // Manual Invoice Handlers (Phase D.1)
+  const openManualModal = () => {
+    // Set default due date to 15 days from now
+    const defaultDue = new Date();
+    defaultDue.setDate(defaultDue.getDate() + 15);
+    setManualForm({
+      house_id: '',
+      amount: '',
+      description: '',
+      due_date: defaultDue.toISOString().split('T')[0],
+      note: ''
+    });
+    setShowManualModal(true);
+  };
+
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!manualForm.house_id || !manualForm.amount || !manualForm.description || !manualForm.due_date) {
+      alert('กรุณากรอกข้อมูลให้ครบ');
+      return;
+    }
+    
+    if (parseFloat(manualForm.amount) <= 0) {
+      alert('จำนวนเงินต้องมากกว่า 0');
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      await invoicesAPI.createManual({
+        house_id: parseInt(manualForm.house_id),
+        amount: parseFloat(manualForm.amount),
+        description: manualForm.description,
+        due_date: manualForm.due_date,
+        note: manualForm.note || null
+      });
+      alert('สร้าง Manual Invoice สำเร็จ');
+      setShowManualModal(false);
+      setActiveTab('manual'); // Switch to manual tab
+      loadInvoices();
+    } catch (error) {
+      console.error('Failed to create manual invoice:', error);
+      alert(error.response?.data?.detail || 'ไม่สามารถสร้าง Invoice ได้');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -138,11 +259,20 @@ export default function Invoices() {
         >
           Manual
         </button>
-        {activeTab === 'auto' && (
-          <button onClick={handleGenerateMonthly} className="btn-primary ml-auto">
-            Generate Monthly Invoices
-          </button>
-        )}
+        
+        {/* Action buttons based on tab */}
+        <div className="ml-auto flex gap-2">
+          {activeTab === 'auto' && (
+            <button onClick={handleGenerateMonthly} className="btn-primary">
+              Generate Monthly Invoices
+            </button>
+          )}
+          {activeTab === 'manual' && (
+            <button onClick={openManualModal} className="btn-primary">
+              + Create Manual Invoice
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -178,26 +308,52 @@ export default function Invoices() {
                       onClick={() => handleRowClick(inv)}
                       className="cursor-pointer hover:bg-slate-700/50 transition-colors"
                     >
-                      <td className="font-medium text-white">{inv.house_number}</td>
-                      <td className="text-gray-300">{inv.cycle || '-'}</td>
+                      <td className="font-medium text-white">
+                        {inv.house_number}
+                        {inv.is_manual && (
+                          <span className="ml-2 px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full">
+                            Manual
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-gray-300">
+                        {inv.is_manual ? (
+                          <span className="text-purple-400" title={inv.manual_reason}>
+                            {inv.manual_reason?.substring(0, 30) || 'Manual'}{inv.manual_reason?.length > 30 ? '...' : ''}
+                          </span>
+                        ) : (
+                          inv.cycle || '-'
+                        )}
+                      </td>
                       <td className="text-gray-300">฿{inv.total.toLocaleString()}</td>
                       <td className="text-green-400">฿{paid.toLocaleString()}</td>
                       <td className={outstanding > 0 ? 'text-yellow-400' : 'text-gray-400'}>
                         ฿{outstanding.toLocaleString()}
                       </td>
                       <td>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(inv.status)}`}>
-                          {formatStatus(inv.status)}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(inv.status, outstanding, inv.total)}`}>
+                          {formatStatus(inv.status, outstanding, inv.total)}
                         </span>
                       </td>
                       <td className="text-gray-300">{new Date(inv.due_date).toLocaleDateString()}</td>
-                      <td>
+                      <td className="space-x-1">
+                        {/* Apply Payment Button */}
                         {canApply && (
                           <button
                             onClick={(e) => handleApplyPayment(inv, e)}
                             className="px-3 py-1 bg-primary-600 text-white text-sm rounded hover:bg-primary-500 transition-colors"
                           >
                             Apply
+                          </button>
+                        )}
+                        {/* Credit Note Button - Phase D.2 */}
+                        {outstanding > 0 && (
+                          <button
+                            onClick={(e) => handleOpenCreditNote(inv, e)}
+                            className="px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-500 transition-colors"
+                            title="Create Credit Note / ลดยอดค้าง"
+                          >
+                            + Credit
                           </button>
                         )}
                       </td>
@@ -268,19 +424,21 @@ export default function Invoices() {
                       <div>
                         <div className="text-gray-400 text-sm">Status</div>
                         <div className={`font-bold text-lg ${
+                          invoiceDetail.outstanding_amount === 0 ? 'text-gray-400' :
+                          invoiceDetail.outstanding_amount < invoiceDetail.total_amount ? 'text-orange-400' :
                           invoiceDetail.status === 'PAID' ? 'text-green-400' :
                           invoiceDetail.status === 'PARTIALLY_PAID' ? 'text-blue-400' :
                           'text-yellow-400'
                         }`}>
-                          {formatStatus(invoiceDetail.status)}
+                          {formatStatus(invoiceDetail.status, invoiceDetail.outstanding_amount || 0, invoiceDetail.total_amount || 0)}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Apply Payment Button */}
+                  {/* Action Buttons */}
                   {(invoiceDetail.outstanding_amount || 0) > 0 && (
-                    <div className="mb-6">
+                    <div className="mb-6 flex gap-3">
                       <button
                         onClick={() => {
                           setShowDetailModal(false);
@@ -292,9 +450,26 @@ export default function Invoices() {
                             outstanding: invoiceDetail.outstanding_amount
                           });
                         }}
-                        className="w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors font-medium"
+                        className="flex-1 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors font-medium"
                       >
                         Apply Payment / ชำระเงิน
+                      </button>
+                      {/* Credit Note Button - Phase D.2 */}
+                      <button
+                        onClick={() => {
+                          setShowDetailModal(false);
+                          handleOpenCreditNote({
+                            ...selectedInvoice,
+                            house_id: invoiceDetail.house_id,
+                            house_code: invoiceDetail.house_code,
+                            house_number: invoiceDetail.house_code,
+                            total: invoiceDetail.total_amount,
+                            outstanding: invoiceDetail.outstanding_amount
+                          });
+                        }}
+                        className="flex-1 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-500 transition-colors font-medium"
+                      >
+                        + Credit Note / ลดยอด
                       </button>
                     </div>
                   )}
@@ -351,6 +526,137 @@ export default function Invoices() {
           </div>
         </div>
       )}
+
+      {/* Manual Invoice Modal (Phase D.1) */}
+      {showManualModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-white">Create Manual Invoice</h2>
+                <p className="text-gray-400 text-sm">สร้างใบแจ้งหนี้พิเศษ</p>
+              </div>
+              <button
+                onClick={() => setShowManualModal(false)}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleManualSubmit} className="p-6 space-y-4">
+              {/* House Selection */}
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  บ้าน <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={manualForm.house_id}
+                  onChange={(e) => setManualForm({ ...manualForm, house_id: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">-- เลือกบ้าน --</option>
+                  {houses.map((house) => (
+                    <option key={house.id} value={house.id}>
+                      {house.house_code} - {house.owner_name || 'N/A'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  จำนวนเงิน (บาท) <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={manualForm.amount}
+                  onChange={(e) => setManualForm({ ...manualForm, amount: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  รายละเอียด / เหตุผล <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={manualForm.description}
+                  onChange={(e) => setManualForm({ ...manualForm, description: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="เช่น ค่าปรับจอดรถผิดที่, ค่าซ่อมแซม"
+                  required
+                />
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  วันครบกำหนด <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={manualForm.due_date}
+                  onChange={(e) => setManualForm({ ...manualForm, due_date: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  หมายเหตุ (ถ้ามี)
+                </label>
+                <textarea
+                  value={manualForm.note}
+                  onChange={(e) => setManualForm({ ...manualForm, note: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  rows={2}
+                  placeholder="หมายเหตุเพิ่มเติม..."
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowManualModal(false)}
+                  className="flex-1 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors disabled:opacity-50"
+                >
+                  {submitting ? 'กำลังสร้าง...' : 'สร้าง Invoice'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Credit Note Modal (Phase D.2) */}
+      <CreditNoteModal
+        isOpen={showCreditNoteModal}
+        onClose={() => setShowCreditNoteModal(false)}
+        invoice={creditNoteInvoice}
+        onSuccess={handleCreditNoteSuccess}
+      />
     </div>
   );
 }
