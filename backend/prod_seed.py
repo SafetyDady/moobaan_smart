@@ -96,7 +96,7 @@ def run_production_seed():
                 email=admin_email,
                 phone=admin_phone,
                 full_name=admin_name,
-                password_hash=get_password_hash(admin_password),
+                hashed_password=get_password_hash(admin_password),
                 role="super_admin",
                 is_active=True
             )
