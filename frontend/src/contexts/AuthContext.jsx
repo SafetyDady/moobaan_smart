@@ -24,21 +24,38 @@ export function AuthProvider({ children }) {
       const hasAuthCookie = hasCsrfToken();
       
       if (hasAuthCookie) {
-        // Verify auth is still valid using /auth/me endpoint
-        // Cookie is sent automatically with withCredentials: true
+        // Try /api/auth/me first (for Admin/Accounting)
+        // If it fails with 500, try /api/resident/me (for Resident OTP login)
         try {
           const response = await api.get('/api/auth/me');
           setIsAuth(true);
           setUser(response.data);
         } catch (error) {
-          // Token expired - try refresh
+          // /api/auth/me failed - might be Resident, try /api/resident/me
           try {
-            await api.post('/api/auth/refresh');
-            const response = await api.get('/api/auth/me');
+            const residentResponse = await api.get('/api/resident/me');
+            // Convert resident/me response to match user format
+            const residentData = residentResponse.data;
+            const membership = residentData.memberships?.[0];
             setIsAuth(true);
-            setUser(response.data);
-          } catch (refreshError) {
-            clearAuth();
+            setUser({
+              id: residentData.user_id,
+              phone: residentData.phone,
+              role: 'resident',
+              house_id: membership?.house_id || null,
+              house_code: membership?.house_code || null,
+              is_active: true,
+            });
+          } catch (residentError) {
+            // Both failed - try refresh token
+            try {
+              await api.post('/api/auth/refresh');
+              const response = await api.get('/api/auth/me');
+              setIsAuth(true);
+              setUser(response.data);
+            } catch (refreshError) {
+              clearAuth();
+            }
           }
         }
       }
@@ -85,11 +102,20 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Direct user setter for Resident OTP login (avoids race condition)
+  // Called after /select-house success with user data
+  const setResidentUser = (userData) => {
+    setIsAuth(true);
+    setUser(userData);
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
+    checkAuth,  // For app init / page reload only
+    setResidentUser,  // For Resident OTP login flow - direct state set
     // AUTHORITATIVE AUTH RULE: Cookie presence = authenticated
     // User state is for display/role info, not auth gate
     // This prevents race condition during page refresh

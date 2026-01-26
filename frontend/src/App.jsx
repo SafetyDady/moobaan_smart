@@ -5,7 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 
 // Auth pages
-import Login from './pages/auth/Login';
+import UnifiedLogin from './pages/UnifiedLogin';
 
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -36,7 +36,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<UnifiedLogin />} />
 
           {/* Protected Routes - Admin/Accounting */}
           <Route

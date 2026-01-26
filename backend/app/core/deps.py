@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from app.core.auth import verify_token
 from app.db.session import get_db
 from app.db.models.user import User
@@ -90,12 +90,141 @@ def get_user_house_id(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Optional[int]:
-    """Get the house_id for the current user if they are a resident"""
-    if current_user.role != "resident":
-        return None
+    """
+    [DEPRECATED for residents] Get house_id from HouseMember table.
+    
+    WARNING: This function uses .first() which returns arbitrary house for multi-house users.
+    For resident actions, use require_resident_house_context() instead which reads from token.
+    
+    This function is kept for:
+    - Admin flows that don't have house_id in token
+    - Backward compatibility during migration
+    """
+    # R.3.1 Guard: Prevent resident code path from using this function
+    # Residents MUST use require_resident_house_context() to get house_id from token
+    if current_user.role == "resident":
+        import warnings
+        warnings.warn(
+            "DEPRECATED: Resident using get_user_house_id() - should use require_resident_house_context() instead",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # Allow for now during transition, but log warning
+        import logging
+        logging.getLogger(__name__).warning(
+            f"[R.3.1 DEPRECATION] Resident user_id={current_user.id} called get_user_house_id() - "
+            "this should be migrated to require_resident_house_context()"
+        )
     
     house_member = db.query(HouseMember).filter(HouseMember.user_id == current_user.id).first()
     return house_member.house_id if house_member else None
+
+
+# ============================================================================
+# R.3.1: Token-based House Context Dependencies (for Residents)
+# ============================================================================
+
+def get_token_payload(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
+    """
+    Extract and verify token payload from request.
+    Returns the full decoded token payload including house_id if present.
+    """
+    token = get_token_from_request(request, credentials)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    payload = verify_token(token, token_type="access")
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return payload
+
+
+def require_resident_house_context(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> Tuple[User, int]:
+    """
+    [R.3.1] Require resident with active house context from token.
+    
+    This is the ONLY way residents should get their house_id for actions.
+    - Reads house_id from JWT token (set by R.3 select-house)
+    - NO database fallback - token is source of truth
+    - If house_id not in token, resident must select house first
+    
+    Returns:
+        Tuple[User, int]: (current_user, house_id)
+    
+    Raises:
+        401: Not authenticated
+        403: Not a resident / House not selected
+    """
+    # Get token payload
+    payload = get_token_payload(request, credentials)
+    
+    # Get user from DB
+    user_id = payload.get("user_id")
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user"
+        )
+    
+    # Must be resident
+    if user.role != "resident":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only residents can perform this action"
+        )
+    
+    # Get house_id from token - NO DB FALLBACK
+    house_id = payload.get("house_id")
+    if house_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "HOUSE_NOT_SELECTED",
+                "message": "กรุณาเลือกบ้านก่อนใช้งาน"
+            }
+        )
+    
+    return (user, int(house_id))
+
+
+def get_house_id_from_token(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Optional[int]:
+    """
+    [R.3.1] Get house_id from token if present.
+    Returns None if not present (for non-residents or residents who haven't selected house).
+    Does NOT raise exception - use require_resident_house_context() if house_id is required.
+    """
+    try:
+        payload = get_token_payload(request, credentials)
+        house_id = payload.get("house_id")
+        return int(house_id) if house_id else None
+    except HTTPException:
+        return None
 
 
 def require_resident_of_house(house_id: int):

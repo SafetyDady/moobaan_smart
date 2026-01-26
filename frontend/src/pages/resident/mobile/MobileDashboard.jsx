@@ -30,10 +30,20 @@ export default function MobileDashboard() {
   const blockingPayin = payins.find(isBlockingPayin);
 
   useEffect(() => {
-    loadData();
+    // Guard: Only load data when currentHouseId is ready
+    // This prevents API calls with house_id = null during login flow
+    if (currentHouseId) {
+      loadData();
+    }
   }, [currentHouseId]);
 
   const loadData = async () => {
+    // Double guard: Don't call API if no house context
+    if (!currentHouseId) {
+      console.warn('⚠️ MobileDashboard: No currentHouseId, skipping API calls');
+      return;
+    }
+    
     try {
       const [invoicesRes, payinsRes, summaryRes] = await Promise.all([
         invoicesAPI.list({ house_id: currentHouseId }),
@@ -106,6 +116,21 @@ export default function MobileDashboard() {
     };
     return texts[upperStatus] || status;
   };
+
+  // Guard: Wait for house context before rendering dashboard
+  // This handles the brief moment after login but before RoleContext syncs
+  if (!currentHouseId) {
+    return (
+      <MobileLayout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="text-4xl mb-2">🏠</div>
+            <p className="text-gray-400">กำลังโหลดข้อมูลบ้าน...</p>
+          </div>
+        </div>
+      </MobileLayout>
+    );
+  }
 
   if (loading) {
     return (

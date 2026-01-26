@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Form, File, UploadFile
+from fastapi import APIRouter, HTTPException, Depends, Form, File, UploadFile, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
@@ -11,7 +11,11 @@ from app.db.models.house import House as HouseModel
 from app.db.models.user import User
 from app.db.models.income_transaction import IncomeTransaction
 from app.db.session import get_db
-from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_user_house_id
+from app.core.deps import (
+    require_user, require_admin, require_admin_or_accounting, 
+    get_user_house_id, require_resident_house_context,
+    get_house_id_from_token
+)
 from app.core.uploads import save_slip_file
 from app.core.period_lock import validate_period_not_locked
 
@@ -20,21 +24,31 @@ router = APIRouter(prefix="/api/payin-reports", tags=["payin-reports"])
 
 @router.get("", response_model=List[dict])
 async def list_payin_reports(
+    request: Request,
     house_id: Optional[int] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
-    user_house_id: Optional[int] = Depends(get_user_house_id)
+    token_house_id: Optional[int] = Depends(get_house_id_from_token)
 ):
-    """List all pay-in reports with role-based filtering"""
+    """
+    List all pay-in reports with role-based filtering.
+    R.3.1: Residents use house_id from token, not DB lookup.
+    """
     query = db.query(PayinReportModel).options(joinedload(PayinReportModel.house))
     
     # Role-based filtering
     if current_user.role == "resident":
-        # Residents can only see their own house's payins
-        if user_house_id is None:
-            raise HTTPException(status_code=403, detail="Resident not linked to any house")
-        query = query.filter(PayinReportModel.house_id == user_house_id)
+        # R.3.1: Residents use house_id from token
+        if token_house_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error_code": "HOUSE_NOT_SELECTED",
+                    "message": "กรุณาเลือกบ้านก่อนใช้งาน"
+                }
+            )
+        query = query.filter(PayinReportModel.house_id == token_house_id)
     elif current_user.role in ["accounting", "super_admin"]:
         # Admin/accounting can filter by house_id or see all
         if house_id:
@@ -71,12 +85,16 @@ async def list_payin_reports(
 
 @router.get("/{payin_id}", response_model=dict)
 async def get_payin_report(
+    request: Request,
     payin_id: int, 
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
-    user_house_id: Optional[int] = Depends(get_user_house_id)
+    token_house_id: Optional[int] = Depends(get_house_id_from_token)
 ):
-    """Get a specific pay-in report by ID with role-based access"""
+    """
+    Get a specific pay-in report by ID with role-based access.
+    R.3.1: Residents use house_id from token for access control.
+    """
     payin = db.query(PayinReportModel).options(
         joinedload(PayinReportModel.house)
     ).filter(PayinReportModel.id == payin_id).first()
@@ -86,7 +104,16 @@ async def get_payin_report(
     
     # Role-based access control
     if current_user.role == "resident":
-        if user_house_id != payin.house_id:
+        # R.3.1: Must have house selected and it must match
+        if token_house_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error_code": "HOUSE_NOT_SELECTED",
+                    "message": "กรุณาเลือกบ้านก่อนใช้งาน"
+                }
+            )
+        if token_house_id != payin.house_id:
             raise HTTPException(status_code=403, detail="Access denied to this house's data")
     
     return {
@@ -108,21 +135,32 @@ async def get_payin_report(
 
 @router.post("", response_model=dict, status_code=201)
 async def create_payin_report(
+    request: Request,
     amount: float = Form(...),
     paid_at: str = Form(...),
     slip: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_user),
-    user_house_id: Optional[int] = Depends(get_user_house_id)
+    resident_context: tuple = Depends(require_resident_house_context)
 ):
-    """Create a new pay-in report (resident submits proof of payment)"""
+    """
+    Create a new pay-in report (resident submits proof of payment)
+    
+    R.3.1: house_id is extracted from JWT token ONLY (set by R.3 select-house).
+    No client payload house_id is accepted. No DB fallback.
+    """
     try:
-        # Only residents can create payins, and only for their own house
-        if current_user.role != "resident":
-            raise HTTPException(status_code=403, detail="Only residents can create pay-in reports")
+        # R.3.1: Unpack resident context - house_id is from token, guaranteed
+        current_user, user_house_id = resident_context
         
+        # Sanity check (should never happen due to require_resident_house_context)
         if user_house_id is None:
-            raise HTTPException(status_code=403, detail="Resident not linked to any house")
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error_code": "HOUSE_NOT_SELECTED",
+                    "message": "กรุณาเลือกบ้านก่อนใช้งาน"
+                }
+            )
         
         # Check house exists
         house = db.query(HouseModel).filter(HouseModel.id == user_house_id).first()
@@ -218,13 +256,16 @@ async def create_payin_report(
 
 @router.put("/{payin_id}", response_model=dict)
 async def update_payin_report(
+    request: Request,
     payin_id: int, 
     payin: PayInReportUpdate, 
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
-    user_house_id: Optional[int] = Depends(get_user_house_id)
+    token_house_id: Optional[int] = Depends(get_house_id_from_token)
 ):
     """Update a pay-in report
+    
+    R.3.1: Residents use house_id from token for access control.
     
     Per A.1.2 spec - Editable statuses:
     - DRAFT: edit ✅
@@ -241,9 +282,17 @@ async def update_payin_report(
     if not existing:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    # Ownership check for residents
+    # Ownership check for residents (R.3.1: use token house_id)
     if current_user.role == "resident":
-        if user_house_id != existing.house_id:
+        if token_house_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error_code": "HOUSE_NOT_SELECTED",
+                    "message": "กรุณาเลือกบ้านก่อนใช้งาน"
+                }
+            )
+        if token_house_id != existing.house_id:
             raise HTTPException(status_code=403, detail="Access denied to this house's data")
     
     # Only allow update when can be edited
@@ -497,12 +546,15 @@ async def cancel_payin_report(
 
 @router.delete("/{payin_id}")
 async def delete_payin_report(
+    request: Request,
     payin_id: int, 
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
-    user_house_id: Optional[int] = Depends(get_user_house_id)
+    token_house_id: Optional[int] = Depends(get_house_id_from_token)
 ):
     """Delete a pay-in report
+    
+    R.3.1: Residents use house_id from token for access control.
     
     Resident can delete:
     - DRAFT
@@ -531,10 +583,18 @@ async def delete_payin_report(
         # Deletable statuses for residents
         DELETABLE_STATUSES = ["DRAFT", "REJECTED_NEEDS_FIX", "REJECTED"]
         
-        # Role-based access control
+        # Role-based access control (R.3.1: use token house_id)
         if current_user.role == "resident":
-            if user_house_id != payin.house_id:
-                logger.warning(f"Access denied: user house={user_house_id} != payin house={payin.house_id}")
+            if token_house_id is None:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "error_code": "HOUSE_NOT_SELECTED",
+                        "message": "กรุณาเลือกบ้านก่อนใช้งาน"
+                    }
+                )
+            if token_house_id != payin.house_id:
+                logger.warning(f"Access denied: token house={token_house_id} != payin house={payin.house_id}")
                 raise HTTPException(status_code=403, detail="Access denied to this house's data")
             
             # Residents can only delete DRAFT or REJECTED pay-ins
