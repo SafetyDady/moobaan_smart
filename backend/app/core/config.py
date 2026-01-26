@@ -35,16 +35,23 @@ class Settings(BaseSettings):
             object.__setattr__(self, 'COOKIE_SECURE', True)
         
         # Run validation
-        self._validate_database_url()
+        self._normalize_database_url()
         self._log_database_config()
 
-    def _validate_database_url(self):
-        """Enforce PostgreSQL + psycopg v3 ONLY"""
+    def _normalize_database_url(self):
+        """Normalize and validate DATABASE_URL for psycopg v3"""
         if not self.DATABASE_URL:
             raise RuntimeError(
                 "DATABASE_URL environment variable is required. "
                 "Expected format: postgresql+psycopg://user:password@host:port/dbname"
             )
+        
+        # Auto-convert postgresql:// to postgresql+psycopg://
+        # This allows Railway's auto-generated DATABASE_URL to work
+        if self.DATABASE_URL.startswith("postgresql://") and not self.DATABASE_URL.startswith("postgresql+psycopg://"):
+            corrected_url = self.DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+            object.__setattr__(self, 'DATABASE_URL', corrected_url)
+            logger.info("🔄 Auto-converted DATABASE_URL to use psycopg driver")
         
         if not self.DATABASE_URL.startswith("postgresql+psycopg://"):
             raise RuntimeError(
