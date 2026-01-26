@@ -20,7 +20,9 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7    # Long-lived refresh token
 
 # Cookie settings (from config)
 COOKIE_SECURE = settings.COOKIE_SECURE  # True in production (HTTPS)
-COOKIE_SAMESITE = "lax"  # Balance between security and usability
+# SameSite=None required for cross-origin cookies (Vercel frontend → Railway backend)
+# SameSite=lax for same-origin (local development)
+COOKIE_SAMESITE = "none" if settings.ENV in ["production", "prod"] else "lax"
 COOKIE_DOMAIN = None  # None = current domain only
 
 
