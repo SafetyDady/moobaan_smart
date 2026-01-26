@@ -10,7 +10,7 @@
  * Governance Layer: "ตัวเลขเดือนนี้จบแล้ว" (This month's figures are finalized)
  */
 import React, { useState, useEffect } from 'react';
-import { periodsAPI } from '../api/client';
+import { periodsAPI, exportAPI } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 // Month names in Thai
@@ -28,6 +28,7 @@ const MONTH_NAMES_EN = [
 function PeriodClosing() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   
   // State
   const [periods, setPeriods] = useState([]);
@@ -45,6 +46,9 @@ function PeriodClosing() {
   const [unlockReason, setUnlockReason] = useState('');
   const [lockNotes, setLockNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // Export state
+  const [exporting, setExporting] = useState(false);
   
   // Unlock logs
   const [unlockLogs, setUnlockLogs] = useState([]);
@@ -157,6 +161,34 @@ function PeriodClosing() {
   const handleViewLogs = (year, month) => {
     fetchUnlockLogs(year, month);
     setShowLogsModal(true);
+  };
+  
+  // Export handler - Phase G.2
+  const handleExport = async () => {
+    if (!selectedPeriod || periodDetail?.status !== 'LOCKED') return;
+    
+    const periodStr = `${selectedPeriod.year}-${String(selectedPeriod.month).padStart(2, '0')}`;
+    
+    try {
+      setExporting(true);
+      const response = await exportAPI.accounting(periodStr, periodStr);
+      
+      // Create blob and trigger download
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `moobaan_accounting_export_${periodStr}_${periodStr}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Export failed');
+    } finally {
+      setExporting(false);
+    }
   };
   
   const formatCurrency = (amount) => {
@@ -327,6 +359,15 @@ function PeriodClosing() {
                         className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
                       >
                         🔓 ปลดล็อค
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={handleExport}
+                        disabled={exporting}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {exporting ? '📦 Exporting…' : '📦 Export Accounting (ZIP)'}
                       </button>
                     )}
                     <button

@@ -343,6 +343,22 @@ export const periodsAPI = {
   getUnlockLogs: (year, month) => apiClient.get(`/api/periods/${year}/${month}/unlock-logs`),
 };
 
+// Export API (Phase G.2: Accounting Export)
+export const exportAPI = {
+  // Export accounting data (returns ZIP blob)
+  accounting: (fromPeriod, toPeriod) => apiClient.post('/api/export/accounting', {
+    from_period: fromPeriod,
+    to_period: toPeriod,
+    format: 'csv'
+  }, { responseType: 'blob' }),
+  // Preview export data
+  preview: (fromPeriod, toPeriod) => apiClient.get('/api/export/preview', {
+    params: { from_period: fromPeriod, to_period: toPeriod }
+  }),
+  // Get export audit logs
+  logs: (params) => apiClient.get('/api/export/logs', { params }),
+};
+
 export default apiClient;
 
 // Export alias for AuthContext compatibility
