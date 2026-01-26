@@ -109,14 +109,12 @@ def run_production_seed():
             if create_house:
                 existing_house = db.query(House).first()
                 if existing_house:
-                    logger.info(f"✅ House already exists: {existing_house.house_number}")
+                    logger.info(f"✅ House already exists: {existing_house.house_code}")
                 else:
                     logger.info("🏠 Creating sample house...")
                     sample_house = House(
-                        house_number="A-001",
-                        address="1 Sample Street",
-                        village_name="Smart Village",
-                        is_active=True
+                        house_code="A-001",
+                        owner_name="Sample Owner"
                     )
                     db.add(sample_house)
                     db.flush()
