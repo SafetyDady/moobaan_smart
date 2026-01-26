@@ -14,8 +14,8 @@ def init_database():
     from sqlalchemy import inspect, text
     
     # Import all models to register them with Base
-    from app.db.models import user, house, invoice, payin, house_member
-    from app.db.models import resident_membership, ledger
+    # This imports everything from app/db/models/__init__.py
+    from app.db import models
     
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
