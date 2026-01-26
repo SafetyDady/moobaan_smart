@@ -92,6 +92,18 @@ def init_database():
         print("⚠️ DB operations may fail until database is ready.")
         # Do NOT raise - allow app to start
 
+
+def run_production_seed():
+    """Run production seed if enabled via ENV"""
+    try:
+        from prod_seed import run_production_seed as do_seed
+        do_seed()
+    except Exception as e:
+        print(f"⚠️ Production seed skipped or failed: {e}")
+        # Do NOT crash - seed is optional
+
+
 if __name__ == "__main__":
     init_database()
+    run_production_seed()
     print("🚀 Starting uvicorn...")

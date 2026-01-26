@@ -14,6 +14,7 @@ COPY alembic.ini ./
 # Copy startup and seed scripts
 COPY startup.py ./
 COPY seed_users.py ./
+COPY prod_seed.py ./
 
 # Expose port (Railway will inject PORT env var)
 EXPOSE ${PORT:-8000}
