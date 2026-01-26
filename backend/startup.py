@@ -37,7 +37,7 @@ def init_database():
         if not existing_tables or 'users' not in existing_tables:
             print("📦 Fresh database detected - creating all tables...")
             
-            # Create PostgreSQL ENUM types first (before tables)
+            # Create ALL PostgreSQL ENUM types first (before tables)
             print("🔧 Creating ENUM types...")
             with engine.connect() as conn:
                 # promotion_scope enum
@@ -52,6 +52,14 @@ def init_database():
                 conn.execute(text("""
                     DO $$ BEGIN
                         CREATE TYPE promotion_status AS ENUM ('active', 'expired', 'disabled');
+                    EXCEPTION
+                        WHEN duplicate_object THEN null;
+                    END $$;
+                """))
+                # credit_note_status enum
+                conn.execute(text("""
+                    DO $$ BEGIN
+                        CREATE TYPE credit_note_status AS ENUM ('issued', 'applied');
                     EXCEPTION
                         WHEN duplicate_object THEN null;
                     END $$;
