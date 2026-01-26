@@ -17,10 +17,11 @@ class TokenResponse(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    email: str
+    email: Optional[str] = None  # Residents may not have email (OTP-only)
     full_name: str
     role: str
     is_active: bool
+    phone: Optional[str] = None  # For residents
     house_id: Optional[int] = None
     house_code: Optional[str] = None
 

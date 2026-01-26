@@ -4,11 +4,11 @@ from typing import List, Optional
 from app.db.models.user import User
 from app.db.models.house import House
 from app.db.models.house_member import HouseMember
+from app.db.models.resident_membership import ResidentMembership, ResidentMembershipRole, ResidentMembershipStatus
 from app.db.session import get_db
 from app.core.deps import require_admin_or_accounting, get_current_user
 from app.core.auth import get_password_hash
 from app.models import UserCreate
-from secrets import token_urlsafe
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -153,16 +153,12 @@ async def create_resident(
         )
     
     try:
-        # Generate a random temporary password
-        temp_password = token_urlsafe(8)
-        hashed_password = get_password_hash(temp_password)
-        
-        # Create user
+        # Create user (OTP-only, no password)
         new_user = User(
             email=email,
             full_name=full_name,
             phone=phone,
-            hashed_password=hashed_password,
+            hashed_password=None,  # OTP-only resident - no password
             role="resident",
             is_active=True
         )
@@ -170,28 +166,48 @@ async def create_resident(
         db.add(new_user)
         db.flush()  # Flush to get the user ID
         
-        # Create house member relationship
+        # Create house member relationship (legacy table)
         house_member = HouseMember(
             house_id=house_id,
             user_id=new_user.id,
             member_role=member_role,
             phone=phone
         )
-        
         db.add(house_member)
+        
+        # Map member_role to ResidentMembershipRole
+        role_mapping = {
+            "owner": ResidentMembershipRole.OWNER,
+            "family": ResidentMembershipRole.FAMILY,
+            "resident": ResidentMembershipRole.OWNER,  # Default to OWNER
+            "tenant": ResidentMembershipRole.FAMILY,
+        }
+        membership_role = role_mapping.get(member_role.lower(), ResidentMembershipRole.OWNER)
+        
+        # Create resident membership (for OTP login)
+        resident_membership = ResidentMembership(
+            user_id=new_user.id,
+            house_id=house_id,
+            role=membership_role,
+            status=ResidentMembershipStatus.ACTIVE
+        )
+        db.add(resident_membership)
+        
         db.commit()
         
-        # Return success with temporary credentials (ONCE only)
+        # Return success (OTP-only, no credentials)
         return {
             "success": True,
             "user": {
                 "id": new_user.id,
                 "email": new_user.email,
                 "full_name": new_user.full_name,
+                "phone": new_user.phone,
                 "role": new_user.role,
                 "house_id": house_id
             },
-            "temp_password": temp_password  # Returned only in create response
+            "message": "Resident created. User can login via OTP immediately.",
+            "message_th": "สร้างผู้อาศัยสำเร็จ ผู้ใช้สามารถเข้าสู่ระบบด้วย OTP ได้ทันที"
         }
         
     except Exception as e:
@@ -547,68 +563,4 @@ async def reactivate_resident(
         )
 
 
-@router.post("/{user_id}/reset-password")
-async def reset_password(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_accounting)
-):
-    """Reset password for a resident (admin/accounting only)"""
-    import logging
-    import traceback
-    from datetime import datetime
-    from secrets import token_urlsafe
-    
-    logger = logging.getLogger(__name__)
-    
-    try:
-        # Find user
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        
-        # Only allow reset for residents, not admin accounts
-        if user.role in ["super_admin", "accounting"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot reset password for admin accounts"
-            )
-        
-        # Generate secure temporary password
-        temp_password = token_urlsafe(10)  # 10 chars for security
-        hashed_password = get_password_hash(temp_password)
-        
-        # Update user with password reset fields
-        user.hashed_password = hashed_password
-        user.must_change_password = True
-        user.password_reset_at = datetime.utcnow()
-        user.password_reset_by = current_user.id
-        
-        db.commit()
-        
-        logger.info(f"Password reset for user {user.id} ({user.email}) by admin {current_user.id}")
-        
-        return {
-            "user_id": user.id,
-            "temporary_password": temp_password,  # ONLY returned here, never logged
-            "must_change_password": True
-        }
-        
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.exception(f"Error resetting password for user {user_id}: {str(e)}")
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to reset password"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to reset password"
-        )
+# NOTE: reset-password endpoint REMOVED - Residents are OTP-only (Phase R cleanup)

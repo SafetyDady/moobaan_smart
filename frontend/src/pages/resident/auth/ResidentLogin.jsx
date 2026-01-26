@@ -117,11 +117,15 @@ export default function ResidentLogin() {
     setLoading(true);
     setError('');
     
+    console.log('📱 Requesting OTP for phone:', phone); // Debug log
+    
     try {
-      await api.post('/api/resident/login/request-otp', { phone });
+      const response = await api.post('/api/resident/login/request-otp', { phone });
+      console.log('✅ OTP Response:', response.data); // Debug log
       setStep(STEP.OTP);
       startCountdown();
     } catch (err) {
+      console.error('❌ OTP Error:', err.response?.data); // Debug log
       const detail = err.response?.data?.detail;
       if (typeof detail === 'object') {
         setError(detail.message || 'ไม่พบเบอร์โทรศัพท์นี้ในระบบ');
@@ -154,6 +158,9 @@ export default function ResidentLogin() {
       
       const data = response.data;
       const memberships = data.memberships || [];
+      
+      // Small delay to ensure cookies are processed by browser
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Check memberships to determine next step
       if (memberships.length === 0) {

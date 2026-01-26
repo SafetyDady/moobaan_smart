@@ -71,24 +71,25 @@ def test_no_token(endpoint):
 def main():
     print("🚀 Testing JWT Authentication and RBAC System")
     print("=" * 60)
+    print("⚠️  NOTE: Residents are OTP-only - this test covers Admin/Accounting only")
     
-    # Test 1: Login with different users
-    print("\n📋 Test 1: User Authentication")
+    # Test 1: Login with admin users (residents are OTP-only)
+    print("\n📋 Test 1: User Authentication (Admin/Accounting only)")
     admin_token = test_login("admin@moobaan.com", "admin123")
     accounting_token = test_login("accounting@moobaan.com", "acc123")
-    resident_token = test_login("resident@moobaan.com", "res123")
+    # NOTE: Resident login removed - residents use OTP only
     
     # Test 2: Invalid login
     print("\n📋 Test 2: Invalid Credentials")
     test_login("admin@moobaan.com", "wrongpassword")
     
-    if not admin_token or not accounting_token or not resident_token:
+    if not admin_token or not accounting_token:
         print("❌ Authentication failed. Cannot continue tests.")
         return
     
     # Test 3: /auth/me for each user
     print("\n📋 Test 3: User Info Endpoint")
-    for name, token in [("Admin", admin_token), ("Accounting", accounting_token), ("Resident", resident_token)]:
+    for name, token in [("Admin", admin_token), ("Accounting", accounting_token)]:
         print(f"\n--- {name} ---")
         test_me_endpoint(token)
     
@@ -104,24 +105,19 @@ def main():
     test_protected_endpoint(admin_token, "/houses")
     print("Accounting (should work):")
     test_protected_endpoint(accounting_token, "/houses")
-    print("Resident (should fail - 403):")
-    test_protected_endpoint(resident_token, "/houses")
     
     # Test 6: RBAC on members endpoint
     print("\n📋 Test 6: Members Endpoint RBAC")
     print("Admin (should work):")
     test_protected_endpoint(admin_token, "/members")
-    print("Resident (should fail - 403):")
-    test_protected_endpoint(resident_token, "/members")
     
     # Test 7: PayIn reports with role filtering
     print("\n📋 Test 7: PayIn Reports RBAC")
     print("Admin (should see all):")
     test_protected_endpoint(admin_token, "/payin-reports")
-    print("Resident (should see only their house):")
-    test_protected_endpoint(resident_token, "/payin-reports")
     
     print("\n🎉 Testing completed!")
+    print("📝 Note: For resident testing, use OTP login via /api/auth/request-otp")
 
 if __name__ == "__main__":
     main()

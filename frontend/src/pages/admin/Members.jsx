@@ -7,12 +7,7 @@ export default function Members() {
   const [houses, setHouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [houseFilter, setHouseFilter] = useState('');
-  const [resetPasswordModal, setResetPasswordModal] = useState({
-    show: false,
-    residentName: '',
-    email: '',
-    temporaryPassword: ''
-  });
+  // NOTE: Reset Password removed - Residents are OTP-only
   
   // Error/Warning modal state
   const [messageModal, setMessageModal] = useState({
@@ -240,43 +235,7 @@ export default function Members() {
     }
   };
 
-  const handleResetPassword = async (resident) => {
-    if (!confirm(`Generate new temporary password for ${resident.full_name}? Old password will stop working.`)) {
-      return;
-    }
-
-    try {
-      const response = await usersAPI.resetPassword(resident.id);
-      const { temporary_password } = response.data;
-      
-      // Show temp password in modal
-      setResetPasswordModal({
-        show: true,
-        residentName: resident.full_name,
-        email: resident.email,
-        temporaryPassword: temporary_password
-      });
-      
-    } catch (error) {
-      console.error('Failed to reset password:', error);
-      alert('Failed to reset password');
-    }
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      alert('Password copied to clipboard!');
-    });
-  };
-
-  const closeResetPasswordModal = () => {
-    setResetPasswordModal({
-      show: false,
-      residentName: '',
-      email: '',
-      temporaryPassword: ''
-    });
-  };
+  // NOTE: handleResetPassword removed - Residents are OTP-only
 
   return (
     <div className="p-8">
@@ -364,12 +323,7 @@ export default function Members() {
                         >
                           Edit
                         </button>
-                        <button
-                          onClick={() => handleResetPassword(resident)}
-                          className="text-yellow-400 hover:text-yellow-300 text-sm"
-                        >
-                          Reset Password
-                        </button>
+                        {/* NOTE: Reset Password button removed - Residents are OTP-only */}
                         {resident.is_active ? (
                           <button
                             onClick={() => handleDeactivate(resident)}
@@ -408,79 +362,7 @@ export default function Members() {
         </div>
       </div>
 
-      {/* Reset Password Modal */}
-      {resetPasswordModal.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-white mb-2">🔑 Password Reset Successful</h3>
-              <p className="text-gray-300">
-                New temporary password for <span className="font-medium text-white">{resetPasswordModal.residentName}</span>:
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-2">Email:</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={resetPasswordModal.email} 
-                  readOnly 
-                  className="input flex-1 text-sm"
-                />
-                <button 
-                  onClick={() => copyToClipboard(resetPasswordModal.email)}
-                  className="btn-outline px-3 text-sm"
-                >
-                  📋
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm text-gray-400 mb-2">Temporary Password:</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={resetPasswordModal.temporaryPassword} 
-                  readOnly 
-                  className="input flex-1 text-sm font-mono bg-yellow-500/10 border-yellow-500/30 text-yellow-200"
-                />
-                <button 
-                  onClick={() => copyToClipboard(resetPasswordModal.temporaryPassword)}
-                  className="btn-outline px-3 text-sm border-yellow-500/30 text-yellow-200 hover:bg-yellow-500/10"
-                >
-                  📋
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-red-500/10 border border-red-500/20 rounded p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <span className="text-red-400 text-xl">⚠️</span>
-                <div className="text-red-300 text-sm">
-                  <p className="font-medium mb-1">Important Security Notice:</p>
-                  <ul className="list-disc list-inside space-y-1 text-red-200">
-                    <li>This password will NOT be shown again</li>
-                    <li>Save it securely and provide to the resident</li>
-                    <li>User must change password on first login</li>
-                    <li>Do not store this password anywhere permanent</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={closeResetPasswordModal}
-                className="btn-primary flex-1"
-              >
-                I've Saved It Securely
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* NOTE: Reset Password Modal removed - Residents are OTP-only */}
 
       {/* Edit Resident Modal */}
       {editModal.show && (

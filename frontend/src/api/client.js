@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -56,10 +56,12 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       const requestUrl = originalRequest?.url || '';
       
-      // Don't retry for login, logout, or refresh endpoints
+      // Don't retry for login, logout, refresh, or resident auth endpoints
       if (requestUrl.includes('/api/auth/login') || 
           requestUrl.includes('/api/auth/logout') ||
-          requestUrl.includes('/api/auth/refresh')) {
+          requestUrl.includes('/api/auth/refresh') ||
+          requestUrl.includes('/api/resident/login') ||
+          requestUrl.includes('/api/resident/select-house')) {
         return Promise.reject(error);
       }
       
@@ -288,7 +290,7 @@ export const usersAPI = {
   listResidents: (params) => apiClient.get('/api/users/residents', { params }),
   getHouseMemberCount: (houseId) => apiClient.get(`/api/users/houses/${houseId}/member-count`),
   updateResident: (id, data) => apiClient.patch(`/api/users/${id}`, data),
-  resetPassword: (id) => apiClient.post(`/api/users/${id}/reset-password`),
+  // NOTE: resetPassword removed - Residents are OTP-only
   deactivateResident: (id) => apiClient.post(`/api/users/${id}/deactivate`),
   reactivateResident: (id) => apiClient.post(`/api/users/${id}/reactivate`),
 };

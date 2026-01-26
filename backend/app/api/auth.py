@@ -274,10 +274,21 @@ async def change_password(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Change password for current user (force change after reset)"""
+    """Change password for current user (admin/accounting only - residents are OTP-only)"""
     import logging
     
     logger = logging.getLogger(__name__)
+    
+    # BLOCK: Residents cannot change password - they are OTP-only
+    if current_user.role in ["resident", "owner", "tenant"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "Password change not allowed for residents",
+                "error_th": "ผู้อาศัยไม่สามารถเปลี่ยนรหัสผ่านได้ กรุณาใช้ OTP ในการเข้าสู่ระบบ",
+                "error_en": "Residents cannot change password. Please use OTP to login."
+            }
+        )
     
     try:
         # Verify current password (unless it's a forced change)

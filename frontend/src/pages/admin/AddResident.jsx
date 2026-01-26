@@ -9,7 +9,7 @@ export default function AddResident() {
   const [houses, setHouses] = useState([]);
   const [selectedHouseInfo, setSelectedHouseInfo] = useState(null);
   const [errors, setErrors] = useState({});
-  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [creationSuccess, setCreationSuccess] = useState(null);  // OTP-only success message
   const [formData, setFormData] = useState({
     house_id: location.state?.house_id || '',
     full_name: '',
@@ -93,13 +93,13 @@ export default function AddResident() {
       const response = await usersAPI.createResident(formData);
       
       if (response.data.success) {
-        // Extract temp_password from new API response format
-        const tempPassword = response.data.temp_password;
-        setCreatedCredentials({
+        // OTP-only success message (no credentials to display)
+        setCreationSuccess({
+          name: formData.full_name,
           email: formData.email,
-          temporary_password: tempPassword,
-          note_en: "Temporary password. Please ask user to change password on first login.",
-          note_th: "รหัสผ่านชั่วคราว กรุณาแจ้งให้ผู้ใช้เปลี่ยนรหัสผ่านในการเข้าใช้งานครั้งแรก"
+          phone: formData.phone,
+          message_th: response.data.message_th || "ผู้ใช้สามารถเข้าสู่ระบบด้วย OTP ได้ทันที",
+          message_en: response.data.message || "User can login via OTP immediately."
         });
         
         // Auto redirect after 3 seconds
@@ -137,17 +137,13 @@ export default function AddResident() {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
     
-    // Clear credentials when form changes
-    if (createdCredentials) {
-      setCreatedCredentials(null);
+    // Clear success message when form changes
+    if (creationSuccess) {
+      setCreationSuccess(null);
     }
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      alert('Copied to clipboard! / คัดลอกแล้ว!');
-    });
-  };
+  // NOTE: copyToClipboard removed - no password credentials to copy (OTP-only)
 
   return (
     <div className="p-8">
@@ -327,81 +323,54 @@ export default function AddResident() {
             </div>
           )}
 
-          {/* Credentials Display */}
-          {createdCredentials && (
+          {/* OTP Success Display (no password credentials) */}
+          {creationSuccess && (
             <div className="card">
               <div className="p-4 border-b border-gray-700">
-                <h3 className="font-bold text-white">Login Credentials / ข้อมูลเข้าสู่ระบบ</h3>
+                <h3 className="font-bold text-white">✅ สร้างผู้อาศัยสำเร็จ / Resident Created</h3>
               </div>
               <div className="p-4 space-y-4">
                 <div className="bg-green-500/10 border border-green-500/20 rounded p-3">
-                  <p className="text-green-400 font-medium mb-2">✅ Resident created successfully!</p>
-                  <p className="text-gray-300 text-sm mb-3">
-                    {createdCredentials.note_en}
+                  <p className="text-green-400 font-medium mb-2">✅ {creationSuccess.name}</p>
+                  <p className="text-gray-300 text-sm mb-2">
+                    📧 {creationSuccess.email}
                   </p>
-                  <p className="text-gray-300 text-sm mb-3">
-                    {createdCredentials.note_th}
+                  {creationSuccess.phone && (
+                    <p className="text-gray-300 text-sm mb-2">
+                      📱 {creationSuccess.phone}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="bg-primary-500/10 border border-primary-500/20 rounded p-3">
+                  <p className="text-primary-300 text-sm font-medium mb-2">
+                    🔑 {creationSuccess.message_th}
+                  </p>
+                  <p className="text-gray-400 text-sm">
+                    {creationSuccess.message_en}
                   </p>
                 </div>
                 
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm text-gray-400">Email:</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        value={createdCredentials.email} 
-                        readOnly 
-                        className="input text-sm flex-1"
-                      />
-                      <button 
-                        onClick={() => copyToClipboard(createdCredentials.email)}
-                        className="btn-outline px-3 text-sm"
-                      >
-                        📋
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm text-gray-400">Temporary Password:</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        value={createdCredentials.temporary_password} 
-                        readOnly 
-                        className="input text-sm flex-1 font-mono"
-                      />
-                      <button 
-                        onClick={() => copyToClipboard(createdCredentials.temporary_password)}
-                        className="btn-outline px-3 text-sm"
-                      >
-                        📋
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded p-3 text-amber-400 text-sm">
-                    🔒 This password will not be shown again. Please save it securely and provide it to the user.
-                    <br />
-                    <br />
-                    🔒 รหัสผ่านนี้จะไม่แสดงอีก กรุณาบันทึกไว้อย่างปลอดภัยและส่งให้ผู้ใช้
-                  </div>
-                  
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={() => navigate('/admin/members')}
-                      className="btn-primary flex-1"
-                    >
-                      Go to Residents / ไปหน้ารายชื่อผู้ใช้อาศัย
-                    </button>
-                    <button
-                      onClick={() => setCreatedCredentials(null)}
-                      className="btn-secondary"
-                    >
-                      Add Another / เพิ่มอีก
-                    </button>
-                  </div>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded p-3 text-blue-300 text-sm">
+                  📲 แจ้งผู้ใช้ให้เข้าสู่ระบบด้วยเบอร์โทรศัพท์และรับ OTP
+                  <br />
+                  <br />
+                  📲 Please inform the user to login with their phone number and OTP
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => navigate('/admin/members')}
+                    className="btn-primary flex-1"
+                  >
+                    Go to Residents / ไปหน้ารายชื่อผู้อาศัย
+                  </button>
+                  <button
+                    onClick={() => setCreationSuccess(null)}
+                    className="btn-secondary"
+                  >
+                    Add Another / เพิ่มอีก
+                  </button>
                 </div>
               </div>
             </div>
