@@ -4,13 +4,19 @@ from app.db.session import Base
 
 
 class User(Base):
+    """
+    User model supporting multiple authentication methods:
+    - Admin/Accounting: email + password
+    - Resident: phone + OTP (Phase R.2)
+    """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    full_name = Column(String(255), nullable=False)
-    phone = Column(String(50), nullable=True)
-    hashed_password = Column(String(255), nullable=False)
+    username = Column(String(100), nullable=True)  # Phase R.2: Display name (auto-generated for residents)
+    email = Column(String(255), unique=True, nullable=True, index=True)  # Phase R.2: Nullable for residents
+    full_name = Column(String(255), nullable=True)  # Phase R.2: Nullable for residents
+    phone = Column(String(50), nullable=True, index=True)  # Phase R.2: Unique index (partial) for OTP
+    hashed_password = Column(String(255), nullable=True)  # Phase R.2: Nullable for OTP-only residents
     is_active = Column(Boolean, nullable=False, default=True)
     role = Column(String(50), nullable=False, default="resident")  # super_admin, accounting, resident
     
@@ -26,6 +32,7 @@ class User(Base):
         """Convert model to dictionary matching frontend expectations"""
         return {
             "id": self.id,
+            "username": self.username,
             "email": self.email,
             "full_name": self.full_name,
             "phone": self.phone,
@@ -39,6 +46,7 @@ class User(Base):
         """Convert model to dictionary without sensitive information"""
         return {
             "id": self.id,
+            "username": self.username,
             "email": self.email,
             "full_name": self.full_name,
             "role": self.role,

@@ -36,6 +36,7 @@ from app.api.reports import router as reports_router
 from app.api.accounts import router as accounts_router  # Phase F.2: Chart of Accounts
 from app.api.periods import router as periods_router  # Phase G.1: Period Closing
 from app.api.export import router as export_router  # Phase G.2: Accounting Export
+from app.api.resident_auth import router as resident_auth_router  # Phase R.2: Resident OTP Login
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -94,6 +95,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/auth/login",
         "/api/auth/logout",
         "/api/auth/refresh",
+        "/api/resident/login",  # Phase R.2: Resident OTP login
+        "/api/resident/logout",  # Phase R.2: Resident logout
         "/docs",
         "/openapi.json",
         "/",
@@ -144,6 +147,7 @@ app.include_router(reports_router)
 app.include_router(accounts_router)
 app.include_router(periods_router)
 app.include_router(export_router)  # Phase G.2: Accounting Export
+app.include_router(resident_auth_router)  # Phase R.2: Resident OTP Login
 
 # Mount static files for uploaded slips
 # This serves files at /uploads/* from the uploads/ directory

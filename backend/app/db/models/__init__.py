@@ -14,6 +14,7 @@ from .promotion_policy import PromotionPolicy, PromotionScope, PromotionStatus
 from .chart_of_account import ChartOfAccount, AccountType
 from .period_snapshot import PeriodSnapshot, PeriodStatus, PeriodUnlockLog
 from .export_audit_log import ExportAuditLog
+from .resident_membership import ResidentMembership, ResidentMembershipStatus, ResidentMembershipRole
 
 __all__ = [
     "User",
@@ -43,4 +44,7 @@ __all__ = [
     "PeriodStatus",
     "PeriodUnlockLog",
     "ExportAuditLog",
+    "ResidentMembership",
+    "ResidentMembershipStatus",
+    "ResidentMembershipRole",
 ]
