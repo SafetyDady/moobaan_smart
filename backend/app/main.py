@@ -58,10 +58,9 @@ app.add_middleware(
         "https://127.0.0.1:5175",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
-        "https://moobaan-smart.vercel.app",
-        "https://moobaan-smart-8wel25qow-sss-group.vercel.app",
-        "https://moobaan-smart-sss-group.vercel.app",
     ],
+    # Allow all Vercel preview/production URLs for moobaan-smart
+    allow_origin_regex=r"https://moobaan-smart.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[
