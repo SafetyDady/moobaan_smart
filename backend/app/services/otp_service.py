@@ -45,16 +45,35 @@ class OTPConfig:
     
     @classmethod
     def validate(cls):
-        """Validate configuration - FAIL if mock in production"""
+        """
+        Validate configuration - FAIL if mock in production (unless explicitly overridden).
+        
+        Security Policy:
+        - By default: ENV=production + OTP_MODE=mock → RuntimeError
+        - Override: Set ALLOW_MOCK_OTP_IN_PROD=true to temporarily allow mock OTP
+        
+        WARNING: ALLOW_MOCK_OTP_IN_PROD should be removed once SMS gateway is configured!
+        """
         env = settings.ENV.lower()
+        is_production = env in ["production", "prod"]
+        is_mock_mode = cls.MODE == "mock"
+        allow_mock_override = os.getenv("ALLOW_MOCK_OTP_IN_PROD", "").lower() == "true"
         
-        if env in ["production", "prod"] and cls.MODE == "mock":
-            raise RuntimeError(
-                "❌ SECURITY ERROR: Mock OTP not allowed in production! "
-                "Set OTP_MODE=production and configure SMS gateway."
-            )
+        if is_production and is_mock_mode:
+            if not allow_mock_override:
+                raise RuntimeError(
+                    "❌ SECURITY ERROR: Mock OTP not allowed in production! "
+                    "Set OTP_MODE=production and configure SMS gateway. "
+                    "Or set ALLOW_MOCK_OTP_IN_PROD=true to temporarily override (NOT RECOMMENDED)."
+                )
+            else:
+                logger.warning("=" * 60)
+                logger.warning("⚠️  SECURITY WARNING: Mock OTP enabled in PRODUCTION!")
+                logger.warning("⚠️  This is a TEMPORARY override via ALLOW_MOCK_OTP_IN_PROD=true")
+                logger.warning("⚠️  Remove this flag once SMS gateway is configured!")
+                logger.warning("=" * 60)
         
-        if cls.MODE == "mock":
+        if is_mock_mode:
             logger.warning(f"⚠️ OTP Mock Mode enabled - OTP code: {cls.MOCK_CODE}")
         
         return True
