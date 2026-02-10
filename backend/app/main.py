@@ -16,14 +16,15 @@ except Exception as e:
     logger.error(f"❌ Configuration validation failed: {e}")
     raise
 
-# Phase D.1: Validate OTP config at startup (will log warnings if mock in prod)
+# Phase D.1: Validate OTP config at startup (non-fatal — app starts without OTP)
 try:
     from app.services.otp_service import OTPConfig, get_otp_config_summary
-    logger.info(f"✅ OTP Configuration: {get_otp_config_summary()}")
-except RuntimeError as e:
-    # This will happen if mock OTP in production without override
-    logger.error(f"❌ OTP Configuration failed: {e}")
-    raise
+    if OTPConfig.PROVIDER == "disabled":
+        logger.warning("⚠️ OTP is DISABLED — resident OTP login will not work")
+    else:
+        logger.info(f"✅ OTP Configuration: {get_otp_config_summary()}")
+except Exception as e:
+    logger.warning(f"⚠️ OTP Configuration skipped (non-fatal): {e}")
 
 from app.api.health import router as health_router
 from app.api.dashboard import router as dashboard_router

@@ -617,5 +617,10 @@ def get_otp_config_summary() -> dict:
     return summary
 
 
-# Validate configuration on import
-OTPConfig.validate()
+# Validate configuration on import (non-fatal: log warning if OTP not configured)
+try:
+    OTPConfig.validate()
+except RuntimeError as e:
+    logger.warning(f"⚠️ OTP not configured (non-fatal, OTP endpoints will fail): {e}")
+    OTPConfig.PROVIDER = "disabled"
+    OTPConfig.MODE = "disabled"
