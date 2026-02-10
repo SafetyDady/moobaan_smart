@@ -6,6 +6,7 @@ from fastapi import HTTPException, status, Request
 from app.core.config import settings
 import logging
 import secrets
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,17 @@ pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 # JWT settings
 SECRET_KEY = settings.SECRET_KEY  # Will add this to config
 ALGORITHM = "HS256"
+
+# --- Phase D.1: Role-based Session TTL ---
+# Admin/Accounting: Short-lived (8 hours) - high privilege = tighter security
+ADMIN_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ADMIN_ACCESS_TOKEN_MINUTES", "15"))
+ADMIN_REFRESH_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_REFRESH_TOKEN_HOURS", "8"))
+
+# Resident: Long-lived (7 days) - mobile-first UX, lower privilege
+RESIDENT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("RESIDENT_ACCESS_TOKEN_MINUTES", "60"))
+RESIDENT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("RESIDENT_REFRESH_TOKEN_DAYS", "7"))
+
+# Legacy defaults (backward compat)
 ACCESS_TOKEN_EXPIRE_MINUTES = 15  # Short-lived access token
 REFRESH_TOKEN_EXPIRE_DAYS = 7    # Long-lived refresh token
 
@@ -24,6 +36,36 @@ COOKIE_SECURE = settings.COOKIE_SECURE  # True in production (HTTPS)
 # SameSite=lax for same-origin (local development)
 COOKIE_SAMESITE = "none" if settings.ENV in ["production", "prod"] else "lax"
 COOKIE_DOMAIN = None  # None = current domain only
+
+
+def get_token_expiry_for_role(role: str, token_type: str = "access") -> timedelta:
+    """
+    Phase D.1: Get token expiry based on role.
+    
+    Admin/Accounting: Short sessions (security-focused)
+    - Access: 15 min
+    - Refresh: 8 hours
+    
+    Resident: Long sessions (UX-focused for mobile)
+    - Access: 60 min
+    - Refresh: 7 days
+    """
+    if role in ["super_admin", "admin", "accounting"]:
+        if token_type == "access":
+            return timedelta(minutes=ADMIN_ACCESS_TOKEN_EXPIRE_MINUTES)
+        else:
+            return timedelta(hours=ADMIN_REFRESH_TOKEN_EXPIRE_HOURS)
+    else:  # resident or others
+        if token_type == "access":
+            return timedelta(minutes=RESIDENT_ACCESS_TOKEN_EXPIRE_MINUTES)
+        else:
+            return timedelta(days=RESIDENT_REFRESH_TOKEN_EXPIRE_DAYS)
+
+
+def get_cookie_max_age_for_role(role: str, token_type: str = "access") -> int:
+    """Phase D.1: Get cookie max_age in seconds based on role"""
+    expiry = get_token_expiry_for_role(role, token_type)
+    return int(expiry.total_seconds())
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -50,43 +92,65 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """Create a JWT access token"""
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None, role: str = None):
+    """
+    Create a JWT access token.
+    Phase D.1: Role-aware expiry
+    """
     to_encode = data.copy()
+    
+    # Determine expiry based on role or use provided delta
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        # Phase D.1: Use role-based expiry
+        effective_role = role or data.get("role", "resident")
+        expire = datetime.now(timezone.utc) + get_token_expiry_for_role(effective_role, "access")
     
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
-def create_refresh_token(data: dict) -> str:
-    """Create a JWT refresh token (longer-lived)"""
+def create_refresh_token(data: dict, role: str = None) -> str:
+    """
+    Create a JWT refresh token (longer-lived).
+    Phase D.1: Role-aware expiry
+    """
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    # Phase D.1: Use role-based expiry
+    effective_role = role or data.get("role", "resident")
+    expire = datetime.now(timezone.utc) + get_token_expiry_for_role(effective_role, "refresh")
+    
     to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
 def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
-    """Verify and decode a JWT token"""
+    """
+    Verify and decode a JWT token.
+    
+    PATCH-2 rev: Also accepts token_type="pending" for house-selection flow.
+    Returns token_type in dict so callers can guard against pending tokens.
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: int = payload.get("sub")
         if user_id is None:
             return None
+        actual_type = payload.get("type")
         # Verify token type matches expected
-        if payload.get("type") != token_type:
-            logger.warning(f"Token type mismatch: expected {token_type}, got {payload.get('type')}")
+        if actual_type != token_type:
+            logger.warning(f"Token type mismatch: expected {token_type}, got {actual_type}")
             return None
         token_data = {
             "user_id": user_id,
             "role": payload.get("role"),
-            "house_id": payload.get("house_id")
+            "house_id": payload.get("house_id"),
+            "session_version": payload.get("session_version"),  # Phase D.2
+            "token_type": actual_type,  # PATCH-2 rev: expose for pending guard
         }
         return token_data
     except JWTError as e:
@@ -114,11 +178,12 @@ def authenticate_user(email: str, password: str, db) -> Union[object, bool]:
 
 
 def create_user_token(user, house_id: Optional[int] = None) -> str:
-    """Create a JWT token for a user"""
+    """Create a JWT token for a user. PATCH-6: includes session_version."""
     token_data = {
         "sub": str(user.id),
         "role": user.role,
-        "email": user.email
+        "email": user.email,
+        "session_version": user.session_version,  # PATCH-6
     }
     
     # Add house_id for resident users

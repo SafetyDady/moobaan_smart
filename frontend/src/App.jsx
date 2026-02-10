@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 
 // Auth pages
 import UnifiedLogin from './pages/UnifiedLogin';
+import SelectHouse from './pages/auth/SelectHouse';
 
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -37,6 +38,7 @@ function App() {
 
           {/* Public Routes */}
           <Route path="/login" element={<UnifiedLogin />} />
+          <Route path="/select-house" element={<SelectHouse />} />
 
           {/* Protected Routes - Admin/Accounting */}
           <Route

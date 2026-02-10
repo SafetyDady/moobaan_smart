@@ -6,6 +6,9 @@ from app.core.auth import verify_token
 from app.db.session import get_db
 from app.db.models.user import User
 from app.db.models.house_member import HouseMember
+import logging
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer(auto_error=False)  # Don't auto-error, we'll check cookie too
 
@@ -32,7 +35,12 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """Get the current authenticated user from token (header or cookie)"""
+    """
+    Get the current authenticated user from token (header or cookie).
+    
+    Phase D.2: For residents, validates session_version to support session revocation.
+    If token.session_version != user.session_version → 401 SESSION_REVOKED
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -46,6 +54,13 @@ def get_current_user(
     
     token_data = verify_token(token, token_type="access")
     if token_data is None:
+        # PATCH-2 rev: Also try to detect pending tokens to give better error
+        pending_data = verify_token(token, token_type="pending")
+        if pending_data is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "HOUSE_NOT_SELECTED", "message": "กรุณาเลือกบ้านก่อนเข้าใช้งาน"},
+            )
         raise credentials_exception
     
     user = db.query(User).filter(User.id == int(token_data["user_id"])).first()
@@ -56,6 +71,16 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
+        )
+    
+    # PATCH-6: Validate session_version for ALL roles (not just residents)
+    token_session_version = token_data.get("session_version")
+    if token_session_version is not None and token_session_version != user.session_version:
+        logger.warning(f"[SESSION_REVOKED] User {user.id} (role={user.role}): token_version={token_session_version}, db_version={user.session_version}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="SESSION_REVOKED",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
     return user

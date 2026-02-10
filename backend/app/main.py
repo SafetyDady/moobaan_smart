@@ -16,6 +16,15 @@ except Exception as e:
     logger.error(f"❌ Configuration validation failed: {e}")
     raise
 
+# Phase D.1: Validate OTP config at startup (will log warnings if mock in prod)
+try:
+    from app.services.otp_service import OTPConfig, get_otp_config_summary
+    logger.info(f"✅ OTP Configuration: {get_otp_config_summary()}")
+except RuntimeError as e:
+    # This will happen if mock OTP in production without override
+    logger.error(f"❌ OTP Configuration failed: {e}")
+    raise
+
 from app.api.health import router as health_router
 from app.api.dashboard import router as dashboard_router
 from app.api.houses import router as houses_router
@@ -37,6 +46,7 @@ from app.api.accounts import router as accounts_router  # Phase F.2: Chart of Ac
 from app.api.periods import router as periods_router  # Phase G.1: Period Closing
 from app.api.export import router as export_router  # Phase G.2: Accounting Export
 from app.api.resident_auth import router as resident_auth_router  # Phase R.2: Resident OTP Login
+from app.api.line_auth import router as line_auth_router  # Phase D.4.1: LINE Login
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -96,6 +106,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/auth/login",
         "/api/auth/logout",
         "/api/auth/refresh",
+        "/api/auth/line",  # Phase D.4.1: LINE Login
         "/api/resident/login",  # Phase R.2: Resident OTP login
         "/api/resident/logout",  # Phase R.2: Resident logout
         "/docs",
@@ -149,6 +160,7 @@ app.include_router(accounts_router)
 app.include_router(periods_router)
 app.include_router(export_router)  # Phase G.2: Accounting Export
 app.include_router(resident_auth_router)  # Phase R.2: Resident OTP Login
+app.include_router(line_auth_router)  # Phase D.4.1: LINE Login
 
 # Mount static files for uploaded slips
 # This serves files at /uploads/* from the uploads/ directory

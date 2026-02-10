@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 from app.db.models.user import User
 from app.db.models.house import House
 from app.db.models.house_member import HouseMember
@@ -560,6 +561,96 @@ async def reactivate_resident(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to reactivate resident"
+        )
+
+
+# ============================================================
+# Phase D.2: Resident Session Revocation
+# ============================================================
+
+def _mask_phone(phone: str) -> str:
+    """Mask phone number for logging: 081****678"""
+    if not phone or len(phone) < 7:
+        return '****'
+    return f"{phone[:3]}****{phone[-3:]}"
+
+
+@router.post("/residents/{user_id}/revoke-session")
+async def revoke_resident_session(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting)
+):
+    """
+    Phase D.2: Revoke all active sessions of a resident.
+    
+    This increments the user's session_version, which invalidates all
+    existing JWT tokens for this user. The resident will need to
+    re-login via OTP.
+    
+    - Only admin/accounting can revoke sessions
+    - Only works for resident users (not admin/accounting)
+    - Returns 404 if user not found
+    - Returns 400 if user is not a resident
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Find user
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Only allow revoking resident sessions
+        if user.role not in ["resident", "owner", "tenant"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "NOT_RESIDENT",
+                    "message_th": "สามารถบังคับออกจากระบบได้เฉพาะลูกบ้านเท่านั้น",
+                    "message_en": "Can only force logout resident users"
+                }
+            )
+        
+        # Increment session_version to invalidate all existing tokens
+        old_version = user.session_version
+        user.session_version = old_version + 1
+        user.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(user)
+        
+        # Audit log (masked phone)
+        masked_phone = _mask_phone(user.phone)
+        logger.warning(
+            f"[RESIDENT_SESSION_REVOKED] "
+            f"user_id={user.id} phone={masked_phone} "
+            f"old_version={old_version} new_version={user.session_version} "
+            f"revoked_by={current_user.id}"
+        )
+        
+        return {
+            "success": True,
+            "message": "All sessions revoked successfully",
+            "message_th": "บังคับออกจากระบบสำเร็จ ลูกบ้านจะต้อง login ใหม่",
+            "user_id": user.id,
+            "session_version": user.session_version
+        }
+        
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error revoking resident session: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to revoke session"
         )
 
 

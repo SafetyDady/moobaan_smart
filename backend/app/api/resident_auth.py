@@ -208,8 +208,13 @@ def resident_request_otp(request: RequestOTPRequest):
     Request OTP for resident login.
     
     - Normalizes phone number
+    - Checks sandbox whitelist (production mock mode)
     - Checks rate limit
     - Sends OTP (mock mode: returns hint)
+    
+    Error Codes:
+    - 403: Phone not in sandbox whitelist (OTP_SANDBOX_ONLY)
+    - 429: Rate limited
     """
     phone = request.phone
     
@@ -217,6 +222,12 @@ def resident_request_otp(request: RequestOTPRequest):
     success, message = request_otp(phone)
     
     if not success:
+        # Phase D.3: Return 403 for sandbox whitelist rejection
+        if message == "OTP_SANDBOX_ONLY":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="หมายเลขนี้ไม่ได้อยู่ในรายการทดสอบ กรุณาติดต่อผู้ดูแลระบบ"
+            )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=message
@@ -245,6 +256,13 @@ def resident_verify_otp(
     """
     Verify OTP and login resident.
     
+    Phase D.1 Hardening:
+    - Rate limited: 5 wrong attempts → 10 min lockout
+    - Returns 429 for lockout, 401 for wrong OTP
+    
+    Phase D.3 Additions:
+    - Returns 403 for sandbox whitelist rejection
+    
     - Verifies OTP
     - Creates or gets user
     - Creates session (httpOnly cookie)
@@ -257,6 +275,18 @@ def resident_verify_otp(
     success, message = verify_otp(phone, otp)
     
     if not success:
+        # Phase D.3: Return 403 for sandbox whitelist rejection
+        if message == "OTP_SANDBOX_ONLY":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="หมายเลขนี้ไม่ได้อยู่ในรายการทดสอบ กรุณาติดต่อผู้ดูแลระบบ"
+            )
+        # Phase D.1: Return 429 for lockout, 401 for other failures
+        if "กรุณารอ" in message:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=message
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=message
@@ -270,18 +300,21 @@ def resident_verify_otp(
     memberships = get_resident_memberships(db, user.id)
     
     # Create tokens - NO house_id yet (set in Phase R.3 when house selected)
+    # Phase D.1: Role-based token expiry (resident = 7 days)
+    # Phase D.2: Include session_version for session revocation
     token_data = {
         "sub": str(user.id),
         "role": "resident",
+        "session_version": user.session_version,  # Phase D.2
         # house_id will be added in Phase R.3 when resident selects house
     }
     
-    access_token = create_access_token(data=token_data)
-    refresh_token = create_refresh_token(data={"sub": str(user.id), "role": "resident"})
+    access_token = create_access_token(data=token_data, role="resident")
+    refresh_token = create_refresh_token(data={"sub": str(user.id), "role": "resident", "session_version": user.session_version}, role="resident")
     csrf_token = generate_csrf_token()
     
-    # Set cookies
-    set_auth_cookies(response, access_token, refresh_token, csrf_token)
+    # Set cookies (Phase D.1: role-based max_age)
+    set_auth_cookies(response, access_token, refresh_token, csrf_token, role="resident")
     
     logger.info(f"[Resident Login] User {user.id} logged in, memberships: {len(memberships)}")
     
@@ -311,6 +344,7 @@ def get_resident_me(request: Request, db: Session = Depends(get_db)):
     Get current resident info and memberships.
     
     Requires valid session cookie.
+    Phase D.2: Validates session_version for session revocation support.
     """
     # Get token from cookie
     access_token = request.cookies.get("access_token")
@@ -344,6 +378,15 @@ def get_resident_me(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="ไม่พบข้อมูลผู้ใช้"
+        )
+    
+    # Phase D.2: Validate session_version for session revocation
+    token_session_version = payload.get("session_version")
+    if token_session_version is not None and token_session_version != user.session_version:
+        logger.warning(f"[SESSION_REVOKED] User {user.id}: token_version={token_session_version}, db_version={user.session_version}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="SESSION_REVOKED"
         )
     
     # Get memberships
@@ -410,10 +453,12 @@ class ResidentMeWithHouseResponse(BaseModel):
 
 # --- R.3 Helper Functions ---
 
-def get_resident_token_payload(request: Request) -> dict:
+def get_resident_token_payload(request: Request, db: Session = None) -> dict:
     """
     Extract and verify resident token from cookie.
     Returns payload dict or raises HTTPException.
+    
+    Phase D.2: If db is provided, validates session_version for session revocation.
     """
     access_token = request.cookies.get("access_token")
     if not access_token:
@@ -434,6 +479,19 @@ def get_resident_token_payload(request: Request) -> dict:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="เฉพาะลูกบ้านเท่านั้น"
         )
+    
+    # Phase D.2: Validate session_version if db is provided
+    if db is not None:
+        user_id = int(payload.get("user_id"))
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            token_session_version = payload.get("session_version")
+            if token_session_version is not None and token_session_version != user.session_version:
+                logger.warning(f"[SESSION_REVOKED] User {user_id}: token_version={token_session_version}, db_version={user.session_version}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="SESSION_REVOKED"
+                )
     
     return payload
 
@@ -522,7 +580,7 @@ def list_resident_houses(request: Request, db: Session = Depends(get_db)):
     Returns only ACTIVE memberships.
     Does NOT auto-select - frontend must call select-house.
     """
-    payload = get_resident_token_payload(request)
+    payload = get_resident_token_payload(request, db)
     user_id = int(payload.get("user_id"))
     
     # Get active memberships
@@ -564,7 +622,7 @@ def select_house(
     - Regenerates token to prevent session fixation
     - Creates audit log
     """
-    payload = get_resident_token_payload(request)
+    payload = get_resident_token_payload(request, db)
     user_id = int(payload.get("user_id"))
     
     # Validate membership
@@ -623,7 +681,7 @@ def switch_house(
     - Regenerates token
     - Creates audit log with from_house and to_house
     """
-    payload = get_resident_token_payload(request)
+    payload = get_resident_token_payload(request, db)
     user_id = int(payload.get("user_id"))
     
     # Get current house context (may be None if first selection)
@@ -698,7 +756,7 @@ def get_resident_me_with_context(request: Request, db: Session = Depends(get_db)
     
     Use this to check if resident has selected a house.
     """
-    payload = get_resident_token_payload(request)
+    payload = get_resident_token_payload(request, db)
     user_id = int(payload.get("user_id"))
     
     # Get user
@@ -732,9 +790,11 @@ def get_resident_me_with_context(request: Request, db: Session = Depends(get_db)
 
 # --- R.3 Dependency for requiring active house context ---
 
-def require_active_house(request: Request) -> dict:
+def require_active_house(request: Request, db: Session = Depends(get_db)) -> dict:
     """
     Dependency that requires active_house_id in session.
+    
+    Phase D.2: Also validates session_version for session revocation.
     
     Use this in future resident endpoints:
     
@@ -743,7 +803,7 @@ def require_active_house(request: Request) -> dict:
         house_id = context["active_house_id"]
         ...
     """
-    payload = get_resident_token_payload(request)
+    payload = get_resident_token_payload(request, db)
     
     active_house_id = payload.get("house_id")
     if not active_house_id:

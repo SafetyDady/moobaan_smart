@@ -7,7 +7,11 @@ class User(Base):
     """
     User model supporting multiple authentication methods:
     - Admin/Accounting: email + password
-    - Resident: phone + OTP (Phase R.2)
+    - Resident: LINE Login (Phase D.4.1)
+    
+    Phase D.4.1: LINE OA as Gateway
+    - line_user_id is the ONLY identity for residents
+    - No OTP, no phone anchor
     """
     __tablename__ = "users"
 
@@ -17,8 +21,16 @@ class User(Base):
     full_name = Column(String(255), nullable=True)  # Phase R.2: Nullable for residents
     phone = Column(String(50), nullable=True, index=True)  # Phase R.2: Unique index (partial) for OTP
     hashed_password = Column(String(255), nullable=True)  # Phase R.2: Nullable for OTP-only residents
+    
+    # Phase D.4.1: LINE Login identity
+    line_user_id = Column(String(100), unique=True, nullable=True, index=True)
+    
     is_active = Column(Boolean, nullable=False, default=True)
     role = Column(String(50), nullable=False, default="resident")  # super_admin, accounting, resident
+    
+    # Phase D.2: Session version for resident session revocation
+    # Admin can increment this to invalidate all active resident sessions
+    session_version = Column(Integer, nullable=False, default=1)
     
     # Password reset fields
     must_change_password = Column(Boolean, nullable=False, default=False)

@@ -293,6 +293,8 @@ export const usersAPI = {
   // NOTE: resetPassword removed - Residents are OTP-only
   deactivateResident: (id) => apiClient.post(`/api/users/${id}/deactivate`),
   reactivateResident: (id) => apiClient.post(`/api/users/${id}/reactivate`),
+  // Phase D.2: Force logout - revoke all sessions
+  revokeResidentSession: (id) => apiClient.post(`/api/users/residents/${id}/revoke-session`),
 };
 
 // Members API (DEPRECATED - use usersAPI instead)

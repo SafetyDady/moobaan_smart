@@ -18,12 +18,13 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: Optional[str] = None  # Residents may not have email (OTP-only)
-    full_name: str
+    full_name: Optional[str] = None
     role: str
     is_active: bool
     phone: Optional[str] = None  # For residents
     house_id: Optional[int] = None
     house_code: Optional[str] = None
+    houses: Optional[List[dict]] = None  # PATCH-5: Active house memberships list
 
 
 class UserCreate(BaseModel):

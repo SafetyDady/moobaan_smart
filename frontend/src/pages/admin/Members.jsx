@@ -27,6 +27,13 @@ export default function Members() {
     formData: {}
   });
 
+  // Phase D.2: Force Logout confirmation modal
+  const [forceLogoutModal, setForceLogoutModal] = useState({
+    show: false,
+    resident: null,
+    loading: false
+  });
+
   useEffect(() => {
     loadData();
   }, [houseFilter]);
@@ -237,6 +244,52 @@ export default function Members() {
 
   // NOTE: handleResetPassword removed - Residents are OTP-only
 
+  // Phase D.2: Handle Force Logout
+  const handleForceLogout = (resident) => {
+    setForceLogoutModal({
+      show: true,
+      resident,
+      loading: false
+    });
+  };
+
+  const confirmForceLogout = async () => {
+    const { resident } = forceLogoutModal;
+    if (!resident) return;
+
+    setForceLogoutModal(prev => ({ ...prev, loading: true }));
+
+    try {
+      await usersAPI.revokeResidentSession(resident.id);
+      
+      setForceLogoutModal({ show: false, resident: null, loading: false });
+      
+      setMessageModal({
+        show: true,
+        type: 'success',
+        title: '✅ Force Logout Successful',
+        message_th: `บังคับออกจากระบบ ${resident.full_name} สำเร็จ\nลูกบ้านจะต้อง login ด้วย OTP ใหม่`,
+        message_en: `Successfully forced logout for ${resident.full_name}\nResident will need to login again with OTP`,
+        showDetails: false,
+        errorDetails: null
+      });
+    } catch (error) {
+      console.error('Failed to force logout:', error);
+      setForceLogoutModal({ show: false, resident: null, loading: false });
+      
+      const detail = error.response?.data?.detail;
+      setMessageModal({
+        show: true,
+        type: 'error',
+        title: '❌ Force Logout Failed',
+        message_th: detail?.message_th || 'ไม่สามารถบังคับออกจากระบบได้',
+        message_en: detail?.message_en || detail || 'Failed to force logout',
+        showDetails: false,
+        errorDetails: null
+      });
+    }
+  };
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -323,6 +376,16 @@ export default function Members() {
                         >
                           Edit
                         </button>
+                        {/* Phase D.2: Force Logout button (only for active residents) */}
+                        {resident.is_active && (
+                          <button
+                            onClick={() => handleForceLogout(resident)}
+                            className="text-red-400 hover:text-red-300 text-sm"
+                            title="Force logout all devices"
+                          >
+                            Force Logout
+                          </button>
+                        )}
                         {/* NOTE: Reset Password button removed - Residents are OTP-only */}
                         {resident.is_active ? (
                           <button
@@ -363,6 +426,56 @@ export default function Members() {
       </div>
 
       {/* NOTE: Reset Password Modal removed - Residents are OTP-only */}
+
+      {/* Phase D.2: Force Logout Confirmation Modal */}
+      {forceLogoutModal.show && forceLogoutModal.resident && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-white mb-4">⚠️ Confirm Force Logout</h3>
+            
+            <div className="space-y-3 mb-6">
+              <p className="text-gray-300">
+                คุณต้องการบังคับออกจากระบบสำหรับ:
+              </p>
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-white font-medium">{forceLogoutModal.resident.full_name}</p>
+                <p className="text-gray-400 text-sm">
+                  บ้าน: {forceLogoutModal.resident.house?.house_code || '-'}
+                </p>
+                <p className="text-gray-400 text-sm">
+                  โทร: {forceLogoutModal.resident.phone || '-'}
+                </p>
+              </div>
+              <div className="text-yellow-400 text-sm">
+                <p>⚠️ การดำเนินการนี้จะ:</p>
+                <ul className="list-disc list-inside ml-2 mt-1 text-gray-300">
+                  <li>ทำให้ session ทุกอุปกรณ์หมดอายุทันที</li>
+                  <li>ลูกบ้านต้อง login ใหม่ด้วย OTP</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setForceLogoutModal({ show: false, resident: null, loading: false })}
+                disabled={forceLogoutModal.loading}
+                className="btn-outline flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmForceLogout}
+                disabled={forceLogoutModal.loading}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex-1 disabled:opacity-50"
+              >
+                {forceLogoutModal.loading ? 'Processing...' : 'Force Logout'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Resident Modal */}
       {editModal.show && (

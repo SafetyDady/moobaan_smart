@@ -31,6 +31,17 @@ export function AuthProvider({ children }) {
           setIsAuth(true);
           setUser(response.data);
         } catch (error) {
+          // PATCH-2 rev: If pending token → don't set auth, let ProtectedRoute redirect
+          const detail = error.response?.data?.detail;
+          if (detail?.code === 'HOUSE_NOT_SELECTED') {
+            // Pending token — user needs to select house first
+            // Don't set auth, loading will finish and ProtectedRoute will redirect to /login
+            // User should navigate to /select-house via the LINE login flow
+            setIsAuth(false);
+            setUser(null);
+            return;
+          }
+          
           // /api/auth/me failed - might be Resident, try /api/resident/me
           try {
             const residentResponse = await api.get('/api/resident/me');
