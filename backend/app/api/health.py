@@ -65,3 +65,88 @@ async def readiness_check():
         )
     
     return {"status": "ready", "checks": checks}
+
+
+@router.get("/debug/db-check")
+async def debug_db_check():
+    """
+    TEMPORARY debug endpoint to verify DB connectivity and user existence.
+    REMOVE after debugging is complete.
+    """
+    import os
+    result = {
+        "env": os.getenv("ENV", "not-set"),
+        "database_url_prefix": "",
+        "db_connection": "unknown",
+        "tables_exist": False,
+        "user_count": 0,
+        "admin_users": [],
+        "run_prod_seed": os.getenv("RUN_PROD_SEED", "not-set"),
+        "prod_reset_pw": os.getenv("PROD_RESET_ADMIN_PASSWORD", "not-set"),
+    }
+    
+    try:
+        from app.core.config import settings
+        # Show only prefix for safety
+        db_url = settings.DATABASE_URL
+        result["database_url_prefix"] = db_url[:50] + "..." if len(db_url) > 50 else db_url
+        
+        from app.db.session import SessionLocal
+        from sqlalchemy import text
+        db = SessionLocal()
+        try:
+            # Test connection
+            db.execute(text("SELECT 1"))
+            result["db_connection"] = "ok"
+            
+            # Check if users table exists
+            table_check = db.execute(text(
+                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')"
+            )).scalar()
+            result["tables_exist"] = bool(table_check)
+            
+            if table_check:
+                # Count users
+                count = db.execute(text("SELECT COUNT(*) FROM users")).scalar()
+                result["user_count"] = count
+                
+                # List admin users (email + role only, no passwords)
+                admins = db.execute(text(
+                    "SELECT id, email, role, is_active, LEFT(hashed_password, 15) as hash_prefix "
+                    "FROM users WHERE role IN ('super_admin', 'admin', 'accounting') "
+                    "ORDER BY id"
+                )).fetchall()
+                
+                result["admin_users"] = [
+                    {
+                        "id": row[0],
+                        "email": row[1],
+                        "role": row[2],
+                        "is_active": row[3],
+                        "hash_prefix": row[4],
+                    }
+                    for row in admins
+                ]
+                
+                # Also check if admin@moobaan.com exists specifically  
+                target = db.execute(text(
+                    "SELECT id, email, role, is_active, LEFT(hashed_password, 20) as hash_prefix "
+                    "FROM users WHERE email = 'admin@moobaan.com'"
+                )).fetchone()
+                
+                if target:
+                    result["target_admin"] = {
+                        "id": target[0],
+                        "email": target[1],
+                        "role": target[2],
+                        "is_active": target[3],
+                        "hash_prefix": target[4],
+                    }
+                else:
+                    result["target_admin"] = "NOT FOUND"
+        finally:
+            db.close()
+    except Exception as e:
+        result["error"] = str(e)
+    
+    return result
