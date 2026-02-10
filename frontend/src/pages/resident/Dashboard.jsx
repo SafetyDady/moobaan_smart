@@ -69,20 +69,16 @@ export default function ResidentDashboard() {
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
 
-      const response = await fetch(
-        `/api/accounting/statement/${currentHouseId}?year=${year}&month=${month}&format=${format}`,
+      const response = await api.get(
+        `/api/accounting/statement/${currentHouseId}`,
         {
-          credentials: 'include'  // Send httpOnly cookies
+          params: { year, month, format },
+          responseType: 'blob',
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error_en || errorData.error || 'Download failed');
-      }
-
-      // Create blob and download
-      const blob = await response.blob();
+      // Create blob and download (axios returns data directly with responseType: 'blob')
+      const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';

@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { payinsAPI } from '../../api/client';
+import { payinsAPI, api } from '../../api/client';
 import { useRole } from '../../contexts/RoleContext';
 
 export default function SubmitPayment() {
@@ -70,10 +70,8 @@ export default function SubmitPayment() {
       
       // Try to get user data directly from API
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/auth/me', {
-          credentials: 'include'  // Send httpOnly cookies
-        });
-        const userData = await response.json();
+        const response = await api.get('/api/auth/me');
+        const userData = response.data;
         console.log('🔍 Direct API check - userData:', userData);
         
         if (!userData.house_id) {

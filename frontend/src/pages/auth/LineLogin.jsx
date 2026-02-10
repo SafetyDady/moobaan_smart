@@ -112,17 +112,28 @@ export default function LineLogin() {
     setState(STATE.REDIRECTING);
     
     try {
+      // Debug: log API base URL and redirect URI for troubleshooting
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'NOT SET (fallback to localhost)';
+      const redirectUri = getRedirectUri();
+      console.log('[LINE] API_BASE_URL:', apiBaseUrl);
+      console.log('[LINE] redirect_uri:', redirectUri);
+      
       const response = await api.get('/api/auth/line/config', {
-        params: { redirect_uri: getRedirectUri() },
+        params: { redirect_uri: redirectUri },
       });
+      
+      console.log('[LINE] config response:', response.data);
       
       // Redirect to LINE authorization URL
       window.location.href = response.data.login_url;
     } catch (err) {
       console.error('LINE config error:', err);
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail || err.message;
+      console.error('[LINE] Error status:', status, 'detail:', detail);
       setError({
         title: 'ระบบยังไม่พร้อม',
-        message: 'ระบบ LINE Login ยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลหมู่บ้าน',
+        message: `ระบบ LINE Login ยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลหมู่บ้าน (${status || 'network error'})`,
       });
       setState(STATE.ERROR);
     }
