@@ -150,3 +150,64 @@ async def debug_db_check():
         result["error"] = str(e)
     
     return result
+
+
+@router.post("/debug/fix-admin")
+async def debug_fix_admin():
+    """
+    TEMPORARY: One-time fix to update admin email and password.
+    REMOVE after admin login is working.
+    """
+    import os
+    try:
+        from app.db.session import SessionLocal
+        from app.db.models.user import User
+        from app.core.auth import get_password_hash
+        
+        target_email = os.getenv("PROD_ADMIN_EMAIL", "admin@moobaan.com")
+        target_password = os.getenv("PROD_ADMIN_PASSWORD", "")
+        
+        if not target_password:
+            return {"error": "PROD_ADMIN_PASSWORD not set"}
+        
+        db = SessionLocal()
+        try:
+            # Find existing super_admin (any email)
+            admin = db.query(User).filter(User.role == "super_admin").first()
+            
+            if not admin:
+                # No admin exists, create one
+                admin = User(
+                    email=target_email,
+                    full_name="System Administrator",
+                    hashed_password=get_password_hash(target_password),
+                    role="super_admin",
+                    is_active=True,
+                    phone="0800000000",
+                )
+                db.add(admin)
+                db.commit()
+                return {
+                    "action": "created",
+                    "email": target_email,
+                    "id": admin.id,
+                }
+            
+            # Admin exists - update email and password
+            old_email = admin.email
+            admin.email = target_email
+            admin.hashed_password = get_password_hash(target_password)
+            admin.is_active = True
+            db.commit()
+            
+            return {
+                "action": "updated",
+                "old_email": old_email,
+                "new_email": target_email,
+                "id": admin.id,
+                "password_hash_prefix": admin.hashed_password[:20],
+            }
+        finally:
+            db.close()
+    except Exception as e:
+        return {"error": str(e)}
