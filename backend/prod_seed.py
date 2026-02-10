@@ -86,7 +86,17 @@ def run_production_seed():
             
             if existing_admin:
                 logger.info(f"✅ Admin already exists: {existing_admin.email}")
-                logger.info("⏭️  Skipping seed (idempotent)")
+                
+                # Option to reset password if needed
+                reset_pw = os.getenv("PROD_RESET_ADMIN_PASSWORD", "").lower() == "true"
+                if reset_pw:
+                    logger.info("🔑 Resetting admin password (PROD_RESET_ADMIN_PASSWORD=true)")
+                    existing_admin.hashed_password = get_password_hash(admin_password)
+                    db.commit()
+                    logger.info("✅ Admin password reset successfully!")
+                    logger.info("⚠️  Remove PROD_RESET_ADMIN_PASSWORD after reset!")
+                else:
+                    logger.info("⏭️  Skipping seed (idempotent)")
                 return True
             
             # Create super_admin
