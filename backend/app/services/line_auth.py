@@ -231,6 +231,11 @@ def get_line_login_url(redirect_uri: str, state: str = "") -> str:
         LINE authorization URL
     """
     import urllib.parse
+    import secrets
+    
+    # LINE requires a non-empty state parameter
+    if not state:
+        state = secrets.token_urlsafe(16)
     
     params = {
         "response_type": "code",
