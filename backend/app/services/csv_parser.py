@@ -56,11 +56,12 @@ class CSVParserService:
     DATE_COLUMNS = ['วันที่', 'date', 'transaction date', 'วัน ที่', 'txn date', 'trans date']
     TIME_COLUMNS = ['เวลา', 'time', 'transaction time', 'txn time', 'time/ eff.date', 'time/eff.date']
     DATETIME_COLUMNS = ['เวลา/ วันที่มีผล', 'เวลา/วันที่มีผล', 'วันที่และเวลา', 'datetime', 'transaction datetime', 'effective date time', 'effective datetime']
-    DESCRIPTION_COLUMNS = ['รายการ', 'description', 'descriptions', 'รายการธุรกรรม', 'desc', 'particular', 'details', 'รายละเอียด']
+    DESCRIPTION_COLUMNS = ['รายการ', 'description', 'descriptions', 'รายการธุรกรรม', 'desc', 'particular', 'รายละเอียด']
     DEBIT_COLUMNS = ['ถอนเงิน', 'debit', 'withdraw', 'withdrawal', 'ถอน', 'จ่าย', 'dr', 'ออก']
     CREDIT_COLUMNS = ['ฝากเงิน', 'credit', 'deposit', 'รับ', 'ฝาก', 'cr', 'เข้า']
     BALANCE_COLUMNS = ['ยอดคงเหลือ', 'balance', 'outstanding balance', 'remaining', 'คงเหลือ', 'bal', 'amount']
     CHANNEL_COLUMNS = ['ช่องทาง', 'channel', 'type', 'ชนิด', 'txn type']
+    DETAILS_COLUMNS = ['details', 'รายละเอียดเพิ่มเติม', 'detail', 'memo', 'note', 'remark', 'remarks', 'หมายเหตุ']
     
     @staticmethod
     def detect_delimiter(file_content: str) -> str:
@@ -102,6 +103,7 @@ class CSVParserService:
             credit_col = None
             balance_col = None
             channel_col = None
+            details_col = None
             
             for col_idx, col_name in enumerate(normalized_cols):
                 # Check datetime columns (these could be time-only columns like "เวลา/ วันที่มีผล")
@@ -147,6 +149,10 @@ class CSVParserService:
                 # Check channel column
                 if any(cls.normalize_column_name(cc) == col_name for cc in cls.CHANNEL_COLUMNS):
                     channel_col = col_idx
+                
+                # Check details column (separate from description)
+                if any(cls.normalize_column_name(dc) == col_name for dc in cls.DETAILS_COLUMNS):
+                    details_col = col_idx
             
             # Select best date column based on score (only if no datetime column)
             date_col = None
@@ -168,6 +174,7 @@ class CSVParserService:
                     'credit': credit_col,
                     'balance': balance_col,
                     'channel': channel_col,
+                    'details': details_col,
                 }
                 return idx, column_mapping
         
@@ -405,6 +412,7 @@ class CSVParserService:
             credit_str = row[column_mapping['credit']] if column_mapping['credit'] is not None and column_mapping['credit'] < len(row) else ''
             balance_str = row[column_mapping['balance']] if column_mapping['balance'] is not None and column_mapping['balance'] < len(row) else ''
             channel_str = row[column_mapping['channel']] if column_mapping['channel'] is not None and column_mapping['channel'] < len(row) else ''
+            details_str = row[column_mapping['details']] if column_mapping.get('details') is not None and column_mapping['details'] < len(row) else ''
             
             # DEBUG: Log first few rows to understand data format
             if diagnostics and diagnostics.parsed_rows + diagnostics.skipped_rows < 3:
@@ -433,6 +441,7 @@ class CSVParserService:
             transaction = {
                 'effective_at': effective_at,
                 'description': description.strip(),
+                'details': details_str.strip() if details_str else None,
                 'debit': debit,
                 'credit': credit,
                 'balance': balance,

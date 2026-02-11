@@ -277,6 +277,7 @@ async def upload_and_preview_csv(
         transactions_preview.append({
             'effective_at': txn['effective_at'].isoformat(),
             'description': txn['description'],
+            'details': txn.get('details'),
             'debit': float(txn['debit']) if txn['debit'] else None,
             'credit': float(txn['credit']) if txn['credit'] else None,
             'balance': float(txn['balance']) if txn['balance'] else None,

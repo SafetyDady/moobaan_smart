@@ -497,6 +497,7 @@ const BankStatements = () => {
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Debit</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Credit</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
@@ -508,6 +509,7 @@ const BankStatements = () => {
                   <tr key={idx} className="hover:bg-gray-50">
                     <td className="px-4 py-2 text-sm">{formatDate(txn.effective_at)}</td>
                     <td className="px-4 py-2 text-sm">{txn.description}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600">{txn.details || '-'}</td>
                     <td className="px-4 py-2 text-sm text-right text-red-600">
                       {txn.debit ? formatCurrency(txn.debit) : '-'}
                     </td>
@@ -648,6 +650,7 @@ const BankStatements = () => {
                     <tr>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Debit</th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Credit</th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
@@ -662,6 +665,9 @@ const BankStatements = () => {
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-800">
                           {txn.description}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-600">
+                          {txn.raw_row && txn.raw_row.length > 12 ? txn.raw_row[12] : '-'}
                         </td>
                         <td className="px-4 py-2 text-sm text-right text-red-600">
                           {txn.debit ? formatCurrency(txn.debit) : '-'}
