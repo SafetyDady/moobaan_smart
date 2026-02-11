@@ -54,12 +54,12 @@ class CSVParserService:
     
     # Common column names in Thai and English (expanded)
     DATE_COLUMNS = ['วันที่', 'date', 'transaction date', 'วัน ที่', 'txn date', 'trans date']
-    TIME_COLUMNS = ['เวลา', 'time', 'transaction time', 'txn time']
+    TIME_COLUMNS = ['เวลา', 'time', 'transaction time', 'txn time', 'time/ eff.date', 'time/eff.date']
     DATETIME_COLUMNS = ['เวลา/ วันที่มีผล', 'เวลา/วันที่มีผล', 'วันที่และเวลา', 'datetime', 'transaction datetime', 'effective date time', 'effective datetime']
-    DESCRIPTION_COLUMNS = ['รายการ', 'description', 'รายการธุรกรรม', 'desc', 'particular', 'details', 'รายละเอียด']
+    DESCRIPTION_COLUMNS = ['รายการ', 'description', 'descriptions', 'รายการธุรกรรม', 'desc', 'particular', 'details', 'รายละเอียด']
     DEBIT_COLUMNS = ['ถอนเงิน', 'debit', 'withdraw', 'withdrawal', 'ถอน', 'จ่าย', 'dr', 'ออก']
     CREDIT_COLUMNS = ['ฝากเงิน', 'credit', 'deposit', 'รับ', 'ฝาก', 'cr', 'เข้า']
-    BALANCE_COLUMNS = ['ยอดคงเหลือ', 'balance', 'remaining', 'คงเหลือ', 'bal', 'amount']
+    BALANCE_COLUMNS = ['ยอดคงเหลือ', 'balance', 'outstanding balance', 'remaining', 'คงเหลือ', 'bal', 'amount']
     CHANNEL_COLUMNS = ['ช่องทาง', 'channel', 'type', 'ชนิด', 'txn type']
     
     @staticmethod
@@ -76,8 +76,11 @@ class CSVParserService:
     
     @staticmethod
     def normalize_column_name(column: str) -> str:
-        """Normalize column name by removing whitespace and converting to lowercase"""
-        return column.strip().lower()
+        """Normalize column name by replacing newlines with spaces, collapsing whitespace, and converting to lowercase"""
+        # Replace newlines/tabs with spaces, then collapse multiple spaces
+        normalized = column.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+        normalized = ' '.join(normalized.split())  # collapse whitespace
+        return normalized.strip().lower()
     
     @classmethod
     def detect_header_row(cls, rows: List[List[str]]) -> Tuple[int, Dict[str, int]]:
@@ -123,9 +126,11 @@ class CSVParserService:
                         date_col_scores[col_idx] = score
                         break
                 
-                # Check description column
+                # Check description column (prefer 'description'/'descriptions' over 'details')
                 if any(cls.normalize_column_name(dc) == col_name for dc in cls.DESCRIPTION_COLUMNS):
-                    desc_col = col_idx
+                    # Only overwrite if we haven't found a better match yet
+                    if desc_col is None or col_name in ['description', 'descriptions', 'รายการ']:
+                        desc_col = col_idx
                 
                 # Check debit column
                 if any(cls.normalize_column_name(dc) == col_name for dc in cls.DEBIT_COLUMNS):
