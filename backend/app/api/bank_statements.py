@@ -534,7 +534,19 @@ async def delete_batch(
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     
-    # Delete transactions first (FK constraint)
+    # Safety check: count matched transactions
+    matched_count = db.query(BankTransaction).filter(
+        BankTransaction.bank_statement_batch_id == batch_uuid,
+        BankTransaction.matched_payin_id.isnot(None),
+    ).count()
+    
+    if matched_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot delete: {matched_count} transaction(s) are matched with pay-in records. Please unmatch them first.",
+        )
+    
+    # Safe to delete — no matched transactions
     txn_count = db.query(BankTransaction).filter(
         BankTransaction.bank_statement_batch_id == batch_uuid
     ).delete()
