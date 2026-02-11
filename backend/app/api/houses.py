@@ -131,10 +131,24 @@ async def update_house(house_id: int, house_update: dict, db: Session = Depends(
     if not house:
         raise HTTPException(status_code=404, detail="House not found")
     
-    # Update allowed fields
+    # Allowed fields to update (prevent changing id, house_code, created_at)
+    ALLOWED_FIELDS = {"owner_name", "house_status", "floor_area", "land_area", "zone", "notes"}
+    
     for key, value in house_update.items():
-        if hasattr(house, key):
-            setattr(house, key, value)
+        if key not in ALLOWED_FIELDS:
+            continue
+        
+        # Convert house_status string to Enum
+        if key == "house_status" and isinstance(value, str):
+            try:
+                value = HouseStatus(value.upper())
+            except (ValueError, KeyError):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid house_status: {value}. Must be one of: ACTIVE, VACANT, BANK_OWNED, SUSPENDED, ARCHIVED"
+                )
+        
+        setattr(house, key, value)
     
     db.commit()
     db.refresh(house)
