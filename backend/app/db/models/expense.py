@@ -62,7 +62,8 @@ class Expense(Base):
     status = Column(Enum(ExpenseStatus), nullable=False, default=ExpenseStatus.PENDING, index=True)
     
     # Additional info
-    vendor_name = Column(String(255), nullable=True)
+    vendor_name = Column(String(255), nullable=True)  # Legacy: keep for backward compat
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)  # Phase H.1.1
     payment_method = Column(String(50), nullable=True)  # CASH/TRANSFER/CHECK/OTHER
     receipt_url = Column(String(500), nullable=True)
     notes = Column(Text, nullable=True)
@@ -76,6 +77,7 @@ class Expense(Base):
     house = relationship("House")
     created_by = relationship("User")
     account = relationship("ChartOfAccount")  # Phase F.2
+    vendor = relationship("Vendor")  # Phase H.1.1
 
     def to_dict(self):
         """Convert model to dictionary matching frontend expectations"""
@@ -92,7 +94,8 @@ class Expense(Base):
             "expense_date": self.expense_date.isoformat() if self.expense_date else None,
             "paid_date": self.paid_date.isoformat() if self.paid_date else None,
             "status": self.status.value if self.status else None,
-            "vendor_name": self.vendor_name,
+            "vendor_id": self.vendor_id,
+            "vendor_name": self.vendor.name if self.vendor else self.vendor_name,  # Prefer vendor master, fallback to legacy text
             "payment_method": self.payment_method,
             "receipt_url": self.receipt_url,
             "notes": self.notes,

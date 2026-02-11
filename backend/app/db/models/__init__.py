@@ -16,6 +16,7 @@ from .period_snapshot import PeriodSnapshot, PeriodStatus, PeriodUnlockLog
 from .export_audit_log import ExportAuditLog
 from .resident_membership import ResidentMembership, ResidentMembershipStatus, ResidentMembershipRole
 from .resident_house_audit import ResidentHouseAuditLog
+from .vendor import Vendor, VendorCategory, ExpenseCategoryMaster
 
 __all__ = [
     "User",
@@ -49,4 +50,7 @@ __all__ = [
     "ResidentMembershipStatus",
     "ResidentMembershipRole",
     "ResidentHouseAuditLog",
+    "Vendor",
+    "VendorCategory",
+    "ExpenseCategoryMaster",
 ]

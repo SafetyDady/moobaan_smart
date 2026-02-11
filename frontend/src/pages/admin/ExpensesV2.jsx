@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { expensesAPI, housesAPI, accountsAPI } from '../../api/client';
+import { expensesAPI, housesAPI, accountsAPI, vendorsAPI } from '../../api/client';
 
 /**
  * Phase F.1: Expense Core (Cash Out)
@@ -14,7 +14,8 @@ import { expensesAPI, housesAPI, accountsAPI } from '../../api/client';
  * - Summary cards (total paid, total pending)
  */
 
-const EXPENSE_CATEGORIES = [
+// Fallback categories (replaced by API-loaded expense_categories from DB)
+const FALLBACK_EXPENSE_CATEGORIES = [
   { value: 'MAINTENANCE', label: 'Maintenance' },
   { value: 'SECURITY', label: 'Security' },
   { value: 'CLEANING', label: 'Cleaning' },
@@ -42,6 +43,8 @@ export default function Expenses() {
   });
   const [houses, setHouses] = useState([]);
   const [expenseAccounts, setExpenseAccounts] = useState([]);  // COA accounts (EXPENSE type)
+  const [vendors, setVendors] = useState([]);  // Phase H.1.1: Vendor master
+  const [expenseCategories, setExpenseCategories] = useState([]);  // Phase H.1.1: DB categories
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -69,6 +72,7 @@ export default function Expenses() {
     description: '',
     expense_date: new Date().toISOString().split('T')[0],
     vendor_name: '',
+    vendor_id: '',  // Phase H.1.1: Vendor from master
     payment_method: '',
     notes: '',
     account_id: '',  // Phase F.2: COA account link
@@ -98,6 +102,27 @@ export default function Expenses() {
     accountsAPI.list({ account_type: 'EXPENSE', active: true })
       .then(res => setExpenseAccounts(res.data.accounts || []))
       .catch(err => console.error('Failed to load expense accounts:', err));
+  }, []);
+
+  // Phase H.1.1: Load vendors (active only) for dropdown
+  useEffect(() => {
+    vendorsAPI.list({ active_only: true })
+      .then(res => setVendors(res.data.vendors || []))
+      .catch(err => console.error('Failed to load vendors:', err));
+  }, []);
+
+  // Phase H.1.1: Load expense categories from DB
+  useEffect(() => {
+    vendorsAPI.listExpenseCategories({ active_only: true })
+      .then(res => {
+        const cats = res.data.categories || [];
+        if (cats.length > 0) {
+          setExpenseCategories(cats.map(c => ({ value: c.name, label: c.name })));
+        } else {
+          setExpenseCategories(FALLBACK_EXPENSE_CATEGORIES);
+        }
+      })
+      .catch(() => setExpenseCategories(FALLBACK_EXPENSE_CATEGORIES));
   }, []);
 
   // Load expenses when filters change
@@ -147,7 +172,7 @@ export default function Expenses() {
   };
 
   const getCategoryLabel = (value) => {
-    const cat = EXPENSE_CATEGORIES.find(c => c.value === value);
+    const cat = expenseCategories.find(c => c.value === value);
     return cat ? cat.label : value;
   };
 
@@ -161,6 +186,7 @@ export default function Expenses() {
         amount: parseFloat(formData.amount),
         house_id: formData.house_id ? parseInt(formData.house_id) : null,
         account_id: formData.account_id ? parseInt(formData.account_id) : null,  // Phase F.2: COA
+        vendor_id: formData.vendor_id ? parseInt(formData.vendor_id) : null,  // Phase H.1.1
       };
       await expensesAPI.create(data);
       setShowCreateModal(false);
@@ -184,6 +210,7 @@ export default function Expenses() {
         amount: parseFloat(formData.amount),
         house_id: formData.house_id ? parseInt(formData.house_id) : 0, // 0 to clear
         account_id: formData.account_id ? parseInt(formData.account_id) : 0, // 0 to clear (Phase F.2)
+        vendor_id: formData.vendor_id ? parseInt(formData.vendor_id) : 0, // 0 to clear (Phase H.1.1)
       };
       await expensesAPI.update(selectedExpense.id, data);
       setShowEditModal(false);
@@ -243,6 +270,7 @@ export default function Expenses() {
       description: '',
       expense_date: new Date().toISOString().split('T')[0],
       vendor_name: '',
+      vendor_id: '',  // Phase H.1.1
       payment_method: '',
       notes: '',
       account_id: '',  // Phase F.2: COA
@@ -259,6 +287,7 @@ export default function Expenses() {
       description: expense.description || '',
       expense_date: expense.expense_date || new Date().toISOString().split('T')[0],
       vendor_name: expense.vendor_name || '',
+      vendor_id: expense.vendor_id || '',  // Phase H.1.1
       payment_method: expense.payment_method || '',
       notes: expense.notes || '',
       account_id: expense.account_id || '',  // Phase F.2: COA
@@ -396,7 +425,7 @@ export default function Expenses() {
               className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
             >
               <option value="">All Categories</option>
-              {EXPENSE_CATEGORIES.map(cat => (
+              {expenseCategories.map(cat => (
                 <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}
             </select>
@@ -555,7 +584,7 @@ export default function Expenses() {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    {EXPENSE_CATEGORIES.map(cat => (
+                    {expenseCategories.map(cat => (
                       <option key={cat.value} value={cat.value}>{cat.label}</option>
                     ))}
                   </select>
@@ -596,14 +625,21 @@ export default function Expenses() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Vendor Name</label>
-                  <input
-                    type="text"
-                    value={formData.vendor_name}
-                    onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
+                  <label className="block text-sm text-gray-400 mb-1">Vendor *</label>
+                  <select
+                    value={formData.vendor_id}
+                    onChange={(e) => {
+                      const vid = e.target.value;
+                      const v = vendors.find(v => v.id === parseInt(vid));
+                      setFormData({ ...formData, vendor_id: vid, vendor_name: v ? v.name : '' });
+                    }}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                    placeholder="e.g., ABC Security Co."
-                  />
+                  >
+                    <option value="">Select vendor...</option>
+                    {vendors.map(v => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -675,7 +711,7 @@ export default function Expenses() {
               <button
                 onClick={handleCreate}
                 className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg"
-                disabled={modalLoading || !formData.amount || !formData.description}
+                disabled={modalLoading || !formData.amount || !formData.description || !formData.vendor_id}
               >
                 {modalLoading ? 'Creating...' : 'Create Expense'}
               </button>
@@ -705,7 +741,7 @@ export default function Expenses() {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    {EXPENSE_CATEGORIES.map(cat => (
+                    {expenseCategories.map(cat => (
                       <option key={cat.value} value={cat.value}>{cat.label}</option>
                     ))}
                   </select>
@@ -744,13 +780,24 @@ export default function Expenses() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Vendor Name</label>
-                  <input
-                    type="text"
-                    value={formData.vendor_name}
-                    onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
+                  <label className="block text-sm text-gray-400 mb-1">Vendor *</label>
+                  <select
+                    value={formData.vendor_id}
+                    onChange={(e) => {
+                      const vid = e.target.value;
+                      const v = vendors.find(v => v.id === parseInt(vid));
+                      setFormData({ ...formData, vendor_id: vid, vendor_name: v ? v.name : '' });
+                    }}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                  />
+                  >
+                    <option value="">Select vendor...</option>
+                    {vendors.map(v => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                  {formData.vendor_name && !formData.vendor_id && (
+                    <p className="text-xs text-yellow-400/70 mt-1">Legacy: {formData.vendor_name}</p>
+                  )}
                 </div>
               </div>
 

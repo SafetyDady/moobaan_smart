@@ -7,3 +7,4 @@ from app.db.models.payin_report import PayinReport
 # Future models
 from app.db.models.invoice import Invoice
 from app.db.models.expense import Expense
+from app.db.models.vendor import Vendor, VendorCategory, ExpenseCategoryMaster

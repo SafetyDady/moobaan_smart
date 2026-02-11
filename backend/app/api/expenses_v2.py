@@ -21,6 +21,7 @@ from decimal import Decimal
 
 from app.db.session import get_db
 from app.db.models import Expense, ExpenseStatus, House, User, ChartOfAccount, AccountType
+from app.db.models.vendor import Vendor
 from app.core.deps import require_admin_or_accounting, require_admin, get_current_user
 from app.core.period_lock import validate_period_not_locked
 
@@ -39,7 +40,8 @@ class ExpenseCreate(BaseModel):
     amount: float = Field(..., gt=0, description="Expense amount (must be > 0)")
     description: str = Field(..., min_length=1, max_length=255, description="Expense description")
     expense_date: date = Field(..., description="Date when expense occurred")
-    vendor_name: Optional[str] = Field(None, max_length=255, description="Vendor name")
+    vendor_name: Optional[str] = Field(None, max_length=255, description="Vendor name (auto-synced from vendor master)")
+    vendor_id: int = Field(..., description="Vendor master ID (required for new expenses)")
     payment_method: Optional[str] = Field(None, max_length=50, description="CASH/TRANSFER/CHECK/OTHER")
     notes: Optional[str] = Field(None, description="Additional notes")
     account_id: Optional[int] = Field(None, description="Chart of Accounts ID (EXPENSE type)")
@@ -53,6 +55,7 @@ class ExpenseUpdate(BaseModel):
     description: Optional[str] = Field(None, min_length=1, max_length=255)
     expense_date: Optional[date] = None
     vendor_name: Optional[str] = Field(None, max_length=255)
+    vendor_id: Optional[int] = Field(None, description="Vendor master ID (0 to clear)")
     payment_method: Optional[str] = Field(None, max_length=50)
     notes: Optional[str] = None
     account_id: Optional[int] = Field(None, description="Chart of Accounts ID (0 to clear)")
@@ -119,7 +122,8 @@ async def list_expenses(
     """
     query = db.query(Expense).options(
         joinedload(Expense.house),
-        joinedload(Expense.created_by)
+        joinedload(Expense.created_by),
+        joinedload(Expense.vendor)  # Phase H.1.1
     )
     
     # Apply date range filter
@@ -194,7 +198,8 @@ async def get_expense(
     """
     expense = db.query(Expense).options(
         joinedload(Expense.house),
-        joinedload(Expense.created_by)
+        joinedload(Expense.created_by),
+        joinedload(Expense.vendor)  # Phase H.1.1
     ).filter(Expense.id == expense_id).first()
     
     if not expense:
@@ -241,6 +246,14 @@ async def create_expense(
         if not account.active:
             raise HTTPException(status_code=400, detail="Account is inactive")
     
+    # Phase H.1.1: Validate vendor and auto-sync vendor_name
+    vendor = db.query(Vendor).filter(Vendor.id == data.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    if not vendor.is_active:
+        raise HTTPException(status_code=400, detail="Vendor is inactive")
+    synced_vendor_name = vendor.name  # Always sync from master
+    
     # Create expense
     expense = Expense(
         house_id=data.house_id,
@@ -248,7 +261,8 @@ async def create_expense(
         amount=Decimal(str(data.amount)),
         description=data.description,
         expense_date=data.expense_date,
-        vendor_name=data.vendor_name,
+        vendor_name=synced_vendor_name,  # Auto-synced from vendor master
+        vendor_id=data.vendor_id,  # Phase H.1.1: Vendor master link
         payment_method=data.payment_method.upper() if data.payment_method else None,
         notes=data.notes,
         status=ExpenseStatus.PENDING,
@@ -328,7 +342,19 @@ async def update_expense(
         if data.expense_date is not None:
             expense.expense_date = data.expense_date
         
-        if data.vendor_name is not None:
+        if data.vendor_id is not None:
+            if data.vendor_id == 0:
+                expense.vendor_id = None
+                # Keep existing vendor_name as legacy fallback
+            else:
+                vendor_obj = db.query(Vendor).filter(Vendor.id == data.vendor_id).first()
+                if vendor_obj:
+                    expense.vendor_id = data.vendor_id
+                    expense.vendor_name = vendor_obj.name  # Auto-sync from master
+                else:
+                    raise HTTPException(status_code=404, detail="Vendor not found")
+        elif data.vendor_name is not None:
+            # Only allow direct vendor_name update if no vendor_id change
             expense.vendor_name = data.vendor_name
         
         if data.payment_method is not None:

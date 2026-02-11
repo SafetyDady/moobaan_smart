@@ -217,6 +217,25 @@ export const expensesAPI = {
   getCategories: () => apiClient.get('/api/expenses/meta/categories'),
 };
 
+// Vendors API (Phase H.1.1: Vendor & Category Foundation)
+export const vendorsAPI = {
+  list: (params) => apiClient.get('/api/vendors', { params }),
+  create: (data) => apiClient.post('/api/vendors', data),
+  update: (id, data) => apiClient.put(`/api/vendors/${id}`, data),
+  deactivate: (id) => apiClient.post(`/api/vendors/${id}/deactivate`),
+  reactivate: (id) => apiClient.post(`/api/vendors/${id}/reactivate`),
+  // Vendor Categories
+  listCategories: (params) => apiClient.get('/api/vendors/categories', { params }),
+  createCategory: (data) => apiClient.post('/api/vendors/categories', data),
+  deactivateCategory: (id) => apiClient.post(`/api/vendors/categories/${id}/deactivate`),
+  reactivateCategory: (id) => apiClient.post(`/api/vendors/categories/${id}/reactivate`),
+  // Expense Categories
+  listExpenseCategories: (params) => apiClient.get('/api/vendors/expense-categories', { params }),
+  createExpenseCategory: (data) => apiClient.post('/api/vendors/expense-categories', data),
+  deactivateExpenseCategory: (id) => apiClient.post(`/api/vendors/expense-categories/${id}/deactivate`),
+  reactivateExpenseCategory: (id) => apiClient.post(`/api/vendors/expense-categories/${id}/reactivate`),
+};
+
 // Bank Statements API
 export const bankStatementsAPI = {
   list: () => apiClient.get('/api/bank-statements'),
