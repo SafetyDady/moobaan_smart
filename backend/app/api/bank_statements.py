@@ -514,3 +514,37 @@ async def get_batch_transactions(
         'transactions': [txn.to_dict() for txn in transactions],
         'count': len(transactions),
     }
+
+
+# ===== Delete Batch Endpoint =====
+
+@router.delete("/batches/{batch_id}")
+async def delete_batch(
+    batch_id: str,
+    current_user: User = Depends(require_role(["super_admin"])),
+    db: Session = Depends(get_db),
+):
+    """Delete a batch and all its transactions (super_admin only)"""
+    try:
+        batch_uuid = uuid.UUID(batch_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid batch ID format")
+    
+    batch = db.query(BankStatementBatch).filter(BankStatementBatch.id == batch_uuid).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    # Delete transactions first (FK constraint)
+    txn_count = db.query(BankTransaction).filter(
+        BankTransaction.bank_statement_batch_id == batch_uuid
+    ).delete()
+    
+    # Delete batch
+    db.delete(batch)
+    db.commit()
+    
+    return {
+        'message': f'Batch deleted successfully',
+        'batch_id': batch_id,
+        'transactions_deleted': txn_count,
+    }

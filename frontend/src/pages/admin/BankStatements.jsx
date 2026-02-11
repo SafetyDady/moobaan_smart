@@ -291,6 +291,28 @@ const BankStatements = () => {
     setTransactionsError(null);
   };
 
+  const handleDeleteBatch = async (batchId, filename) => {
+    if (!window.confirm(`Delete batch "${filename}"?\nThis will permanently delete all transactions in this batch.`)) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await bankStatementsAPI.deleteBatch(batchId);
+      setSuccess('Batch deleted successfully');
+      // Close transactions view if this batch was open
+      if (selectedBatchId === batchId) {
+        handleCloseTransactions();
+      }
+      // Refresh batches list
+      loadBatches();
+    } catch (err) {
+      console.error('Failed to delete batch:', err);
+      setError(err.response?.data?.detail || 'Failed to delete batch');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Safety guard: ensure bankAccounts is always an array for rendering
   const safeAccounts = Array.isArray(bankAccounts) ? bankAccounts : (bankAccounts?.items ?? []);
   const safeBatches = Array.isArray(batches) ? batches : (batches?.items ?? []);
@@ -585,9 +607,15 @@ const BankStatements = () => {
                       <td className="px-4 py-2 text-sm">
                         <button
                           onClick={() => handleViewTransactions(batch.id)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
+                          className="text-blue-600 hover:text-blue-800 font-medium mr-3"
                         >
-                          View Transactions
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBatch(batch.id, batch.original_filename)}
+                          className="text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>

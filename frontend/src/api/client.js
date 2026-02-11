@@ -233,6 +233,7 @@ export const bankStatementsAPI = {
     });
   },
   getBatchTransactions: (batchId) => apiClient.get(`/api/bank-statements/batches/${batchId}/transactions`),
+  deleteBatch: (batchId) => apiClient.delete(`/api/bank-statements/batches/${batchId}`),
   uploadPreview: (file, bankAccountId, year, month) => {
     const formData = new FormData();
     formData.append('file', file);
