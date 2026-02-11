@@ -195,7 +195,9 @@ def create_user_token(user, house_id: Optional[int] = None) -> str:
 
 def require_role(allowed_roles: list):
     """Dependency function to require specific roles"""
-    def role_checker(current_user):
+    from app.core.deps import get_current_user
+    from fastapi import Depends as _Depends
+    def role_checker(current_user=_Depends(get_current_user)):
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

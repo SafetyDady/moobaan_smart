@@ -380,23 +380,39 @@ async def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/generate-monthly")
-async def generate_monthly_invoices(db: Session = Depends(get_db)):
-    """Generate monthly invoices for all active houses"""
+async def generate_monthly_invoices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    year: Optional[int] = None,
+    month: Optional[int] = None
+):
+    """Generate monthly invoices for all active houses.
+    Optionally pass ?year=YYYY&month=MM to generate for a specific period.
+    """
     from app.services.accounting import AccountingService
     
-    # Get current month
+    # Use provided year/month or default to current month
     now = datetime.now()
+    target_year = year if year else now.year
+    target_month = month if month else now.month
+    
+    # Validate
+    if not (1 <= target_month <= 12):
+        raise HTTPException(status_code=400, detail="Month must be between 1 and 12")
+    if not (2000 <= target_year <= 3000):
+        raise HTTPException(status_code=400, detail="Year must be between 2000 and 3000")
     
     # Call static method with correct arguments
     generated = AccountingService.auto_generate_invoices(
         db=db,
-        year=now.year,
-        month=now.month
+        year=target_year,
+        month=target_month,
+        created_by_id=current_user.id
     )
     
     return {
-        "message": f"Generated {len(generated)} monthly invoices for {now.year}-{now.month:02d}",
-        "cycle": f"{now.year}-{now.month:02d}",
+        "message": f"Generated {len(generated)} monthly invoices for {target_year}-{target_month:02d}",
+        "cycle": f"{target_year}-{target_month:02d}",
         "count": len(generated),
         "invoices": [
             {
