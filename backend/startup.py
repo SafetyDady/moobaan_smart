@@ -102,7 +102,18 @@ def init_database():
 
 
 def run_production_seed():
-    """Run production seed if enabled via ENV"""
+    """Run production seed if enabled via ENV.
+    Safety: only runs when RUN_PROD_SEED=true AND --seed flag is used,
+    or when called from startup.py main block.
+    Warns loudly if RUN_PROD_SEED is still set (should be removed after use).
+    """
+    import os
+    run_seed = os.getenv("RUN_PROD_SEED", "").lower() == "true"
+    if run_seed:
+        print("⚠️" * 20)
+        print("⚠️  WARNING: RUN_PROD_SEED is still set in environment!")
+        print("⚠️  Remove it after initial setup to prevent accidental re-seeding.")
+        print("⚠️" * 20)
     try:
         from prod_seed import run_production_seed as do_seed
         do_seed()

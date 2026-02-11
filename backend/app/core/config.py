@@ -33,10 +33,32 @@ class Settings(BaseSettings):
         # Auto-enable secure cookies for production
         if self.ENV in ["production", "prod"]:
             object.__setattr__(self, 'COOKIE_SECURE', True)
+            # SECURITY: Fail-fast if SECRET_KEY is still default in production
+            self._validate_secret_key()
         
         # Run validation
         self._normalize_database_url()
         self._log_database_config()
+
+    def _validate_secret_key(self):
+        """SECURITY: Crash if SECRET_KEY is default/weak in production"""
+        INSECURE_PREFIXES = [
+            "change-this",
+            "your-secret-key",
+            "secret",
+        ]
+        if not self.SECRET_KEY or len(self.SECRET_KEY) < 16:
+            raise RuntimeError(
+                "❌ SECURITY ERROR: SECRET_KEY must be set and at least 16 characters in production. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        if any(self.SECRET_KEY.lower().startswith(p) for p in INSECURE_PREFIXES):
+            raise RuntimeError(
+                "❌ SECURITY ERROR: SECRET_KEY is using an insecure default value. "
+                "Set a proper SECRET_KEY in your environment variables. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        logger.info("✅ SECRET_KEY validation passed")
 
     def _normalize_database_url(self):
         """Normalize and validate DATABASE_URL for psycopg v3"""

@@ -49,3 +49,4 @@ logs/
 
 # Uploads (slip images)
 backend/uploads/
+.vercel

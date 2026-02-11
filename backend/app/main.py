@@ -12,6 +12,8 @@ try:
     from app.core.config import settings
     from app.core.uploads import get_upload_dir
     logger.info(f"✅ Configuration loaded successfully for {settings.APP_NAME}")
+    if settings.ENV in ["production", "prod"]:
+        logger.info("[SECURITY] Production mode detected.")
 except Exception as e:
     logger.error(f"❌ Configuration validation failed: {e}")
     raise
