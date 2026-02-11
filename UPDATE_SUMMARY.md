@@ -1,5 +1,7 @@
 # 📋 สรุปการอัปเดตระบบ Moobaan Smart
 
+> **อัปเดตล่าสุด:** 11 กุมภาพันธ์ 2569 | **Latest Commit:** `4f5b7fb`
+
 ## 🏗️ Stack
 | Component | Technology | Host |
 |-----------|-----------|------|
@@ -10,7 +12,7 @@
 
 ---
 
-## 📅 Production Deployment (10-11 ก.พ. 2569)
+## 📅 Production Deployment History
 
 ### 🔐 Session 1 — Deploy & Fix Login (10 ก.พ.)
 
@@ -31,6 +33,16 @@
 |---|--------|----------|-------|
 | 9 | `ecf7cbb` | **Import 157 บ้าน** จาก HomeList.xlsx เข้า Production DB | ✅ |
 | 10 | `67e7553` | **แก้ House Edit** — เพิ่ม Edit Modal + แก้ Backend Enum conversion | ✅ |
+
+### 🔒 Session 3 — Security Hardening (11 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 11 | `4f5b7fb` | **SECRET_KEY fail-fast** — Production crash ถ้าใช้ default key | ✅ |
+| 11 | `4f5b7fb` | **Prod seed safety guard** — ⚠️ warning ถ้า `RUN_PROD_SEED` ยังตั้งอยู่ | ✅ |
+| 11 | `4f5b7fb` | **Startup log** — `[SECURITY] Production mode detected.` | ✅ |
+| — | manual | **SECRET_KEY rotated** — เปลี่ยนเป็น 64-byte hex key บน Railway | ✅ |
+| — | manual | **ลบ ENV ชั่วคราว** — `RUN_PROD_SEED`, `PROD_RESET_ADMIN_PASSWORD`, `PROD_ADMIN_PASSWORD` | ✅ |
 
 ---
 
@@ -63,20 +75,33 @@
 
 ---
 
-## ⚠️ สิ่งที่ควรทำต่อ (Security)
+## 🔒 Security Status
+
+| รายการ | สถานะ |
+|--------|-------|
+| SECRET_KEY — 64-byte hex, rotated | ✅ เสร็จแล้ว |
+| SECRET_KEY fail-fast guard (production) | ✅ เสร็จแล้ว |
+| Debug endpoints removed | ✅ เสร็จแล้ว |
+| ENV ชั่วคราว (`RUN_PROD_SEED` etc.) ลบแล้ว | ✅ เสร็จแล้ว |
+| CSRF double-submit cookie (warn mode) | ✅ ใช้งาน |
+| Cookie: `httpOnly`, `secure`, `SameSite=None` | ✅ ใช้งาน |
+
+---
+
+## ⚠️ สิ่งที่ควรทำต่อ
 
 | รายการ | ความสำคัญ | สถานะ |
 |--------|----------|-------|
-| เปลี่ยน `SECRET_KEY` บน Railway จาก default เป็น random string | 🔴 สูง | ❌ ยังไม่ทำ |
-| ลบ ENV: `RUN_PROD_SEED`, `PROD_RESET_ADMIN_PASSWORD`, `PROD_ADMIN_PASSWORD` | 🟡 กลาง | ❌ ยังไม่ทำ |
 | ทดสอบ Resident LINE Login flow จริง (admin ผูก line_user_id → resident ใช้ LINE) | 🟡 กลาง | ❌ ยังไม่ทำ |
 | ตั้ง Vercel Git Integration ให้ auto-deploy เมื่อ push | 🟢 ต่ำ | ❌ ยังไม่ทำ |
+| เปิด CSRF enforcement (เปลี่ยนจาก warn → block) | 🟢 ต่ำ | ❌ ยังไม่ทำ |
 
 ---
 
 ## 📝 หมายเหตุ Vercel Deploy
 
 - Vercel **ไม่ได้ auto-deploy** จาก GitHub push (Git Integration อาจยังไม่ได้ตั้ง)
-- ต้อง deploy ด้วย CLI: `cd frontend && vercel link --project moobaan-smart && vercel --prod`
+- Deploy ด้วย CLI: `cd moobaan_smart && vercel link --project moobaan-smart && vercel --prod --force`
 - หรือไปตั้งค่า Git Integration ที่ [Vercel Dashboard → moobaan-smart → Settings → Git](https://vercel.com/sss-group/moobaan-smart/settings/git)
 - Root Directory ใน Vercel ตั้งเป็น `frontend`
+- ⚠️ **ห้าม** deploy จาก `frontend/` folder โดยตรง (จะสร้าง project ซ้ำ) — deploy จาก root เท่านั้น
