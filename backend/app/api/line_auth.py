@@ -443,6 +443,7 @@ def link_line_account(
     # ── Step 1: Read pending token from cookie ──
     token = request_obj.cookies.get("access_token")
     if not token:
+        logger.warning("[LINK_ACCOUNT] No access_token cookie found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "NO_TOKEN", "message": "กรุณาเข้าสู่ระบบผ่าน LINE ก่อน"}
@@ -450,14 +451,20 @@ def link_line_account(
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
+    except JWTError as e:
+        logger.warning(f"[LINK_ACCOUNT] Token decode failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "TOKEN_EXPIRED", "message": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบผ่าน LINE ใหม่"}
         )
     
     # Must be a pending token with purpose=link_account
-    if payload.get("type") != "pending" or payload.get("purpose") != "link_account":
+    token_type = payload.get("type")
+    token_purpose = payload.get("purpose")
+    logger.info(f"[LINK_ACCOUNT] Token type={token_type}, purpose={token_purpose}, keys={list(payload.keys())}")
+    
+    if token_type != "pending" or token_purpose != "link_account":
+        logger.warning(f"[LINK_ACCOUNT] Wrong token: type={token_type}, purpose={token_purpose}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_TOKEN", "message": "Token ไม่ถูกต้อง กรุณาเข้าสู่ระบบผ่าน LINE ใหม่"}
