@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.core.deps import require_admin_or_accounting, get_current_user, require_roles
 from app.core.auth import get_password_hash
 from app.models import UserCreate
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -19,7 +19,7 @@ STAFF_ROLES = ["accounting", "admin"]
 
 
 class StaffCreateRequest(BaseModel):
-    email: EmailStr
+    email: str = Field(..., min_length=5)
     password: str = Field(..., min_length=8)
     full_name: str = Field(..., min_length=2)
     role: str = Field(..., pattern="^(accounting|admin)$")
