@@ -273,7 +273,9 @@ export default function VillageDashboard() {
             'MAINTENANCE': 'ซ่อมบำรุง',
             'SECURITY': 'รปภ.',
             'CLEANING': 'ทำความสะอาด',
-            'UTILITIES': 'ค่าไฟ/น้ำ',
+            'ELECTRICITY': 'ค่าไฟฟ้า',
+            'WATER': 'ค่าน้ำประปา',
+            'UTILITIES': 'สาธารณูปโภค',
             'ADMIN': 'บริหาร',
             'OTHER': 'อื่นๆ',
           };

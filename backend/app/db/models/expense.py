@@ -17,7 +17,9 @@ class ExpenseCategory(enum.Enum):
     MAINTENANCE = "MAINTENANCE"
     SECURITY = "SECURITY"
     CLEANING = "CLEANING"
-    UTILITIES = "UTILITIES"
+    UTILITIES = "UTILITIES"      # legacy — keep for backward compat
+    ELECTRICITY = "ELECTRICITY"  # ค่าไฟ
+    WATER = "WATER"              # ค่าน้ำ
     ADMIN = "ADMIN"
     OTHER = "OTHER"
 
@@ -50,7 +52,7 @@ class Expense(Base):
     account_id = Column(Integer, ForeignKey("chart_of_accounts.id", ondelete="RESTRICT"), nullable=True, index=True)
     
     # Core expense fields
-    category = Column(String(100), nullable=False, index=True)  # MAINTENANCE, SECURITY, CLEANING, UTILITIES, ADMIN, OTHER
+    category = Column(String(100), nullable=False, index=True)  # MAINTENANCE, SECURITY, CLEANING, ELECTRICITY, WATER, UTILITIES, ADMIN, OTHER
     amount = Column(Numeric(10, 2), nullable=False)
     description = Column(String(255), nullable=False)
     
