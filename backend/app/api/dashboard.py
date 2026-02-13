@@ -150,18 +150,22 @@ async def get_village_summary(
         total_balance = 0
         balance_as_of = None
     
-    # ── Current month income & expense ──
-    month_income = db.query(func.coalesce(func.sum(IncomeTransaction.amount), 0))\
+    # ── Previous month income & expense from bank statement ──
+    prev_month_start = current_month_start - relativedelta(months=1)
+    prev_month_end = current_month_start  # 1st of current month
+    
+    # Income = sum of credit (deposits) from bank statement last month
+    month_income = db.query(func.coalesce(func.sum(BankTransaction.credit), 0))\
         .filter(
-            IncomeTransaction.received_at >= current_month_start,
-            IncomeTransaction.received_at < current_month_end
+            BankTransaction.effective_at >= prev_month_start,
+            BankTransaction.effective_at < prev_month_end
         ).scalar()
     
-    month_expense = db.query(func.coalesce(func.sum(Expense.amount), 0))\
+    # Expense = sum of debit (withdrawals) from bank statement last month
+    month_expense = db.query(func.coalesce(func.sum(BankTransaction.debit), 0))\
         .filter(
-            Expense.status != ExpenseStatus.CANCELLED,
-            Expense.expense_date >= current_month_start.date(),
-            Expense.expense_date < current_month_end.date()
+            BankTransaction.effective_at >= prev_month_start,
+            BankTransaction.effective_at < prev_month_end
         ).scalar()
     
     # ── Debtor count & total debt (ISSUED or PARTIALLY_PAID invoices) ──

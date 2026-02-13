@@ -92,43 +92,25 @@ export default function VillageDashboard() {
           {/* Income */}
           <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">รายรับเดือนนี้</span>
+              <span className="text-sm text-gray-400">รายรับเดือนที่แล้ว</span>
               <ArrowUp size={20} className="text-green-400" />
             </div>
             <div className="text-2xl font-bold text-white">
-              ฿{data.total_income.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              ฿{(data.total_income || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
-            {data.monthly_income.length > 1 && (
-              <div className="text-xs text-green-400 mt-1">
-                {data.monthly_income[0].amount > data.monthly_income[1].amount ? '↑' : '↓'} 
-                {' '}
-                {Math.abs(
-                  ((data.monthly_income[0].amount - data.monthly_income[1].amount) / data.monthly_income[1].amount * 100) || 0
-                ).toFixed(0)}%
-              </div>
-            )}
+            <div className="text-xs text-gray-500 mt-1">จาก Statement</div>
           </div>
           
           {/* Expense */}
           <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">รายจ่ายเดือนนี้</span>
+              <span className="text-sm text-gray-400">รายจ่ายเดือนที่แล้ว</span>
               <ArrowDown size={20} className="text-red-400" />
             </div>
             <div className="text-2xl font-bold text-white">
-              ฿{data.total_expense.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              ฿{(data.total_expense || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
-            {data.monthly_income?.length > 1 && (() => {
-              const curr = data.monthly_income[0]?.expense || 0;
-              const prev = data.monthly_income[1]?.expense || 0;
-              if (prev === 0) return null;
-              const pct = Math.abs(((curr - prev) / prev * 100)).toFixed(0);
-              return (
-                <div className={`text-xs mt-1 ${curr > prev ? 'text-red-400' : 'text-green-400'}`}>
-                  {curr > prev ? '↑' : '↓'} {pct}%
-                </div>
-              );
-            })()}
+            <div className="text-xs text-gray-500 mt-1">จาก Statement</div>
           </div>
           
           {/* Debtor Count */}
