@@ -321,6 +321,17 @@ async def update_expense(
         else:
             raise HTTPException(status_code=400, detail="Can only update notes for paid expenses")
     else:
+        # Guard: if allocations exist, block amount changes
+        if data.amount is not None:
+            alloc_count = db.query(ExpenseBankAllocation).filter(
+                ExpenseBankAllocation.expense_id == expense_id
+            ).count()
+            if alloc_count > 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot change amount — expense has bank allocations. Remove allocations first."
+                )
+
         # Update PENDING expense fields
         if data.house_id is not None:
             if data.house_id != 0:  # 0 means clear house_id

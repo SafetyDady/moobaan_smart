@@ -18,6 +18,7 @@ from .resident_membership import ResidentMembership, ResidentMembershipStatus, R
 from .resident_house_audit import ResidentHouseAuditLog
 from .vendor import Vendor, VendorCategory, ExpenseCategoryMaster
 from .expense_bank_allocation import ExpenseBankAllocation
+from .attachment import Attachment
 
 __all__ = [
     "User",
