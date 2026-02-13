@@ -519,11 +519,7 @@ async def get_current_user_info(
                     house_id = int(house_id)
         
         # PATCH-4: Use ResidentMembership to get house_code and houses list
-        if house_id:
-            house = db.query(House).filter(House.id == house_id).first()
-            house_code = house.house_code if house else None
-        
-        # PATCH-5: Always include full houses list
+        # PATCH-7: Always load active memberships (needed for fallback + houses list)
         active_memberships = db.query(ResidentMembership).filter(
             ResidentMembership.user_id == current_user.id,
             ResidentMembership.status == ResidentMembershipStatus.ACTIVE
@@ -536,6 +532,16 @@ async def get_current_user_info(
                     "house_code": h.house_code,
                     "role": m.role.value if hasattr(m.role, 'value') else m.role,
                 })
+        
+        # PATCH-7: If token has no house_id but user has exactly 1 house → auto-select
+        if not house_id and len(active_memberships) == 1:
+            house_id = active_memberships[0].house_id
+            h = db.query(House).filter(House.id == house_id).first()
+            house_code = h.house_code if h else None
+            logger.info(f"[AUTH_ME] Auto-selected single house {house_id} for user {current_user.id}")
+        elif house_id:
+            house = db.query(House).filter(House.id == house_id).first()
+            house_code = house.house_code if house else None
     
     # PATCH-5: Normalized response shape (works for admin + resident)
     return {

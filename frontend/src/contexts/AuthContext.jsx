@@ -28,8 +28,19 @@ export function AuthProvider({ children }) {
         // If it fails with 500, try /api/resident/me (for Resident OTP login)
         try {
           const response = await api.get('/api/auth/me');
+          const data = response.data;
+          
+          // R.3: If resident has no house_id but has houses → redirect to select-house
+          if (data.role === 'resident' && !data.house_id && data.houses?.length > 0) {
+            console.log('[AuthContext] Resident has houses but no house_id → need select-house');
+            setIsAuth(true);
+            setUser(data);
+            // Let RoleContext/ProtectedRoute handle the redirect
+            return;
+          }
+          
           setIsAuth(true);
-          setUser(response.data);
+          setUser(data);
         } catch (error) {
           // PATCH-2 rev: If pending token → don't set auth, let ProtectedRoute redirect
           const detail = error.response?.data?.detail;
