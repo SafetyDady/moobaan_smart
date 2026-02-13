@@ -266,19 +266,19 @@ export default function VillageDashboard() {
           const periods = data.expense_periods || [];
           // Max for bar scaling across ALL categories
           const globalMax = Math.max(...cats.flatMap(c => c.monthly.map(m => m.total)), 1);
-          // Category color palette
-          const catColors = ['bg-orange-500', 'bg-blue-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500', 'bg-yellow-500', 'bg-red-500', 'bg-indigo-500'];
-          const catTextColors = ['text-orange-400', 'text-blue-400', 'text-purple-400', 'text-pink-400', 'text-teal-400', 'text-yellow-400', 'text-red-400', 'text-indigo-400'];
-          const catLabelMap = {
-            'MAINTENANCE': 'ซ่อมบำรุง',
-            'SECURITY': 'รปภ.',
-            'CLEANING': 'ทำความสะอาด',
-            'ELECTRICITY': 'ค่าไฟฟ้า',
-            'WATER': 'ค่าน้ำประปา',
-            'UTILITIES': 'สาธารณูปโภค',
-            'ADMIN': 'บริหาร',
-            'OTHER': 'อื่นๆ',
+
+          // Semantic color + icon per category
+          const catMeta = {
+            'ELECTRICITY': { icon: '⚡', label: 'ค่าไฟฟ้า',       bar: 'bg-amber-500',   text: 'text-amber-400'   },
+            'WATER':       { icon: '💧', label: 'ค่าน้ำประปา',    bar: 'bg-cyan-500',    text: 'text-cyan-400'    },
+            'SECURITY':    { icon: '🛡️', label: 'รปภ.',           bar: 'bg-blue-500',    text: 'text-blue-400'    },
+            'CLEANING':    { icon: '🧹', label: 'ทำความสะอาด',   bar: 'bg-emerald-500', text: 'text-emerald-400' },
+            'MAINTENANCE': { icon: '🔧', label: 'ซ่อมบำรุง',      bar: 'bg-orange-500',  text: 'text-orange-400'  },
+            'ADMIN':       { icon: '📋', label: 'บริหาร',         bar: 'bg-purple-500',  text: 'text-purple-400'  },
+            'UTILITIES':   { icon: '🏠', label: 'สาธารณูปโภค',    bar: 'bg-teal-500',    text: 'text-teal-400'    },
+            'OTHER':       { icon: '📦', label: 'อื่นๆ',          bar: 'bg-gray-500',    text: 'text-gray-400'    },
           };
+          const defaultMeta = { icon: '📌', label: '', bar: 'bg-gray-500', text: 'text-gray-400' };
           const grandTotal = cats.reduce((s, c) => s + c.grand_total, 0);
 
           return (
@@ -301,26 +301,24 @@ export default function VillageDashboard() {
               )}
 
               <div className="space-y-4">
-                {cats.map((cat, ci) => {
-                  const color = catColors[ci % catColors.length];
-                  const textColor = catTextColors[ci % catTextColors.length];
-                  const label = catLabelMap[cat.category] || cat.category;
+                {cats.map((cat) => {
+                  const meta = catMeta[cat.category] || { ...defaultMeta, label: cat.category };
 
                   return (
                     <div key={cat.category}>
                       {/* Category header */}
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-sm ${color} inline-block`}></span>
-                          <span className="text-sm font-medium text-gray-200">{label}</span>
+                          <span className="text-base leading-none">{meta.icon}</span>
+                          <span className="text-sm font-medium text-gray-200">{meta.label}</span>
                         </div>
-                        <span className={`text-sm font-semibold ${textColor}`}>
+                        <span className={`text-sm font-semibold ${meta.text}`}>
                           ฿{cat.grand_total.toLocaleString('th-TH', { maximumFractionDigits: 0 })}
                         </span>
                       </div>
 
                       {/* Monthly mini-bars */}
-                      <div className="space-y-1 ml-4">
+                      <div className="space-y-1 ml-7">
                         {cat.monthly.map((m, mi) => {
                           const barW = globalMax > 0 ? (m.total / globalMax) * 100 : 0;
                           // Change vs previous month
@@ -332,7 +330,7 @@ export default function VillageDashboard() {
                               <span className="text-[10px] text-gray-500 w-8 text-right shrink-0">{m.label}</span>
                               <div className="flex-1 h-4 bg-gray-700/40 rounded overflow-hidden">
                                 <div
-                                  className={`h-full ${color} rounded transition-all duration-500`}
+                                  className={`h-full ${meta.bar} rounded transition-all duration-500`}
                                   style={{ width: `${Math.max(barW, m.total > 0 ? 2 : 0)}%` }}
                                 />
                               </div>

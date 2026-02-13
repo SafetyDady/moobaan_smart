@@ -19,7 +19,8 @@ const FALLBACK_EXPENSE_CATEGORIES = [
   { value: 'MAINTENANCE', label: 'Maintenance' },
   { value: 'SECURITY', label: 'Security' },
   { value: 'CLEANING', label: 'Cleaning' },
-  { value: 'UTILITIES', label: 'Utilities' },
+  { value: 'ELECTRICITY', label: 'ค่าไฟฟ้า' },
+  { value: 'WATER', label: 'ค่าน้ำประปา' },
   { value: 'ADMIN', label: 'Admin' },
   { value: 'OTHER', label: 'Other' },
 ];
