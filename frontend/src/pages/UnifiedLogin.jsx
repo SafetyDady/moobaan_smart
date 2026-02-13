@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import LineLogin from './auth/LineLogin';
 import AdminLoginModal from './resident/auth/AdminLoginModal';
-import { Shield, MessageCircle } from 'lucide-react';
+import { Shield, MessageCircle, Home } from 'lucide-react';
 
 export default function UnifiedLogin() {
   const [searchParams] = useSearchParams();
@@ -46,7 +46,9 @@ export default function UnifiedLogin() {
       <div className="w-full max-w-sm">
         {/* Logo/Header */}
         <div className="text-center mb-10">
-          <div className="text-5xl mb-4">🏠</div>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-900/40 mb-5">
+            <Home size={40} className="text-white" strokeWidth={2.2} />
+          </div>
           <h1 className="text-2xl font-bold text-white mb-2">
             หมู่บ้านสมาร์ท
           </h1>
