@@ -5,6 +5,7 @@ import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import PayinDetailModal from './PayinDetailModal';
 import PaymentHistoryCompactList from './PaymentHistoryCompactList';
+import { Home, Loader2, FileText, CreditCard } from 'lucide-react';
 import {
   canEditPayin,
   canDeletePayin,
@@ -124,7 +125,7 @@ export default function MobileDashboard() {
       <MobileLayout>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <div className="text-4xl mb-2">🏠</div>
+            <Home className="mx-auto text-emerald-500 mb-2" size={48} />
             <p className="text-gray-400">กำลังโหลดข้อมูลบ้าน...</p>
           </div>
         </div>
@@ -137,7 +138,7 @@ export default function MobileDashboard() {
       <MobileLayout>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <div className="text-4xl mb-2">⏳</div>
+            <Loader2 className="mx-auto text-emerald-500 mb-2 animate-spin" size={48} />
             <p className="text-gray-400">กำลังโหลด...</p>
           </div>
         </div>
@@ -181,8 +182,9 @@ export default function MobileDashboard() {
             hasBlockingPayin ? (
               // Disabled state - has incomplete pay-in
               <div className="w-full">
-                <div className="w-full bg-gray-400 text-gray-600 font-semibold py-3 rounded-lg text-center cursor-not-allowed">
-                  💳 ชำระเงินเลย
+                <div className="w-full bg-gray-400 text-gray-600 font-semibold py-3 rounded-lg text-center cursor-not-allowed flex items-center justify-center gap-2">
+                  <CreditCard size={20} />
+                  ชำระเงินเลย
                 </div>
                 <p className="text-yellow-200 text-xs mt-2 text-center">
                   ⚠️ คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน
@@ -192,9 +194,10 @@ export default function MobileDashboard() {
               // Normal state - can create
               <Link 
                 to="/resident/submit" 
-                className="block w-full bg-white text-red-600 font-semibold py-3 rounded-lg text-center active:bg-red-50 transition-colors"
+                className="flex items-center justify-center gap-2 w-full bg-white text-red-600 font-semibold py-3 rounded-lg text-center active:bg-red-50 transition-colors"
               >
-                💳 ชำระเงินเลย
+                <CreditCard size={20} />
+                ชำระเงินเลย
               </Link>
             )
           )}
@@ -218,7 +221,7 @@ export default function MobileDashboard() {
         <h2 className="text-lg font-bold text-white mb-3">ใบแจ้งหนี้</h2>
         {invoices.length === 0 ? (
           <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
-            <div className="text-4xl mb-2">📄</div>
+            <FileText className="mx-auto text-gray-600 mb-2" size={48} />
             <p className="text-gray-400">ไม่มีใบแจ้งหนี้</p>
           </div>
         ) : (
@@ -264,7 +267,7 @@ export default function MobileDashboard() {
         <h2 className="text-lg font-bold text-white mb-3">ประวัติการส่งสลิป</h2>
         {payins.length === 0 ? (
           <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
-            <div className="text-4xl mb-2">💳</div>
+            <CreditCard className="mx-auto text-gray-600 mb-2" size={48} />
             <p className="text-gray-400">ยังไม่มีการส่งสลิป</p>
             {!hasBlockingPayin && (
               <Link 

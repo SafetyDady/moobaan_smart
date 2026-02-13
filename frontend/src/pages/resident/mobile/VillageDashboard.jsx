@@ -157,7 +157,7 @@ export default function VillageDashboard() {
           </div>
           <div className="flex items-center gap-4 mb-4 text-xs">
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span> รายรับ</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-rose-500 inline-block"></span> รายจ่าย</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-orange-500 inline-block"></span> รายจ่าย</span>
           </div>
           
           {(data.monthly_income || []).length === 0 ? (
@@ -166,45 +166,53 @@ export default function VillageDashboard() {
               <div className="text-sm">ยังไม่มีข้อมูล Statement</div>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {(data.monthly_income || []).map((month, idx) => {
-                const incW = maxMonthlyAmount > 0 ? (month.income / maxMonthlyAmount) * 100 : 0;
-                const expW = maxMonthlyAmount > 0 ? (month.expense / maxMonthlyAmount) * 100 : 0;
+                const total = (month.income || 0) + (month.expense || 0);
+                const incW = total > 0 ? ((month.income || 0) / total) * 100 : 0;
+                const expW = total > 0 ? ((month.expense || 0) / total) * 100 : 0;
+                const totalBarWidth = maxMonthlyAmount > 0 ? (total / maxMonthlyAmount) * 100 : 0;
+                
                 return (
                   <div key={month.period} className="group">
-                    {/* Month label */}
-                    <div className="flex items-baseline gap-1 mb-1">
-                      <span className="text-xs font-medium text-gray-300 w-10">{month.label}</span>
-                      <span className="text-[10px] text-gray-500">{month.year_label}</span>
-                    </div>
-                    {/* Dual bar row */}
-                    <div className="flex gap-1">
-                      {/* Income bar */}
-                      <div className="flex-1 relative">
-                        <div className="bg-gray-700/50 rounded h-4 overflow-hidden">
-                          <div
-                            className="bg-emerald-500/80 h-full rounded transition-all duration-700 ease-out"
-                            style={{ width: `${Math.max(incW, month.income > 0 ? 3 : 0)}%` }}
-                          />
-                        </div>
-                        {month.income > 0 && (
-                          <span className="absolute right-1 top-0 h-4 flex items-center text-[9px] text-emerald-300 font-medium">
-                            {month.income >= 1000 ? `${(month.income / 1000).toFixed(0)}k` : month.income.toLocaleString('th-TH')}
-                          </span>
-                        )}
+                    {/* Month label and total */}
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xs font-medium text-gray-300">{month.label}</span>
+                        <span className="text-[10px] text-gray-500">{month.year_label}</span>
                       </div>
-                      {/* Expense bar */}
-                      <div className="flex-1 relative">
-                        <div className="bg-gray-700/50 rounded h-4 overflow-hidden">
-                          <div
-                            className="bg-rose-500/80 h-full rounded transition-all duration-700 ease-out"
-                            style={{ width: `${Math.max(expW, month.expense > 0 ? 3 : 0)}%` }}
-                          />
-                        </div>
+                      <span className="text-xs text-gray-400 font-medium">
+                        ฿{total >= 1000 ? `${(total / 1000).toFixed(0)}K` : total.toLocaleString('th-TH')}
+                      </span>
+                    </div>
+                    
+                    {/* Stacked bar */}
+                    <div className="relative h-8 bg-gray-700/30 rounded-lg overflow-hidden">
+                      <div 
+                        className="h-full flex"
+                        style={{ width: `${Math.max(totalBarWidth, total > 0 ? 5 : 0)}%` }}
+                      >
+                        {/* Income segment (green) */}
+                        {month.income > 0 && (
+                          <div 
+                            className="bg-emerald-500 flex items-center justify-center transition-all duration-700 ease-out"
+                            style={{ width: `${incW}%` }}
+                          >
+                            <span className="text-[10px] text-white font-semibold px-1">
+                              ฿{month.income >= 1000 ? `${(month.income / 1000).toFixed(0)}K` : month.income.toLocaleString('th-TH')}
+                            </span>
+                          </div>
+                        )}
+                        {/* Expense segment (orange) */}
                         {month.expense > 0 && (
-                          <span className="absolute right-1 top-0 h-4 flex items-center text-[9px] text-rose-300 font-medium">
-                            {month.expense >= 1000 ? `${(month.expense / 1000).toFixed(0)}k` : month.expense.toLocaleString('th-TH')}
-                          </span>
+                          <div 
+                            className="bg-orange-500 flex items-center justify-center transition-all duration-700 ease-out"
+                            style={{ width: `${expW}%` }}
+                          >
+                            <span className="text-[10px] text-white font-semibold px-1">
+                              ฿{month.expense >= 1000 ? `${(month.expense / 1000).toFixed(0)}K` : month.expense.toLocaleString('th-TH')}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>

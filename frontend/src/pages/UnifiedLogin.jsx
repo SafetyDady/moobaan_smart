@@ -77,18 +77,16 @@ export default function UnifiedLogin() {
             <div className="flex-1 h-px bg-gray-700"></div>
           </div>
           
-          {/* Admin Login — Secondary */}
-          <button
-            onClick={() => setShowAdminModal(true)}
-            className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 flex items-center justify-center gap-3 border border-gray-700 hover:border-gray-600"
-          >
-            <Shield className="w-5 h-5" />
-            <span>เข้าสู่ระบบสำหรับผู้ดูแล</span>
-          </button>
-          
-          <p className="text-center text-gray-600 text-xs">
-            Admin / Super Admin
-          </p>
+          {/* Admin Login — Simple Text Link */}
+          <div className="text-center">
+            <button
+              onClick={() => setShowAdminModal(true)}
+              className="text-gray-500 hover:text-gray-300 text-sm transition-colors inline-flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4" />
+              <span>เข้าสู่ระบบสำหรับผู้ดูแลระบบ</span>
+            </button>
+          </div>
         </div>
         
         {/* Footer */}
