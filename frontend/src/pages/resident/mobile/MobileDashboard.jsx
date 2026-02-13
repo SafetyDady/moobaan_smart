@@ -163,24 +163,44 @@ export default function MobileDashboard() {
         </div>
       )}
 
-      {/* Sticky Balance Card */}
+      {/* Sticky Balance Card - Enhanced Design */}
       <div className="sticky top-0 z-10 bg-gray-900 p-4">
-        <div className={`rounded-xl p-5 shadow-lg ${
+        <div className={`rounded-2xl p-6 shadow-xl ${
           isOverpaid 
-            ? 'bg-gradient-to-br from-green-600 to-green-700' 
+            ? 'bg-gradient-to-br from-emerald-600 to-emerald-700' 
             : 'bg-gradient-to-br from-red-600 to-red-700'
         }`}>
-          <p className={`text-sm mb-1 ${
-            isOverpaid ? 'text-green-100' : 'text-red-100'
-          }`}>
-            {isOverpaid ? 'ชำระเกิน' : 'ยอดค้างชำระ'}
-          </p>
-          <p className="text-4xl font-bold text-white mb-4">
-            ฿{displayAmount.toLocaleString()}
-          </p>
+          {/* Status Badge */}
+          <div className="flex items-center justify-between mb-4">
+            <span className={`text-sm font-medium ${
+              isOverpaid ? 'text-emerald-100' : 'text-red-100'
+            }`}>
+              {isOverpaid ? 'ชำระเกิน' : 'ยอดค้างชำระ'}
+            </span>
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+              isOverpaid 
+                ? 'bg-emerald-500/30 text-emerald-100' 
+                : 'bg-red-500/30 text-red-100'
+            }`}>
+              {isOverpaid ? 'ชำระแล้ว' : 'ต้องชำระ'}
+            </span>
+          </div>
+          
+          {/* Amount */}
+          <div className="mb-6">
+            <p className={`text-sm mb-1 ${
+              isOverpaid ? 'text-emerald-100' : 'text-red-100'
+            }`}>
+              จำนวนเงิน
+            </p>
+            <p className="text-4xl font-bold text-white">
+              ฿{displayAmount.toLocaleString()}
+            </p>
+          </div>
+          
+          {/* Action Button */}
           {!isOverpaid && (
             hasBlockingPayin ? (
-              // Disabled state - has incomplete pay-in
               <div className="w-full">
                 <div className="w-full bg-gray-400 text-gray-600 font-semibold py-3 rounded-lg text-center cursor-not-allowed flex items-center justify-center gap-2">
                   <CreditCard size={20} />
@@ -191,10 +211,9 @@ export default function MobileDashboard() {
                 </p>
               </div>
             ) : (
-              // Normal state - can create
               <Link 
                 to="/resident/submit" 
-                className="flex items-center justify-center gap-2 w-full bg-white text-red-600 font-semibold py-3 rounded-lg text-center active:bg-red-50 transition-colors"
+                className="flex items-center justify-center gap-2 w-full bg-white text-red-600 font-semibold py-3 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors duration-200 shadow-md"
               >
                 <CreditCard size={20} />
                 ชำระเงินเลย
@@ -204,55 +223,66 @@ export default function MobileDashboard() {
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Enhanced Cards */}
       <div className="grid grid-cols-2 gap-3 px-4 mb-6">
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <p className="text-xs text-gray-400 mb-1">ใบแจ้งหนี้ทั้งหมด</p>
-          <p className="text-2xl font-bold text-white">{invoices.length}</p>
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-sm hover:border-gray-600 transition-colors">
+          <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide">ใบแจ้งหนี้ทั้งหมด</p>
+          <p className="text-3xl font-bold text-white">{invoices.length}</p>
+          <p className="text-xs text-gray-500 mt-1">รายการ</p>
         </div>
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <p className="text-xs text-gray-400 mb-1">ส่งสลิปแล้ว</p>
-          <p className="text-2xl font-bold text-white">{payins.length}</p>
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-sm hover:border-gray-600 transition-colors">
+          <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide">ส่งสลิปแล้ว</p>
+          <p className="text-3xl font-bold text-white">{payins.length}</p>
+          <p className="text-xs text-gray-500 mt-1">ครั้ง</p>
         </div>
       </div>
 
-      {/* Invoices Section */}
+      {/* Invoices Section - Enhanced Card Design */}
       <div className="px-4 mb-6">
-        <h2 className="text-lg font-bold text-white mb-3">ใบแจ้งหนี้</h2>
+        <h2 className="text-xl font-bold text-white mb-4">ใบแจ้งหนี้</h2>
         {invoices.length === 0 ? (
-          <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
-            <FileText className="mx-auto text-gray-600 mb-2" size={48} />
-            <p className="text-gray-400">ไม่มีใบแจ้งหนี้</p>
+          <div className="bg-gray-800 rounded-xl p-8 text-center border border-gray-700">
+            <FileText className="mx-auto text-gray-600 mb-3" size={48} />
+            <p className="text-gray-400 font-medium">ไม่มีใบแจ้งหนี้</p>
           </div>
         ) : (
           <div className="space-y-3">
             {invoices.map(inv => (
               <div 
                 key={inv.id} 
-                className="bg-gray-800 rounded-lg p-4 border border-gray-700 active:bg-gray-750 transition-colors"
+                className="relative bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-gray-600 active:bg-gray-750 transition-all shadow-sm"
               >
+                {/* Status Indicator Line */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${
+                  inv.status?.toUpperCase() === 'PAID' ? 'bg-gradient-to-b from-green-500 to-transparent' :
+                  inv.status?.toUpperCase() === 'OVERDUE' ? 'bg-gradient-to-b from-red-500 to-transparent' :
+                  'bg-gradient-to-b from-yellow-500 to-transparent'
+                }`} />
+                
                 {/* Header */}
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-3">
                   <div>
-                    <span className="text-xs text-gray-400">รอบบิล</span>
-                    <p className="font-medium text-white">{inv.cycle || '-'}</p>
+                    <span className="text-xs text-gray-400 uppercase tracking-wide">รอบบิล</span>
+                    <p className="text-lg font-semibold text-white">{inv.cycle || '-'}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${getInvoiceStatusColor(inv.status)}`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getInvoiceStatusColor(inv.status)}`}>
                     {getInvoiceStatusText(inv.status)}
                   </span>
                 </div>
                 
                 {/* Amount */}
-                <div className="text-2xl font-bold text-white mb-2">
-                  ฿{inv.total.toLocaleString()}
+                <div className="mb-4 pb-4 border-b border-gray-700">
+                  <p className="text-3xl font-bold text-emerald-400">
+                    ฿{inv.total.toLocaleString()}
+                  </p>
                 </div>
                 
                 {/* Details */}
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>
                     {inv.invoice_type === 'monthly_auto' ? 'รายเดือน' : 'พิเศษ'}
                   </span>
-                  <span className="text-gray-400">
+                  <span>
                     ครบกำหนด: {formatThaiDate(inv.due_date)}
                   </span>
                 </div>
