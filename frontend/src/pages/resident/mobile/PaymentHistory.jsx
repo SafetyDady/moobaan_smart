@@ -58,12 +58,21 @@ export default function PaymentHistory() {
     return true;
   });
   
-  // Filter invoices
+  // Filter invoices — backend returns ISSUED, PARTIALLY_PAID, PAID, CANCELLED, CREDITED
   const filteredInvoices = invoices.filter(invoice => {
     if (invoiceFilter === 'all') return true;
     if (invoiceFilter === 'paid') return invoice.status === 'PAID';
-    if (invoiceFilter === 'unpaid') return invoice.status === 'UNPAID';
+    if (invoiceFilter === 'unpaid') return ['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status);
+    if (invoiceFilter === 'cancelled') return ['CANCELLED', 'CREDITED'].includes(invoice.status);
     return true;
+  });
+  
+  // Sort invoices: unpaid first, then by due_date desc
+  const sortedInvoices = [...filteredInvoices].sort((a, b) => {
+    const order = { ISSUED: 0, PARTIALLY_PAID: 1, PAID: 2, CANCELLED: 3, CREDITED: 3 };
+    const diff = (order[a.status] ?? 9) - (order[b.status] ?? 9);
+    if (diff !== 0) return diff;
+    return new Date(b.due_date || 0) - new Date(a.due_date || 0);
   });
   
   const payinFilterButtons = [
@@ -74,9 +83,10 @@ export default function PaymentHistory() {
   ];
   
   const invoiceFilterButtons = [
-    { id: 'all', label: 'ทั้งหมด' },
-    { id: 'paid', label: 'ชำระแล้ว' },
-    { id: 'unpaid', label: 'ยังไม่ชำระ' },
+    { id: 'all', label: `ทั้งหมด (${invoices.length})` },
+    { id: 'unpaid', label: `ค้างชำระ (${invoices.filter(i => ['ISSUED','PARTIALLY_PAID'].includes(i.status)).length})` },
+    { id: 'paid', label: `ชำระแล้ว (${invoices.filter(i => i.status === 'PAID').length})` },
+    { id: 'cancelled', label: 'ยกเลิก' },
   ];
   
   if (loading) {
@@ -226,44 +236,91 @@ export default function PaymentHistory() {
               </div>
               
               {/* Invoice List */}
-              {filteredInvoices.length === 0 ? (
+              {sortedInvoices.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                   <div className="text-4xl mb-2">📄</div>
                   <div className="text-sm">ยังไม่มีใบแจ้งหนี้</div>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredInvoices.map(invoice => (
-                    <div
-                      key={invoice.id}
-                      className="bg-gray-800 rounded-lg p-4 border border-gray-700"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="text-sm font-medium text-gray-300">
-                            {invoice.cycle || 'N/A'}
+                  {sortedInvoices.map(invoice => {
+                    // Format cycle display
+                    const thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+                    let cycleLabel = invoice.cycle;
+                    if (invoice.cycle && invoice.cycle !== 'MANUAL') {
+                      const [y, m] = invoice.cycle.split('-').map(Number);
+                      if (y && m) cycleLabel = `${thaiMonths[m]} ${y + 543}`;
+                    } else if (invoice.cycle === 'MANUAL') {
+                      cycleLabel = invoice.manual_reason || 'ใบแจ้งหนี้พิเศษ';
+                    }
+                    
+                    // Status badge
+                    const statusMap = {
+                      'ISSUED': { text: 'รอชำระ', color: 'bg-orange-500/20 text-orange-400' },
+                      'PARTIALLY_PAID': { text: 'ชำระบางส่วน', color: 'bg-yellow-500/20 text-yellow-400' },
+                      'PAID': { text: 'ชำระแล้ว', color: 'bg-green-500/20 text-green-400' },
+                      'CANCELLED': { text: 'ยกเลิก', color: 'bg-gray-500/20 text-gray-400' },
+                      'CREDITED': { text: 'เครดิตแล้ว', color: 'bg-gray-500/20 text-gray-400' },
+                    };
+                    const st = statusMap[invoice.status] || { text: invoice.status, color: 'bg-gray-500/20 text-gray-400' };
+                    
+                    return (
+                      <div
+                        key={invoice.id}
+                        className="bg-gray-800 rounded-lg p-4 border border-gray-700"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="text-sm font-medium text-gray-300">
+                              {cycleLabel}
+                            </div>
+                            <div className="text-2xl font-bold text-white mt-1">
+                              ฿{(invoice.total || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </div>
                           </div>
-                          <div className="text-2xl font-bold text-white mt-1">
-                            ฿{invoice.total?.toLocaleString('th-TH') || '0'}
-                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${st.color}`}>
+                            {st.text}
+                          </span>
                         </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            invoice.status === 'PAID'
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-red-500/20 text-red-400'
-                          }`}
-                        >
-                          {invoice.status === 'PAID' ? 'ชำระแล้ว' : 'ยังไม่ชำระ'}
-                        </span>
+                        
+                        {/* Payment progress for unpaid/partial */}
+                        {['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status) && (
+                          <div className="mb-2">
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-400">ชำระแล้ว ฿{(invoice.paid || 0).toLocaleString('th-TH')}</span>
+                              <span className="text-orange-400">ค้าง ฿{(invoice.outstanding || 0).toLocaleString('th-TH')}</span>
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-1.5">
+                              <div 
+                                className="bg-green-500 h-1.5 rounded-full transition-all"
+                                style={{ width: `${invoice.total > 0 ? Math.min(((invoice.paid || 0) / invoice.total) * 100, 100) : 0}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Credit note info */}
+                        {invoice.total_credited > 0 && (
+                          <div className="text-xs text-blue-400 mb-1">
+                            เครดิตโนต: -฿{invoice.total_credited.toLocaleString('th-TH')}
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between">
+                          {invoice.due_date && (
+                            <div className="text-xs text-gray-400">
+                              ครบกำหนด: {new Date(invoice.due_date).toLocaleDateString('th-TH')}
+                            </div>
+                          )}
+                          {invoice.items?.[0]?.description && invoice.items[0].description !== 'ค่าส่วนกลาง' && (
+                            <div className="text-xs text-gray-500 truncate ml-2">
+                              {invoice.items[0].description}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {invoice.due_date && (
-                        <div className="text-xs text-gray-400">
-                          ครบกำหนด: {new Date(invoice.due_date).toLocaleDateString('th-TH')}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

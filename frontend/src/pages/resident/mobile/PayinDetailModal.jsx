@@ -86,11 +86,11 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
           </div>
 
           {/* Rejection Reason - Prominent when rejected */}
-          {(payin.status === 'REJECTED_NEEDS_FIX' || payin.status === 'REJECTED') && payin.rejection_reason && (
+          {(payin.status === 'REJECTED_NEEDS_FIX' || payin.status === 'REJECTED') && payin.reject_reason && (
             <div className="bg-red-900 bg-opacity-40 border border-red-600 rounded-lg p-4">
               <p className="text-sm font-medium text-red-300 mb-1">⚠️ เหตุผลที่ปฏิเสธ</p>
               <p className="text-white">
-                {payin.rejection_reason}
+                {payin.reject_reason}
               </p>
             </div>
           )}
