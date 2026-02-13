@@ -22,7 +22,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
-import { Loader2, AlertCircle, ExternalLink } from 'lucide-react';
+import { Loader2, AlertCircle, ExternalLink, Home } from 'lucide-react';
 
 // LINE Login states
 const STATE = {
@@ -194,8 +194,11 @@ export default function LineLogin() {
       <div className="w-full max-w-sm">
         {/* Logo/Header */}
         <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-900/40 mb-4">
+            <Home size={32} className="text-white" strokeWidth={2.2} />
+          </div>
           <h1 className="text-2xl font-bold text-white mb-2">
-            🏠 หมู่บ้านสมาร์ท
+            Moobaan Smart
           </h1>
           <p className="text-gray-400 text-sm">
             ระบบจัดการหมู่บ้าน
