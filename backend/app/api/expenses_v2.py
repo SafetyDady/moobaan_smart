@@ -511,3 +511,61 @@ async def get_expense_categories(
     return {
         "categories": EXPENSE_CATEGORIES
     }
+
+
+# ============================================
+# One-time migration: UTILITIES → ELECTRICITY
+# Admin-only, safe preview + execute
+# ============================================
+@router.get("/migrate/preview")
+async def migrate_utilities_preview(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Preview expense records that will be migrated from UTILITIES → ELECTRICITY."""
+    rows = db.query(Expense).filter(Expense.category == "UTILITIES").order_by(Expense.expense_date.desc()).all()
+    return {
+        "action": "PREVIEW (no changes made)",
+        "from_category": "UTILITIES",
+        "to_category": "ELECTRICITY",
+        "total_records": len(rows),
+        "records": [
+            {
+                "id": r.id,
+                "description": r.description,
+                "amount": float(r.amount),
+                "expense_date": str(r.expense_date) if r.expense_date else None,
+                "status": r.status.value if r.status else None,
+                "vendor_name": r.vendor_name,
+                "category": r.category,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/migrate/utilities-to-electricity")
+async def migrate_utilities_to_electricity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """One-time migration: Update all UTILITIES expenses to ELECTRICITY category."""
+    # Count before update
+    count = db.query(Expense).filter(Expense.category == "UTILITIES").count()
+
+    if count == 0:
+        return {"message": "No UTILITIES records found — nothing to migrate.", "updated": 0}
+
+    # Perform update
+    updated = db.query(Expense).filter(
+        Expense.category == "UTILITIES"
+    ).update(
+        {"category": "ELECTRICITY"},
+        synchronize_session="fetch"
+    )
+    db.commit()
+
+    return {
+        "message": f"Successfully migrated {updated} records from UTILITIES → ELECTRICITY",
+        "updated": updated,
+    }
