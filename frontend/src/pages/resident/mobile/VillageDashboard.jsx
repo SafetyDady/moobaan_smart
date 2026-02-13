@@ -63,7 +63,10 @@ export default function VillageDashboard() {
     );
   }
   
-  const maxMonthlyAmount = Math.max(...(data.monthly_income || []).map(m => Math.max(m.amount || 0, m.expense || 0)), 1);
+  const maxMonthlyAmount = Math.max(
+    ...(data.monthly_income || []).flatMap(m => [m.income || 0, m.expense || 0]),
+    1
+  );
   
   // Format statement period label
   const thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -147,50 +150,87 @@ export default function VillageDashboard() {
           </div>
         </div>
         
-        {/* Monthly Income/Expense Chart */}
+        {/* Monthly Income/Expense Chart — from Bank Statements */}
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <h3 className="text-sm font-medium text-gray-300 mb-3">สถิติรายเดือน</h3>
-          <div className="flex items-center gap-4 mb-3 text-xs">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block"></span> รายรับ</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-500 inline-block"></span> รายจ่าย</span>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-300">สถิติรายเดือน (จาก Statement)</h3>
           </div>
-          <div className="space-y-3">
-            {(data.monthly_income || []).map(month => (
-              <div key={month.period} className="space-y-1">
-                <span className="text-xs text-gray-400">{month.label}</span>
-                {/* Income bar */}
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-gray-700 rounded-full h-5 overflow-hidden">
-                    <div 
-                      className="bg-green-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
-                      style={{ width: `${Math.max((month.amount / maxMonthlyAmount) * 100, month.amount > 0 ? 8 : 0)}%` }}
-                    >
-                      {month.amount > 0 && (
-                        <span className="text-[10px] font-medium text-white whitespace-nowrap">
-                          ฿{month.amount.toLocaleString('th-TH', { maximumFractionDigits: 0 })}
-                        </span>
-                      )}
+          <div className="flex items-center gap-4 mb-4 text-xs">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span> รายรับ</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-rose-500 inline-block"></span> รายจ่าย</span>
+          </div>
+          
+          {(data.monthly_income || []).length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              <div className="text-3xl mb-2">📊</div>
+              <div className="text-sm">ยังไม่มีข้อมูล Statement</div>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {(data.monthly_income || []).map((month, idx) => {
+                const incW = maxMonthlyAmount > 0 ? (month.income / maxMonthlyAmount) * 100 : 0;
+                const expW = maxMonthlyAmount > 0 ? (month.expense / maxMonthlyAmount) * 100 : 0;
+                return (
+                  <div key={month.period} className="group">
+                    {/* Month label */}
+                    <div className="flex items-baseline gap-1 mb-1">
+                      <span className="text-xs font-medium text-gray-300 w-10">{month.label}</span>
+                      <span className="text-[10px] text-gray-500">{month.year_label}</span>
+                    </div>
+                    {/* Dual bar row */}
+                    <div className="flex gap-1">
+                      {/* Income bar */}
+                      <div className="flex-1 relative">
+                        <div className="bg-gray-700/50 rounded h-4 overflow-hidden">
+                          <div
+                            className="bg-emerald-500/80 h-full rounded transition-all duration-700 ease-out"
+                            style={{ width: `${Math.max(incW, month.income > 0 ? 3 : 0)}%` }}
+                          />
+                        </div>
+                        {month.income > 0 && (
+                          <span className="absolute right-1 top-0 h-4 flex items-center text-[9px] text-emerald-300 font-medium">
+                            {month.income >= 1000 ? `${(month.income / 1000).toFixed(0)}k` : month.income.toLocaleString('th-TH')}
+                          </span>
+                        )}
+                      </div>
+                      {/* Expense bar */}
+                      <div className="flex-1 relative">
+                        <div className="bg-gray-700/50 rounded h-4 overflow-hidden">
+                          <div
+                            className="bg-rose-500/80 h-full rounded transition-all duration-700 ease-out"
+                            style={{ width: `${Math.max(expW, month.expense > 0 ? 3 : 0)}%` }}
+                          />
+                        </div>
+                        {month.expense > 0 && (
+                          <span className="absolute right-1 top-0 h-4 flex items-center text-[9px] text-rose-300 font-medium">
+                            {month.expense >= 1000 ? `${(month.expense / 1000).toFixed(0)}k` : month.expense.toLocaleString('th-TH')}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Summary footer */}
+          {(data.monthly_income || []).length > 0 && (() => {
+            const totalInc = (data.monthly_income || []).reduce((s, m) => s + (m.income || 0), 0);
+            const totalExp = (data.monthly_income || []).reduce((s, m) => s + (m.expense || 0), 0);
+            return (
+              <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between text-xs">
+                <div>
+                  <span className="text-gray-400">รวมรายรับ </span>
+                  <span className="text-emerald-400 font-medium">฿{totalInc.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>
                 </div>
-                {/* Expense bar */}
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-gray-700 rounded-full h-5 overflow-hidden">
-                    <div 
-                      className="bg-red-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
-                      style={{ width: `${Math.max(((month.expense || 0) / maxMonthlyAmount) * 100, (month.expense || 0) > 0 ? 8 : 0)}%` }}
-                    >
-                      {(month.expense || 0) > 0 && (
-                        <span className="text-[10px] font-medium text-white whitespace-nowrap">
-                          ฿{(month.expense || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                <div>
+                  <span className="text-gray-400">รวมรายจ่าย </span>
+                  <span className="text-rose-400 font-medium">฿{totalExp.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
         
         {/* Recent Activity Feed */}

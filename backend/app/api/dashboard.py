@@ -199,36 +199,38 @@ async def get_village_summary(
     total_debt = sum(float(row.total_amount) - float(row.paid) for row in total_debt_rows)
     total_debt = max(0, total_debt)
     
-    # ── Monthly income chart (last 4 months) ──
+    # ── Monthly stats from BankStatementBatch (last 12 months) ──
     monthly_income = []
     thai_months = {
         1: "ม.ค.", 2: "ก.พ.", 3: "มี.ค.", 4: "เม.ย.", 5: "พ.ค.", 6: "มิ.ย.",
         7: "ก.ค.", 8: "ส.ค.", 9: "ก.ย.", 10: "ต.ค.", 11: "พ.ย.", 12: "ธ.ค."
     }
     
-    for i in range(4):
-        # FIX: Use first-of-month boundaries, not mid-month offsets
-        m_start = current_month_start - relativedelta(months=i)
-        m_end = m_start + relativedelta(months=1)
-        
-        inc_amount = db.query(func.coalesce(func.sum(IncomeTransaction.amount), 0))\
-            .filter(
-                IncomeTransaction.received_at >= m_start,
-                IncomeTransaction.received_at < m_end
-            ).scalar()
-        
-        exp_amount = db.query(func.coalesce(func.sum(Expense.amount), 0))\
-            .filter(
-                Expense.status != ExpenseStatus.CANCELLED,
-                Expense.expense_date >= m_start.date(),
-                Expense.expense_date < m_end.date()
-            ).scalar()
-        
+    from app.db.models.bank_statement_batch import BankStatementBatch as BSB
+    monthly_rows = (
+        db.query(
+            BSB.year,
+            BSB.month,
+            func.coalesce(func.sum(BankTransaction.credit), 0).label("credit_total"),
+            func.coalesce(func.sum(BankTransaction.debit), 0).label("debit_total"),
+        )
+        .join(BankTransaction, BankTransaction.bank_statement_batch_id == BSB.id)
+        .filter(BSB.status.in_(["CONFIRMED", "PARSED"]))
+        .group_by(BSB.year, BSB.month)
+        .order_by(BSB.year.desc(), BSB.month.desc())
+        .limit(12)
+        .all()
+    )
+    
+    # Reverse so oldest first
+    for row in reversed(monthly_rows):
+        y, m = row.year, row.month
         monthly_income.append({
-            "period": m_start.strftime("%Y-%m"),
-            "label": thai_months.get(m_start.month, m_start.strftime("%b")),
-            "amount": float(inc_amount),
-            "expense": float(exp_amount),
+            "period": f"{y}-{m:02d}",
+            "label": f"{thai_months.get(m, str(m))}",
+            "year_label": f"{(y + 543) % 100:02d}",
+            "income": float(row.credit_total),
+            "expense": float(row.debit_total),
         })
     
     # ── Recent activities (last 5 transactions) ──
