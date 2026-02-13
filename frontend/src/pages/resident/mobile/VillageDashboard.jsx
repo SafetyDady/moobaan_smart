@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowUp, ArrowDown, Users, DollarSign, RefreshCw } from 'lucide-react';
+import { ArrowUp, ArrowDown, Users, Coins, Landmark, RefreshCw } from 'lucide-react';
 import MobileLayout from './MobileLayout';
 import { api } from '../../../api/client';
 
@@ -16,7 +16,6 @@ export default function VillageDashboard() {
     try {
       setLoading(true);
       setError(null);
-      
       const response = await api.get('/api/dashboard/village-summary');
       setData(response.data);
     } catch (err) {
@@ -31,7 +30,7 @@ export default function VillageDashboard() {
     return (
       <MobileLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-400">กำลังโหลด...</div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
         </div>
       </MobileLayout>
     );
@@ -42,12 +41,7 @@ export default function VillageDashboard() {
       <MobileLayout>
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <div className="text-red-400">{error}</div>
-          <button
-            onClick={loadData}
-            className="px-4 py-2 bg-primary-500 text-white rounded-lg"
-          >
-            ลองอีกครั้ง
-          </button>
+          <button onClick={loadData} className="px-4 py-2 bg-primary-500 text-white rounded-lg">ลองอีกครั้ง</button>
         </div>
       </MobileLayout>
     );
@@ -62,226 +56,206 @@ export default function VillageDashboard() {
       </MobileLayout>
     );
   }
-  
-  const maxMonthlyAmount = Math.max(
-    ...(data.monthly_income || []).flatMap(m => [m.income || 0, m.expense || 0]),
-    1
-  );
-  
-  // Format statement period label
+
+  // Thai date formatting
   const thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  const stmtLabel = data.statement_period 
-    ? (() => {
-        const [y, m] = data.statement_period.split('-').map(Number);
-        return `${thaiMonths[m]} ${y + 543}`;
-      })()
-    : null;
+  const thaiMonthsFull = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
   
+  // Header date
+  const now = new Date();
+  const headerDate = `${now.getDate()} ${thaiMonthsFull[now.getMonth() + 1] || ''} ${now.getFullYear() + 543}`;
+
+  // Time ago for balance
+  const getTimeAgo = () => {
+    if (!data.balance_as_of) return 'ยังไม่มีข้อมูล';
+    const diff = Math.floor((Date.now() - new Date(data.balance_as_of).getTime()) / 60000);
+    if (diff < 1) return 'อัปเดตเมื่อสักครู่';
+    if (diff < 60) return `อัปเดตเมื่อ ${diff} นาทีที่แล้ว`;
+    if (diff < 1440) return `อัปเดตเมื่อ ${Math.floor(diff / 60)} ชม.ที่แล้ว`;
+    return `อัปเดตเมื่อ ${Math.floor(diff / 1440)} วันที่แล้ว`;
+  };
+
+  // Format compact amounts
+  const fmtK = (v) => v >= 1000 ? `฿${(v / 1000).toFixed(1)}k` : `฿${v.toLocaleString('th-TH')}`;
+  const fmtAmount = (v) => `฿${(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  // Chart: vertical stacked bars
+  const months = data.monthly_income || [];
+  const chartMax = Math.max(...months.map(m => (m.income || 0) + (m.expense || 0)), 1);
+  // Round up to nearest nice step
+  const niceMax = (() => {
+    const raw = chartMax;
+    if (raw <= 0) return 100000;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    return Math.ceil(raw / (mag / 2)) * (mag / 2);
+  })();
+  const ySteps = 5;
+  const yLabels = Array.from({ length: ySteps + 1 }, (_, i) => (niceMax / ySteps) * (ySteps - i));
+
   return (
     <MobileLayout>
       <div className="p-4 space-y-4">
-        {/* Main Balance Card */}
-        <div className="bg-gradient-to-br from-primary-500 via-primary-600 to-blue-600 rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm text-white/80">ยอดเงินในบัญชีล่าสุด</div>
-            <button onClick={loadData} className="text-white/60 hover:text-white transition-colors" title="รีเฟรช">
+        {/* ── Header Card ── */}
+        <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-gray-700 rounded-2xl p-5 border border-gray-600/50 shadow-lg">
+          {/* Title row */}
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm text-gray-300 font-medium">ภาพรวมหมู่บ้าน (Village Dashboard)</p>
+            <button onClick={loadData} className="text-gray-400 hover:text-white transition-colors" title="รีเฟรช">
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
-          <div className="text-4xl font-bold text-white">
-            ฿{(data.total_balance || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <p className="text-xl font-bold text-white mb-4">{headerDate}</p>
+
+          {/* Balance */}
+          <p className="text-sm text-gray-400 mb-1">ยอดเงินในบัญชีล่าสุด</p>
+          <div className="flex items-center gap-3 mb-1">
+            <span className="text-3xl font-bold text-emerald-400">
+              ฿{(data.total_balance || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <Landmark size={24} className="text-emerald-500/70" />
           </div>
-          <div className="text-xs text-white/60 mt-2">
-            {data.balance_as_of 
-              ? `ณ วันที่ ${new Date(data.balance_as_of).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`
-              : 'ยังไม่มีข้อมูล Statement'
-            }
-          </div>
+          <p className="text-xs text-gray-500">{getTimeAgo()}</p>
         </div>
-        
-        {/* Income/Expense/Debtor Grid */}
+
+        {/* ── Income / Expense Cards ── */}
         <div className="grid grid-cols-2 gap-3">
           {/* Income */}
-          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">รายรับ{stmtLabel ? ` ${stmtLabel}` : ''}</span>
-              <ArrowUp size={20} className="text-green-400" />
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <ArrowUp size={16} className="text-emerald-400" />
+              </div>
+              <span className="text-sm text-gray-400">รายรับ</span>
             </div>
-            <div className="text-2xl font-bold text-white">
-              ฿{(data.total_income || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">จาก Statement</div>
+            <p className="text-xl font-bold text-white mb-1">
+              {fmtAmount(data.total_income)}
+            </p>
+            <p className="text-xs text-gray-500">จากเดือนที่แล้ว</p>
           </div>
-          
+
           {/* Expense */}
-          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">รายจ่าย{stmtLabel ? ` ${stmtLabel}` : ''}</span>
-              <ArrowDown size={20} className="text-red-400" />
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+                <ArrowDown size={16} className="text-orange-400" />
+              </div>
+              <span className="text-sm text-gray-400">รายจ่าย</span>
             </div>
-            <div className="text-2xl font-bold text-white">
-              ฿{(data.total_expense || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">จาก Statement</div>
-          </div>
-          
-          {/* Debtor Count */}
-          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">ลูกหนี้</span>
-              <Users size={20} className="text-orange-400" />
-            </div>
-            <div className="text-2xl font-bold text-orange-400">
-              {data.debtor_count} ราย
-            </div>
-            <div className="text-xs text-gray-500 mt-1">ยังไม่ชำระ</div>
-          </div>
-          
-          {/* Total Debt */}
-          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">มูลค่าหนี้</span>
-              <DollarSign size={20} className="text-red-400" />
-            </div>
-            <div className="text-2xl font-bold text-red-400">
-              ฿{data.total_debt.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">ค้างชำระ</div>
+            <p className="text-xl font-bold text-white mb-1">
+              {fmtAmount(data.total_expense)}
+            </p>
+            <p className="text-xs text-gray-500">จากเดือนที่แล้ว</p>
           </div>
         </div>
-        
-        {/* Monthly Income/Expense Chart — from Bank Statements */}
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-300">สถิติรายเดือน (จาก Statement)</h3>
+
+        {/* ── Debtor / Debt Cards ── */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Debtor Count */}
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <Users size={16} className="text-blue-400" />
+              </div>
+              <span className="text-sm text-gray-400">ลูกหนี้</span>
+            </div>
+            <p className="text-xl font-bold text-white">
+              {data.debtor_count} <span className="text-sm font-normal text-gray-400">ครัวเรือน</span>
+            </p>
           </div>
-          <div className="flex items-center gap-4 mb-4 text-xs">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span> รายรับ</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-orange-500 inline-block"></span> รายจ่าย</span>
+
+          {/* Total Debt */}
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                <Coins size={16} className="text-red-400" />
+              </div>
+              <span className="text-sm text-gray-400">มูลค่าหนี้</span>
+            </div>
+            <p className="text-xl font-bold text-white">
+              ฿{(data.total_debt || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            </p>
           </div>
-          
-          {(data.monthly_income || []).length === 0 ? (
+        </div>
+
+        {/* ── Monthly Chart — Vertical Stacked Bars ── */}
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <h3 className="text-base font-semibold text-white mb-4">ภาพรวมรายเดือน</h3>
+
+          {months.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
               <div className="text-3xl mb-2">📊</div>
               <div className="text-sm">ยังไม่มีข้อมูล Statement</div>
             </div>
           ) : (
-            <div className="space-y-3">
-              {(data.monthly_income || []).map((month, idx) => {
-                const total = (month.income || 0) + (month.expense || 0);
-                const incW = total > 0 ? ((month.income || 0) / total) * 100 : 0;
-                const expW = total > 0 ? ((month.expense || 0) / total) * 100 : 0;
-                const totalBarWidth = maxMonthlyAmount > 0 ? (total / maxMonthlyAmount) * 100 : 0;
+            <div>
+              {/* Chart area */}
+              <div className="flex">
+                {/* Y-axis labels */}
+                <div className="flex flex-col justify-between pr-2 text-right" style={{ height: 180 }}>
+                  {yLabels.map((v, i) => (
+                    <span key={i} className="text-[10px] text-gray-500 leading-none">
+                      ฿{v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
+                    </span>
+                  ))}
+                </div>
                 
-                return (
-                  <div key={month.period} className="group">
-                    {/* Month label and total */}
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-xs font-medium text-gray-300">{month.label}</span>
-                        <span className="text-[10px] text-gray-500">{month.year_label}</span>
-                      </div>
-                      <span className="text-xs text-gray-400 font-medium">
-                        ฿{total >= 1000 ? `${(total / 1000).toFixed(0)}K` : total.toLocaleString('th-TH')}
-                      </span>
-                    </div>
-                    
-                    {/* Stacked bar */}
-                    <div className="relative h-8 bg-gray-700/30 rounded-lg overflow-hidden">
-                      <div 
-                        className="h-full flex"
-                        style={{ width: `${Math.max(totalBarWidth, total > 0 ? 5 : 0)}%` }}
-                      >
-                        {/* Income segment (green) */}
-                        {month.income > 0 && (
-                          <div 
-                            className="bg-emerald-500 flex items-center justify-center transition-all duration-700 ease-out"
-                            style={{ width: `${incW}%` }}
-                          >
-                            <span className="text-[10px] text-white font-semibold px-1">
-                              ฿{month.income >= 1000 ? `${(month.income / 1000).toFixed(0)}K` : month.income.toLocaleString('th-TH')}
-                            </span>
+                {/* Bars */}
+                <div className="flex-1 relative border-l border-b border-gray-700" style={{ height: 180 }}>
+                  {/* Grid lines */}
+                  {yLabels.map((_, i) => (
+                    <div
+                      key={i}
+                      className="absolute w-full border-t border-gray-700/50"
+                      style={{ top: `${(i / ySteps) * 100}%` }}
+                    />
+                  ))}
+
+                  {/* Bar groups */}
+                  <div className="flex items-end justify-around h-full px-1 relative z-10">
+                    {months.map((month) => {
+                      const inc = month.income || 0;
+                      const exp = month.expense || 0;
+                      const total = inc + exp;
+                      const barH = niceMax > 0 ? (total / niceMax) * 100 : 0;
+                      const incH = total > 0 ? (inc / total) * barH : 0;
+                      const expH = total > 0 ? (exp / total) * barH : 0;
+
+                      return (
+                        <div key={month.period} className="flex flex-col items-center" style={{ width: `${100 / months.length}%` }}>
+                          {/* Amount label above bar */}
+                          <div className="text-[9px] text-gray-400 mb-1 text-center leading-tight">
+                            <span className="text-emerald-400">{fmtK(inc)}</span>
+                            <br />
+                            <span className="text-orange-400">({fmtK(exp)})</span>
                           </div>
-                        )}
-                        {/* Expense segment (orange) */}
-                        {month.expense > 0 && (
-                          <div 
-                            className="bg-orange-500 flex items-center justify-center transition-all duration-700 ease-out"
-                            style={{ width: `${expW}%` }}
-                          >
-                            <span className="text-[10px] text-white font-semibold px-1">
-                              ฿{month.expense >= 1000 ? `${(month.expense / 1000).toFixed(0)}K` : month.expense.toLocaleString('th-TH')}
-                            </span>
+                          {/* Stacked bar */}
+                          <div className="w-7 sm:w-9 flex flex-col-reverse rounded-t overflow-hidden" style={{ height: `${Math.max(barH, total > 0 ? 3 : 0)}%` }}>
+                            <div className="bg-emerald-500 transition-all duration-500" style={{ height: `${total > 0 ? (inc / total) * 100 : 0}%` }} />
+                            <div className="bg-orange-500 transition-all duration-500" style={{ height: `${total > 0 ? (exp / total) * 100 : 0}%` }} />
                           </div>
-                        )}
-                      </div>
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )}
-          
-          {/* Summary footer */}
-          {(data.monthly_income || []).length > 0 && (() => {
-            const totalInc = (data.monthly_income || []).reduce((s, m) => s + (m.income || 0), 0);
-            const totalExp = (data.monthly_income || []).reduce((s, m) => s + (m.expense || 0), 0);
-            return (
-              <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between text-xs">
-                <div>
-                  <span className="text-gray-400">รวมรายรับ </span>
-                  <span className="text-emerald-400 font-medium">฿{totalInc.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400">รวมรายจ่าย </span>
-                  <span className="text-rose-400 font-medium">฿{totalExp.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>
                 </div>
               </div>
-            );
-          })()}
-        </div>
-        
-        {/* Recent Activity Feed */}
-        <div className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
-          <div className="p-3 border-b border-gray-700">
-            <h3 className="text-sm font-medium text-gray-300">กิจกรรมล่าสุด</h3>
-          </div>
-          
-          {data.recent_activities && data.recent_activities.length > 0 ? (
-            <div className="divide-y divide-gray-700">
-              {data.recent_activities.map((activity, index) => (
-                <div key={index} className="p-3 flex items-start gap-3">
-                  <div className="text-2xl">{activity.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-white">{activity.description}</div>
-                    <div className="text-xs text-gray-400 mt-1">{activity.timestamp}</div>
+
+              {/* X-axis month labels */}
+              <div className="flex pl-8">
+                {months.map((month) => (
+                  <div key={month.period} className="text-center text-[10px] text-gray-400 mt-1" style={{ width: `${100 / months.length}%` }}>
+                    {month.label}
                   </div>
-                  <div className={`text-sm font-semibold ${
-                    activity.type === 'income' ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {activity.type === 'income' ? '+' : '-'}฿{activity.amount.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-6 text-center text-gray-500">
-              <div className="text-3xl mb-2">📊</div>
-              <div className="text-sm">ยังไม่มีกิจกรรม</div>
-            </div>
-          )}
-        </div>
-        
-        {/* Info Footer */}
-        <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3">
-          <div className="flex items-start gap-2">
-            <div className="text-blue-400 mt-0.5">ℹ️</div>
-            <div className="flex-1">
-              <div className="text-xs text-blue-300">
-                ข้อมูลนี้แสดงภาพรวมการเงินของหมู่บ้านทั้งหมด โดยไม่เปิดเผยข้อมูลส่วนบุคคล
+                ))}
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center justify-center gap-6 mt-3 text-xs">
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span> รายรับ (Income)</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-orange-500 inline-block"></span> รายจ่าย (Expense)</span>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </MobileLayout>
