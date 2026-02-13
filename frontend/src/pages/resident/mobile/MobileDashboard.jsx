@@ -1,31 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { invoicesAPI, payinsAPI, api } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
-import PayinDetailModal from './PayinDetailModal';
-import PaymentHistoryCompactList from './PaymentHistoryCompactList';
 import InvoiceTable from './InvoiceTable';
-import { Home, Loader2, FileText, CreditCard } from 'lucide-react';
-import {
-  canEditPayin,
-  canDeletePayin,
-  isBlockingPayin,
-  getStatusText as getPayinStatusText,
-  getStatusBadgeColor,
-  formatPayinDateTime,
-  formatThaiDate,
-} from '../../../utils/payinStatus';
+import { Home, Loader2, CreditCard } from 'lucide-react';
+import { isBlockingPayin } from '../../../utils/payinStatus';
 
 export default function MobileDashboard() {
   const { currentHouseId } = useRole();
-  const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [payins, setPayins] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPayin, setSelectedPayin] = useState(null);
-  const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: string }
 
   // Check if there's a blocking pay-in (DRAFT or PENDING)
   const hasBlockingPayin = payins.some(isBlockingPayin);
@@ -59,35 +46,6 @@ export default function MobileDashboard() {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDeletePayin = async (payinId) => {
-    try {
-      await payinsAPI.delete(payinId);
-      setSelectedPayin(null);
-      setNotification({ type: 'success', message: '✅ ลบรายการสำเร็จ' });
-      setTimeout(() => setNotification(null), 3000);
-      loadData();
-    } catch (error) {
-      console.error('Failed to delete payin:', error);
-      
-      // Map error codes to Thai messages
-      let errorMessage = 'ลบรายการไม่สำเร็จ';
-      
-      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        errorMessage = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (CORS/Network)';
-      } else if (error.response?.data?.detail) {
-        const detail = error.response.data.detail;
-        if (typeof detail === 'object' && detail.message) {
-          errorMessage = detail.message;
-        } else if (typeof detail === 'string') {
-          errorMessage = detail;
-        }
-      }
-      
-      setNotification({ type: 'error', message: `❌ ${errorMessage}` });
-      setTimeout(() => setNotification(null), 5000);
     }
   };
 
@@ -125,21 +83,6 @@ export default function MobileDashboard() {
 
   return (
     <MobileLayout>
-      {/* Notification Toast */}
-      {notification && (
-        <div className={`fixed top-4 left-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-          notification.type === 'success' 
-            ? 'bg-green-900/90 border border-green-600' 
-            : 'bg-red-900/90 border border-red-600'
-        }`}>
-          <p className={`text-sm ${
-            notification.type === 'success' ? 'text-green-300' : 'text-red-300'
-          }`}>
-            {notification.message}
-          </p>
-        </div>
-      )}
-
       {/* Compact Hero Card (Balance Card) */}
       <div className="sticky top-0 z-10 bg-gray-900 p-4">
         <div className={`rounded-2xl p-5 shadow-xl ${
@@ -206,39 +149,6 @@ export default function MobileDashboard() {
         <InvoiceTable invoices={invoices} />
       </div>
 
-      {/* Payment History Section */}
-      <div className="px-4 pb-6">
-        <h2 className="text-xl font-bold text-white mb-4">ประวัติการส่งสลิป</h2>
-        {payins.length === 0 ? (
-          <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
-            <CreditCard className="mx-auto text-gray-600 mb-2" size={48} />
-            <p className="text-gray-400">ยังไม่มีการส่งสลิป</p>
-            {!hasBlockingPayin && (
-              <Link 
-                to="/resident/submit"
-                className="inline-block mt-4 text-primary-400 font-medium"
-              >
-                ส่งสลิปเลย →
-              </Link>
-            )}
-          </div>
-        ) : (
-          <PaymentHistoryCompactList
-            payins={payins}
-            onView={(payin) => setSelectedPayin(payin)}
-            onEdit={(payin) => navigate('/resident/submit', { state: { editPayin: payin } })}
-          />
-        )}
-      </div>
-
-      {/* Pay-in Detail Modal */}
-      {selectedPayin && (
-        <PayinDetailModal
-          payin={selectedPayin}
-          onClose={() => setSelectedPayin(null)}
-          onDelete={handleDeletePayin}
-        />
-      )}
     </MobileLayout>
   );
 }
