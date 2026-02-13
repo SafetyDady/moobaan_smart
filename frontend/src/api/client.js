@@ -304,6 +304,15 @@ export const bankReconciliationAPI = {
     apiClient.post(`/api/bank-statements/transactions/${txnId}/unmatch`),
 };
 
+// Expense Reconciliation API (Expense ↔ Bank Allocation)
+export const expenseReconciliationAPI = {
+  listExpenses: (params) => apiClient.get('/api/reconcile/expenses', { params }),
+  listBankDebits: (params) => apiClient.get('/api/reconcile/bank-debits', { params }),
+  allocate: (data) => apiClient.post('/api/reconcile/allocate', data),
+  removeAllocation: (id) => apiClient.delete(`/api/reconcile/allocate/${id}`),
+  listAllocations: (params) => apiClient.get('/api/reconcile/allocations', { params }),
+};
+
 // Users API
 export const usersAPI = {
   // Staff management (super_admin only)

@@ -18,6 +18,7 @@ import Invoices from './pages/admin/Invoices';
 import PayIns from './pages/admin/PayIns';
 import Expenses from './pages/admin/ExpensesV2';  // Phase F.1: Expense Core
 import Vendors from './pages/admin/Vendors';  // Phase H.1.1: Vendor & Category
+import ExpenseReconciliation from './pages/admin/ExpenseReconciliation';  // Expense ↔ Bank Allocation
 import UserManagement from './pages/admin/UserManagement';
 import BankStatements from './pages/admin/BankStatements';
 import UnidentifiedReceipts from './pages/admin/UnidentifiedReceipts';
@@ -61,6 +62,7 @@ function App() {
                     <Route path="vendors" element={<Vendors />} />
                     <Route path="users" element={<UserManagement />} />
                     <Route path="statements" element={<BankStatements />} />
+                    <Route path="expense-reconciliation" element={<ExpenseReconciliation />} />
                     <Route path="reports/aging" element={<InvoiceAgingReport />} />
                     <Route path="reports/cashflow" element={<CashFlowReport />} />
                     <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
@@ -85,6 +87,7 @@ function App() {
                     <Route path="expenses" element={<Expenses />} />
                     <Route path="vendors" element={<Vendors />} />
                     <Route path="statements" element={<BankStatements />} />
+                    <Route path="expense-reconciliation" element={<ExpenseReconciliation />} />
                     <Route path="reports/aging" element={<InvoiceAgingReport />} />
                     <Route path="reports/cashflow" element={<CashFlowReport />} />
                     <Route path="chart-of-accounts" element={<ChartOfAccounts />} />

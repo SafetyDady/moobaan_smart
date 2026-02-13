@@ -51,6 +51,7 @@ from app.api.export import router as export_router  # Phase G.2: Accounting Expo
 from app.api.resident_auth import router as resident_auth_router  # Phase R.2: Resident OTP Login
 from app.api.line_auth import router as line_auth_router  # Phase D.4.1: LINE Login
 from app.api.vendors import router as vendors_router  # Phase H.1.1: Vendor & Category Foundation
+from app.api.expense_reconciliation import router as expense_reconciliation_router  # Expense ↔ Bank Allocation
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -166,6 +167,7 @@ app.include_router(export_router)  # Phase G.2: Accounting Export
 app.include_router(resident_auth_router)  # Phase R.2: Resident OTP Login
 app.include_router(line_auth_router)  # Phase D.4.1: LINE Login
 app.include_router(vendors_router)  # Phase H.1.1: Vendor & Category Foundation
+app.include_router(expense_reconciliation_router)  # Expense ↔ Bank Allocation
 
 # Mount static files for uploaded slips
 # This serves files at /uploads/* from the uploads/ directory

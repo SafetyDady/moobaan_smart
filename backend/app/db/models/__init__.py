@@ -17,6 +17,7 @@ from .export_audit_log import ExportAuditLog
 from .resident_membership import ResidentMembership, ResidentMembershipStatus, ResidentMembershipRole
 from .resident_house_audit import ResidentHouseAuditLog
 from .vendor import Vendor, VendorCategory, ExpenseCategoryMaster
+from .expense_bank_allocation import ExpenseBankAllocation
 
 __all__ = [
     "User",
