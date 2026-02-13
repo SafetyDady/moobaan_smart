@@ -1,16 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ArrowUp, ArrowDown, Users, DollarSign } from 'lucide-react';
+import { ArrowUp, ArrowDown, Users, DollarSign, RefreshCw } from 'lucide-react';
 import MobileLayout from './MobileLayout';
-// import { api } from '../../../api/client'; // Comment out for now
-import villageDashboardMockData from './villageDashboardMockData';
+import { api } from '../../../api/client';
 
 export default function VillageDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Toggle this to switch between mock data and real API
-  const USE_MOCK_DATA = true; // Set to false when API is ready
   
   useEffect(() => {
     loadData();
@@ -21,17 +17,10 @@ export default function VillageDashboard() {
       setLoading(true);
       setError(null);
       
-      if (USE_MOCK_DATA) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setData(villageDashboardMockData);
-      } else {
-        // Real API call
-        const response = await api.get('/api/dashboard/village-summary');
-        setData(response.data);
-      }
-    } catch (error) {
-      console.error('Failed to load village summary:', error);
+      const response = await api.get('/api/dashboard/village-summary');
+      setData(response.data);
+    } catch (err) {
+      console.error('Failed to load village summary:', err);
       setError('ไม่สามารถโหลดข้อมูลได้');
     } finally {
       setLoading(false);
@@ -74,23 +63,19 @@ export default function VillageDashboard() {
     );
   }
   
-  const maxMonthlyAmount = Math.max(...data.monthly_income.map(m => m.amount), 1);
+  const maxMonthlyAmount = Math.max(...(data.monthly_income || []).map(m => Math.max(m.amount || 0, m.expense || 0)), 1);
   
   return (
     <MobileLayout>
       <div className="p-4 space-y-4">
-        {/* Mock Data Indicator (Remove in production) */}
-        {USE_MOCK_DATA && (
-          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-2 text-center">
-            <span className="text-xs text-yellow-300">
-              ⚠️ กำลังใช้ Mock Data (ข้อมูลตัวอย่าง)
-            </span>
-          </div>
-        )}
-        
         {/* Main Balance Card */}
         <div className="bg-gradient-to-br from-primary-500 via-primary-600 to-blue-600 rounded-xl p-6 shadow-lg">
-          <div className="text-sm text-white/80 mb-2">ยอดคงเหลือรวม</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm text-white/80">ยอดคงเหลือรวม</div>
+            <button onClick={loadData} className="text-white/60 hover:text-white transition-colors" title="รีเฟรช">
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
           <div className="text-4xl font-bold text-white">
             ฿{data.total_balance.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </div>
@@ -108,7 +93,7 @@ export default function VillageDashboard() {
           {/* Income */}
           <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">รายรับ</span>
+              <span className="text-sm text-gray-400">รายรับเดือนนี้</span>
               <ArrowUp size={20} className="text-green-400" />
             </div>
             <div className="text-2xl font-bold text-white">
@@ -128,17 +113,23 @@ export default function VillageDashboard() {
           {/* Expense */}
           <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">รายจ่าย</span>
+              <span className="text-sm text-gray-400">รายจ่ายเดือนนี้</span>
               <ArrowDown size={20} className="text-red-400" />
             </div>
             <div className="text-2xl font-bold text-white">
               ฿{data.total_expense.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
-            {data.monthly_income.length > 1 && (
-              <div className="text-xs text-red-400 mt-1">
-                ลดลง 2%
-              </div>
-            )}
+            {data.monthly_income?.length > 1 && (() => {
+              const curr = data.monthly_income[0]?.expense || 0;
+              const prev = data.monthly_income[1]?.expense || 0;
+              if (prev === 0) return null;
+              const pct = Math.abs(((curr - prev) / prev * 100)).toFixed(0);
+              return (
+                <div className={`text-xs mt-1 ${curr > prev ? 'text-red-400' : 'text-green-400'}`}>
+                  {curr > prev ? '↑' : '↓'} {pct}%
+                </div>
+              );
+            })()}
           </div>
           
           {/* Debtor Count */}
@@ -166,23 +157,45 @@ export default function VillageDashboard() {
           </div>
         </div>
         
-        {/* Monthly Income Chart */}
+        {/* Monthly Income/Expense Chart */}
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <h3 className="text-sm font-medium text-gray-300 mb-3">สถิติรายเดือน</h3>
+          <div className="flex items-center gap-4 mb-3 text-xs">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block"></span> รายรับ</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-500 inline-block"></span> รายจ่าย</span>
+          </div>
           <div className="space-y-3">
-            {data.monthly_income.map(month => (
-              <div key={month.period} className="flex items-center gap-3">
-                <span className="text-xs text-gray-400 w-12">{month.label}</span>
-                <div className="flex-1 bg-gray-700 rounded-full h-6 overflow-hidden">
-                  <div 
-                    className="bg-primary-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
-                    style={{ width: `${(month.amount / maxMonthlyAmount) * 100}%` }}
-                  >
-                    {month.amount > 0 && (
-                      <span className="text-xs font-medium text-white">
-                        ฿{month.amount.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                      </span>
-                    )}
+            {(data.monthly_income || []).map(month => (
+              <div key={month.period} className="space-y-1">
+                <span className="text-xs text-gray-400">{month.label}</span>
+                {/* Income bar */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-gray-700 rounded-full h-5 overflow-hidden">
+                    <div 
+                      className="bg-green-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                      style={{ width: `${Math.max((month.amount / maxMonthlyAmount) * 100, month.amount > 0 ? 8 : 0)}%` }}
+                    >
+                      {month.amount > 0 && (
+                        <span className="text-[10px] font-medium text-white whitespace-nowrap">
+                          ฿{month.amount.toLocaleString('th-TH', { maximumFractionDigits: 0 })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {/* Expense bar */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-gray-700 rounded-full h-5 overflow-hidden">
+                    <div 
+                      className="bg-red-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                      style={{ width: `${Math.max(((month.expense || 0) / maxMonthlyAmount) * 100, (month.expense || 0) > 0 ? 8 : 0)}%` }}
+                    >
+                      {(month.expense || 0) > 0 && (
+                        <span className="text-[10px] font-medium text-white whitespace-nowrap">
+                          ฿{(month.expense || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

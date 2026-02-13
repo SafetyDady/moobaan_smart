@@ -126,97 +126,150 @@ async def get_village_summary(
     Get overall village financial summary (for residents)
     Shows aggregate statistics without exposing personal data (PDPA compliant)
     """
-    from sqlalchemy import func
-    from app.db.models.expense import Expense
+    from sqlalchemy import func, case
+    from app.db.models.expense import Expense, ExpenseStatus
+    from app.db.models.invoice_payment import InvoicePayment
     from dateutil.relativedelta import relativedelta
     
-    # Total income (from accepted income transactions)
-    total_income = db.query(func.sum(IncomeTransaction.amount))\
-        .scalar() or Decimal(0)
+    now = datetime.now()
+    # Current month boundaries (1st of month 00:00 → 1st of next month 00:00)
+    current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    current_month_end = current_month_start + relativedelta(months=1)
     
-    # Total expenses
-    total_expense = db.query(func.sum(Expense.amount))\
-        .scalar() or Decimal(0)
+    # ── All-time totals for balance calculation ──
+    all_time_income = db.query(func.coalesce(func.sum(IncomeTransaction.amount), 0))\
+        .scalar()
     
-    # Total balance
-    total_balance = float(total_income) - float(total_expense)
+    all_time_expense = db.query(func.coalesce(func.sum(Expense.amount), 0))\
+        .filter(Expense.status != ExpenseStatus.CANCELLED)\
+        .scalar()
     
-    # Debtor count (houses with unpaid invoices)
+    total_balance = float(all_time_income) - float(all_time_expense)
+    
+    # ── Current month income & expense ──
+    month_income = db.query(func.coalesce(func.sum(IncomeTransaction.amount), 0))\
+        .filter(
+            IncomeTransaction.received_at >= current_month_start,
+            IncomeTransaction.received_at < current_month_end
+        ).scalar()
+    
+    month_expense = db.query(func.coalesce(func.sum(Expense.amount), 0))\
+        .filter(
+            Expense.status != ExpenseStatus.CANCELLED,
+            Expense.expense_date >= current_month_start.date(),
+            Expense.expense_date < current_month_end.date()
+        ).scalar()
+    
+    # ── Debtor count & total debt (ISSUED or PARTIALLY_PAID invoices) ──
+    # FIX: InvoiceStatus has no UNPAID — use ISSUED + PARTIALLY_PAID
+    unpaid_statuses = [InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID]
+    
     debtor_count = db.query(func.count(func.distinct(Invoice.house_id)))\
-        .filter(Invoice.status == InvoiceStatus.UNPAID)\
+        .filter(Invoice.status.in_(unpaid_statuses))\
         .scalar() or 0
     
-    # Total debt (sum of unpaid invoices)
-    total_debt = db.query(func.sum(Invoice.total_amount))\
-        .filter(Invoice.status == InvoiceStatus.UNPAID)\
-        .scalar() or Decimal(0)
+    # FIX: Calculate actual remaining debt (total_amount - paid - credited)
+    # Use subquery to get paid amounts per invoice
+    paid_subq = db.query(
+        InvoicePayment.invoice_id,
+        func.coalesce(func.sum(InvoicePayment.amount), 0).label("total_paid")
+    ).group_by(InvoicePayment.invoice_id).subquery()
     
-    # Monthly income (last 3 months)
+    total_debt_rows = db.query(
+        Invoice.total_amount,
+        func.coalesce(paid_subq.c.total_paid, 0).label("paid")
+    ).outerjoin(
+        paid_subq, Invoice.id == paid_subq.c.invoice_id
+    ).filter(
+        Invoice.status.in_(unpaid_statuses)
+    ).all()
+    
+    total_debt = sum(float(row.total_amount) - float(row.paid) for row in total_debt_rows)
+    total_debt = max(0, total_debt)
+    
+    # ── Monthly income chart (last 4 months) ──
     monthly_income = []
     thai_months = {
         1: "ม.ค.", 2: "ก.พ.", 3: "มี.ค.", 4: "เม.ย.", 5: "พ.ค.", 6: "มิ.ย.",
         7: "ก.ค.", 8: "ส.ค.", 9: "ก.ย.", 10: "ต.ค.", 11: "พ.ย.", 12: "ธ.ค."
     }
     
-    for i in range(3):
-        month_start = datetime.now() - relativedelta(months=i)
-        month_end = month_start + relativedelta(months=1)
+    for i in range(4):
+        # FIX: Use first-of-month boundaries, not mid-month offsets
+        m_start = current_month_start - relativedelta(months=i)
+        m_end = m_start + relativedelta(months=1)
         
-        amount = db.query(func.sum(IncomeTransaction.amount))\
+        inc_amount = db.query(func.coalesce(func.sum(IncomeTransaction.amount), 0))\
             .filter(
-                IncomeTransaction.created_at >= month_start,
-                IncomeTransaction.created_at < month_end
-            )\
-            .scalar() or Decimal(0)
+                IncomeTransaction.received_at >= m_start,
+                IncomeTransaction.received_at < m_end
+            ).scalar()
+        
+        exp_amount = db.query(func.coalesce(func.sum(Expense.amount), 0))\
+            .filter(
+                Expense.status != ExpenseStatus.CANCELLED,
+                Expense.expense_date >= m_start.date(),
+                Expense.expense_date < m_end.date()
+            ).scalar()
         
         monthly_income.append({
-            "period": month_start.strftime("%Y-%m"),
-            "label": thai_months.get(month_start.month, month_start.strftime("%b")),
-            "amount": float(amount)
+            "period": m_start.strftime("%Y-%m"),
+            "label": thai_months.get(m_start.month, m_start.strftime("%b")),
+            "amount": float(inc_amount),
+            "expense": float(exp_amount),
         })
     
-    # Recent activities (last 5 transactions, generic descriptions)
+    # ── Recent activities (last 5 transactions) ──
     activities = []
     
-    # Get recent income transactions
+    # Recent income with house info for description
     recent_income = db.query(IncomeTransaction)\
-        .order_by(IncomeTransaction.created_at.desc())\
+        .order_by(IncomeTransaction.received_at.desc())\
         .limit(3)\
         .all()
     
     for inc in recent_income:
+        # FIX: IncomeTransaction has no 'period' field — derive from received_at
+        month_label = thai_months.get(inc.received_at.month, "") if inc.received_at else ""
         activities.append({
             "icon": "🏠",
-            "description": f"รับชำระค่าส่วนกลาง {inc.period or ''}",
-            "timestamp": inc.created_at.strftime("%d %b, %H:%M น.") if inc.created_at else "",
+            "description": f"รับชำระค่าส่วนกลาง {month_label}".strip(),
+            "timestamp": inc.received_at.strftime("%d/%m/%Y %H:%M") if inc.received_at else "",
+            "sort_key": inc.received_at.isoformat() if inc.received_at else "",
             "amount": float(inc.amount),
             "type": "income"
         })
     
-    # Get recent expenses
+    # Recent expenses (FIX: exclude CANCELLED)
     recent_expenses = db.query(Expense)\
-        .order_by(Expense.created_at.desc())\
+        .filter(Expense.status != ExpenseStatus.CANCELLED)\
+        .order_by(Expense.expense_date.desc(), Expense.created_at.desc())\
         .limit(2)\
         .all()
     
     for exp in recent_expenses:
+        exp_dt = exp.expense_date or exp.created_at
         activities.append({
             "icon": "💡",
             "description": exp.description or "รายจ่ายหมู่บ้าน",
-            "timestamp": exp.created_at.strftime("%d %b, %H:%M น.") if exp.created_at else "",
+            "timestamp": exp_dt.strftime("%d/%m/%Y") if exp_dt else "",
+            "sort_key": (exp.expense_date.isoformat() if exp.expense_date 
+                        else (exp.created_at.isoformat() if exp.created_at else "")),
             "amount": float(exp.amount),
             "type": "expense"
         })
     
-    # Sort by timestamp (most recent first)
-    activities.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+    # Sort by sort_key (most recent first), then strip sort_key from output
+    activities.sort(key=lambda x: x.get('sort_key', ''), reverse=True)
+    for a in activities:
+        a.pop('sort_key', None)
     
     return {
         "total_balance": total_balance,
-        "total_income": float(total_income),
-        "total_expense": float(total_expense),
+        "total_income": float(month_income),
+        "total_expense": float(month_expense),
         "debtor_count": debtor_count,
-        "total_debt": float(total_debt),
+        "total_debt": total_debt,
         "monthly_income": monthly_income,
         "recent_activities": activities[:5]
     }
