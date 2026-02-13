@@ -41,10 +41,9 @@ export default function LineLogin() {
   const [error, setError] = useState(null);
   
   // Get redirect URI for LINE OAuth
-  // Use VITE_APP_URL for stable production URL (Vercel preview URLs change every deploy)
+  // Always use window.location.origin so it works on any domain (production, preview, localhost)
   const getRedirectUri = () => {
-    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-    return `${appUrl}/login`;
+    return `${window.location.origin}/login`;
   };
   
   // Handle LINE OAuth callback (when code is in URL)
