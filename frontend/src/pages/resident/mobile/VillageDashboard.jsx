@@ -65,6 +65,15 @@ export default function VillageDashboard() {
   
   const maxMonthlyAmount = Math.max(...(data.monthly_income || []).map(m => Math.max(m.amount || 0, m.expense || 0)), 1);
   
+  // Format statement period label
+  const thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const stmtLabel = data.statement_period 
+    ? (() => {
+        const [y, m] = data.statement_period.split('-').map(Number);
+        return `${thaiMonths[m]} ${y + 543}`;
+      })()
+    : null;
+  
   return (
     <MobileLayout>
       <div className="p-4 space-y-4">
@@ -92,7 +101,7 @@ export default function VillageDashboard() {
           {/* Income */}
           <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">รายรับเดือนที่แล้ว</span>
+              <span className="text-sm text-gray-400">รายรับ{stmtLabel ? ` ${stmtLabel}` : ''}</span>
               <ArrowUp size={20} className="text-green-400" />
             </div>
             <div className="text-2xl font-bold text-white">
@@ -104,7 +113,7 @@ export default function VillageDashboard() {
           {/* Expense */}
           <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">รายจ่ายเดือนที่แล้ว</span>
+              <span className="text-sm text-gray-400">รายจ่าย{stmtLabel ? ` ${stmtLabel}` : ''}</span>
               <ArrowDown size={20} className="text-red-400" />
             </div>
             <div className="text-2xl font-bold text-white">

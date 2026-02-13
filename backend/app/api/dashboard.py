@@ -130,6 +130,7 @@ async def get_village_summary(
     from app.db.models.expense import Expense, ExpenseStatus
     from app.db.models.invoice_payment import InvoicePayment
     from app.db.models.bank_transaction import BankTransaction
+    from app.db.models.bank_statement_batch import BankStatementBatch
     from dateutil.relativedelta import relativedelta
     
     now = datetime.now()
@@ -150,23 +151,26 @@ async def get_village_summary(
         total_balance = 0
         balance_as_of = None
     
-    # ── Previous month income & expense from bank statement ──
-    prev_month_start = current_month_start - relativedelta(months=1)
-    prev_month_end = current_month_start  # 1st of current month
+    # ── Income & Expense from the latest confirmed bank statement batch ──
+    latest_batch = db.query(BankStatementBatch)\
+        .order_by(BankStatementBatch.year.desc(), BankStatementBatch.month.desc())\
+        .first()
     
-    # Income = sum of credit (deposits) from bank statement last month
-    month_income = db.query(func.coalesce(func.sum(BankTransaction.credit), 0))\
-        .filter(
-            BankTransaction.effective_at >= prev_month_start,
-            BankTransaction.effective_at < prev_month_end
-        ).scalar()
-    
-    # Expense = sum of debit (withdrawals) from bank statement last month
-    month_expense = db.query(func.coalesce(func.sum(BankTransaction.debit), 0))\
-        .filter(
-            BankTransaction.effective_at >= prev_month_start,
-            BankTransaction.effective_at < prev_month_end
-        ).scalar()
+    if latest_batch:
+        # Sum credit (income) and debit (expense) from all transactions in this batch
+        month_income = db.query(func.coalesce(func.sum(BankTransaction.credit), 0))\
+            .filter(BankTransaction.bank_statement_batch_id == latest_batch.id)\
+            .scalar()
+        
+        month_expense = db.query(func.coalesce(func.sum(BankTransaction.debit), 0))\
+            .filter(BankTransaction.bank_statement_batch_id == latest_batch.id)\
+            .scalar()
+        
+        statement_period = f"{latest_batch.year}-{latest_batch.month:02d}"
+    else:
+        month_income = 0
+        month_expense = 0
+        statement_period = None
     
     # ── Debtor count & total debt (ISSUED or PARTIALLY_PAID invoices) ──
     # FIX: InvoiceStatus has no UNPAID — use ISSUED + PARTIALLY_PAID
@@ -277,6 +281,7 @@ async def get_village_summary(
         "balance_as_of": balance_as_of,
         "total_income": float(month_income),
         "total_expense": float(month_expense),
+        "statement_period": statement_period,
         "debtor_count": debtor_count,
         "total_debt": total_debt,
         "monthly_income": monthly_income,
