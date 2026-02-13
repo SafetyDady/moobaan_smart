@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, LogOut, Home, User, Mail, Phone } from 'lucide-react';
+import { ChevronLeft, LogOut, Home, User, Mail, Phone, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRole } from '../../../contexts/RoleContext';
@@ -52,7 +52,7 @@ export default function Profile() {
               <User size={40} className="text-white" />
             </div>
             <div className="text-xl font-bold text-white">
-              {user?.name || 'ลูกบ้าน'}
+              {user?.full_name || 'ลูกบ้าน'}
             </div>
             {currentHouseCode && (
               <div className="text-sm text-white/80 mt-1">
@@ -64,10 +64,10 @@ export default function Profile() {
           {/* Info Section */}
           <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700">
             <div className="p-4">
-              <div className="text-xs text-gray-400 mb-1">ชื่อผู้ใช้</div>
+              <div className="text-xs text-gray-400 mb-1">ชื่อ-นามสกุล</div>
               <div className="flex items-center gap-2 text-white">
                 <User size={18} className="text-gray-400" />
-                <span>{user?.username || 'N/A'}</span>
+                <span>{user?.full_name || 'ไม่ได้ระบุ'}</span>
               </div>
             </div>
             
@@ -98,27 +98,46 @@ export default function Profile() {
             )}
           </div>
           
-          {/* Settings Section */}
+          {/* Account Info Section */}
           <div className="bg-gray-800 rounded-lg border border-gray-700">
             <div className="p-4 border-b border-gray-700">
-              <h3 className="text-sm font-medium text-gray-300">การตั้งค่า</h3>
+              <h3 className="text-sm font-medium text-gray-300">ข้อมูลบัญชี</h3>
             </div>
             
-            <button
-              className="w-full p-4 flex items-center justify-between text-left active:bg-gray-750"
-              onClick={() => showToast('🚧 ฟีเจอร์นี้กำลังพัฒนา')}
-            >
-              <span className="text-white">เปลี่ยนรหัสผ่าน</span>
-              <span className="text-gray-400">›</span>
-            </button>
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield size={18} className="text-gray-400" />
+                <span className="text-white">สถานะบัญชี</span>
+              </div>
+              <span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">
+                {user?.is_active ? 'ใช้งานอยู่' : 'ไม่ได้ใช้งาน'}
+              </span>
+            </div>
             
-            <button
-              className="w-full p-4 flex items-center justify-between text-left active:bg-gray-750 border-t border-gray-700"
-              onClick={() => showToast('🚧 ฟีเจอร์นี้กำลังพัฒนา')}
-            >
-              <span className="text-white">การแจ้งเตือน</span>
-              <span className="text-gray-400">›</span>
-            </button>
+            <div className="p-4 flex items-center justify-between border-t border-gray-700">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🟢</span>
+                <span className="text-white">LINE เชื่อมต่อ</span>
+              </div>
+              <span className="text-xs text-green-400">เข้าสู่ระบบผ่าน LINE</span>
+            </div>
+            
+            {user?.houses && user.houses.length > 1 && (
+              <div className="p-4 border-t border-gray-700">
+                <div className="text-xs text-gray-400 mb-2">บ้านที่เชื่อมต่อ</div>
+                <div className="flex flex-wrap gap-2">
+                  {user.houses.map(h => (
+                    <span key={h.id} className={`text-xs px-2 py-1 rounded-full ${
+                      h.house_code === currentHouseCode 
+                        ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30' 
+                        : 'bg-gray-700 text-gray-300'
+                    }`}>
+                      บ้าน {h.house_code}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* About Section */}
