@@ -50,7 +50,7 @@ export default function UnifiedLogin() {
             <Home size={40} className="text-white" strokeWidth={2.2} />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">
-            หมู่บ้านสมาร์ท
+            Moobaan Smart
           </h1>
           <p className="text-gray-400 text-sm">
             ระบบจัดการหมู่บ้าน
