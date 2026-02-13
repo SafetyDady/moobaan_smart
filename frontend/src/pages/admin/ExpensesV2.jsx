@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { expensesAPI, housesAPI, accountsAPI, vendorsAPI } from '../../api/client';
+import { useState, useEffect, useRef } from 'react';
+import { expensesAPI, housesAPI, accountsAPI, vendorsAPI, attachmentsAPI } from '../../api/client';
 
 /**
  * Phase F.1: Expense Core (Cash Out)
@@ -81,6 +81,19 @@ export default function Expenses() {
   // Mark paid form
   const [paidDate, setPaidDate] = useState(new Date().toISOString().split('T')[0]);
   const [paidPaymentMethod, setPaidPaymentMethod] = useState('TRANSFER');
+
+  // Attachments state
+  const [attachments, setAttachments] = useState([]);
+  const [attachLoading, setAttachLoading] = useState(false);
+  const [attachError, setAttachError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const invoiceInputRef = useRef(null);
+  const receiptInputRef = useRef(null);
+
+  // Allowed file types for attachments
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
   // Set default date range (current month)
   useEffect(() => {
@@ -260,6 +273,88 @@ export default function Expenses() {
     } finally {
       setModalLoading(false);
     }
+  };
+
+  // === Attachment Functions ===
+  const loadAttachments = async (expenseId) => {
+    setAttachLoading(true);
+    setAttachError('');
+    try {
+      const res = await attachmentsAPI.list({ entity_type: 'EXPENSE', entity_id: expenseId });
+      setAttachments(res.data || []);
+    } catch (err) {
+      console.error('Failed to load attachments:', err);
+      setAttachError('Failed to load attachments');
+      setAttachments([]);
+    } finally {
+      setAttachLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (file, fileType, expenseId) => {
+    if (!file) return;
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setAttachError('Unsupported file type. Use JPEG, PNG, WebP, HEIC, or PDF.');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setAttachError('File too large. Maximum 10MB.');
+      return;
+    }
+
+    setUploading(true);
+    setAttachError('');
+    try {
+      // Step 1: Get presigned URL
+      const presignRes = await attachmentsAPI.presign({
+        entity_type: 'EXPENSE',
+        entity_id: expenseId,
+        file_type: fileType,
+        filename: file.name,
+        content_type: file.type,
+      });
+      const { upload_url } = presignRes.data;
+
+      // Step 2: PUT file directly to R2
+      await fetch(upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+
+      // Step 3: Refresh attachment list
+      await loadAttachments(expenseId);
+    } catch (err) {
+      console.error('Upload failed:', err);
+      setAttachError(err.response?.data?.detail || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId, expenseId) => {
+    if (!confirm('Delete this attachment?')) return;
+    try {
+      await attachmentsAPI.delete(attachmentId);
+      await loadAttachments(expenseId);
+    } catch (err) {
+      console.error('Delete failed:', err);
+      setAttachError(err.response?.data?.detail || 'Delete failed');
+    }
+  };
+
+  const openDetailModal = (expense) => {
+    setSelectedExpense(expense);
+    setAttachments([]);
+    setAttachError('');
+    setShowDetailModal(true);
+    loadAttachments(expense.id);
+  };
+
+  const getFileTypeBadge = (fileType) => {
+    if (fileType === 'INVOICE') return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
+    if (fileType === 'RECEIPT') return 'bg-green-500/20 text-green-400 border border-green-500/30';
+    return 'bg-gray-500/20 text-gray-400 border border-gray-500/30';
   };
 
   const resetForm = () => {
@@ -532,6 +627,13 @@ export default function Expenses() {
                               ✏️
                             </button>
                             <button
+                              onClick={() => openDetailModal(expense)}
+                              className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded"
+                              title="Attachments"
+                            >
+                              📎
+                            </button>
+                            <button
                               onClick={() => openMarkPaidModal(expense)}
                               className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
                               title="Mark Paid"
@@ -548,7 +650,13 @@ export default function Expenses() {
                           </>
                         )}
                         {expense.status === 'PAID' && (
-                          <span className="text-xs text-gray-500">Paid</span>
+                          <button
+                            onClick={() => openDetailModal(expense)}
+                            className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded"
+                            title="View & Attach"
+                          >
+                            📎 View
+                          </button>
                         )}
                         {expense.status === 'CANCELLED' && (
                           <span className="text-xs text-gray-500">Cancelled</span>
@@ -985,6 +1093,168 @@ export default function Expenses() {
                 disabled={modalLoading}
               >
                 {modalLoading ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail & Attachments Modal */}
+      {showDetailModal && selectedExpense && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-lg mx-4 border border-gray-700 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold text-white">📎 Expense #{selectedExpense.id} — Attachments</h2>
+              <button
+                onClick={() => { setShowDetailModal(false); setSelectedExpense(null); setAttachments([]); }}
+                className="text-gray-400 hover:text-white text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Expense Summary */}
+            <div className="mb-4 p-4 bg-slate-700 rounded-lg space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-sm">Description</span>
+                <span className="text-white text-sm font-medium">{selectedExpense.description}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-sm">Amount</span>
+                <span className="text-white text-sm font-bold">฿{selectedExpense.amount?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-sm">Status</span>
+                <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusBadge(selectedExpense.status)}`}>
+                  {selectedExpense.status}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-sm">Vendor</span>
+                <span className="text-gray-300 text-sm">{selectedExpense.vendor_name || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-sm">Date</span>
+                <span className="text-gray-300 text-sm">{selectedExpense.expense_date}</span>
+              </div>
+            </div>
+
+            {/* Upload Buttons */}
+            {selectedExpense.status !== 'CANCELLED' && (
+              <div className="mb-4 flex gap-3">
+                {/* Invoice: available for PENDING or PAID */}
+                <button
+                  onClick={() => invoiceInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white text-sm rounded-lg flex items-center justify-center gap-2"
+                >
+                  {uploading ? '⏳ Uploading...' : '📄 Upload Invoice'}
+                </button>
+                <input
+                  ref={invoiceInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.heic,.pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleFileUpload(e.target.files[0], 'INVOICE', selectedExpense.id);
+                    e.target.value = '';
+                  }}
+                />
+
+                {/* Receipt: only when PAID */}
+                <button
+                  onClick={() => receiptInputRef.current?.click()}
+                  disabled={uploading || selectedExpense.status !== 'PAID'}
+                  className={`flex-1 px-3 py-2 text-white text-sm rounded-lg flex items-center justify-center gap-2 ${
+                    selectedExpense.status === 'PAID'
+                      ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-600/50'
+                      : 'bg-gray-600 cursor-not-allowed opacity-50'
+                  }`}
+                  title={selectedExpense.status !== 'PAID' ? 'Receipt can only be uploaded when expense is PAID' : ''}
+                >
+                  {uploading ? '⏳ Uploading...' : '🧾 Upload Receipt'}
+                </button>
+                <input
+                  ref={receiptInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.heic,.pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleFileUpload(e.target.files[0], 'RECEIPT', selectedExpense.id);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            )}
+
+            {selectedExpense.status !== 'PAID' && selectedExpense.status !== 'CANCELLED' && (
+              <p className="text-xs text-gray-500 mb-3 -mt-2">
+                💡 Receipt upload will be available after marking this expense as Paid.
+              </p>
+            )}
+
+            {/* Attachment Error */}
+            {attachError && (
+              <div className="mb-3 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                {attachError}
+              </div>
+            )}
+
+            {/* Attachment List */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-gray-400">Uploaded Files</h3>
+              {attachLoading ? (
+                <p className="text-gray-500 text-sm py-4 text-center">Loading attachments...</p>
+              ) : attachments.length === 0 ? (
+                <p className="text-gray-500 text-sm py-4 text-center border border-dashed border-gray-600 rounded-lg">
+                  No attachments yet
+                </p>
+              ) : (
+                attachments.map((att) => (
+                  <div key={att.id} className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`px-2 py-0.5 text-xs rounded-full whitespace-nowrap ${getFileTypeBadge(att.file_type)}`}>
+                        {att.file_type}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-white text-sm truncate">{att.filename}</p>
+                        <p className="text-gray-500 text-xs">
+                          {new Date(att.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      {att.public_url && (
+                        <a
+                          href={att.public_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 text-xs bg-slate-600 hover:bg-slate-500 text-white rounded"
+                          title="View file"
+                        >
+                          👁️
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handleDeleteAttachment(att.id, selectedExpense.id)}
+                        className="px-2 py-1 text-xs bg-red-600/80 hover:bg-red-600 text-white rounded"
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Close button */}
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => { setShowDetailModal(false); setSelectedExpense(null); setAttachments([]); }}
+                className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg"
+              >
+                Close
               </button>
             </div>
           </div>

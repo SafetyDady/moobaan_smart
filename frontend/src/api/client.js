@@ -313,6 +313,13 @@ export const expenseReconciliationAPI = {
   listAllocations: (params) => apiClient.get('/api/reconcile/allocations', { params }),
 };
 
+// Attachments API (Evidence Layer: Invoice/Receipt on R2)
+export const attachmentsAPI = {
+  presign: (data) => apiClient.post('/api/attachments/presign', data),
+  list: (params) => apiClient.get('/api/attachments/', { params }),
+  delete: (id) => apiClient.delete(`/api/attachments/${id}`),
+};
+
 // Users API
 export const usersAPI = {
   // Staff management (super_admin only)
