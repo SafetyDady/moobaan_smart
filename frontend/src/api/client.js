@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// In production, use same-origin proxy (Vercel rewrites /api/* → Railway backend)
+// This avoids third-party cookie issues that break auth on Safari, LINE browser, etc.
+// In development, use VITE_API_BASE_URL or fall back to localhost backend.
+const API_BASE_URL = import.meta.env.PROD
+  ? ''
+  : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
