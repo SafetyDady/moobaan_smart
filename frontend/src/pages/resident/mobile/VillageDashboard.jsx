@@ -71,20 +71,19 @@ export default function VillageDashboard() {
         {/* Main Balance Card */}
         <div className="bg-gradient-to-br from-primary-500 via-primary-600 to-blue-600 rounded-xl p-6 shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-sm text-white/80">ยอดคงเหลือรวม</div>
+            <div className="text-sm text-white/80">ยอดเงินในบัญชีล่าสุด</div>
             <button onClick={loadData} className="text-white/60 hover:text-white transition-colors" title="รีเฟรช">
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
           <div className="text-4xl font-bold text-white">
-            ฿{data.total_balance.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            ฿{(data.total_balance || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-white/60 mt-2">
-            ณ วันที่ {new Date().toLocaleDateString('th-TH', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
+            {data.balance_as_of 
+              ? `ณ วันที่ ${new Date(data.balance_as_of).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`
+              : 'ยังไม่มีข้อมูล Statement'
+            }
           </div>
         </div>
         

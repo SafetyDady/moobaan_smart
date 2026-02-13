@@ -129,6 +129,7 @@ async def get_village_summary(
     from sqlalchemy import func, case
     from app.db.models.expense import Expense, ExpenseStatus
     from app.db.models.invoice_payment import InvoicePayment
+    from app.db.models.bank_transaction import BankTransaction
     from dateutil.relativedelta import relativedelta
     
     now = datetime.now()
@@ -136,15 +137,18 @@ async def get_village_summary(
     current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     current_month_end = current_month_start + relativedelta(months=1)
     
-    # ── All-time totals for balance calculation ──
-    all_time_income = db.query(func.coalesce(func.sum(IncomeTransaction.amount), 0))\
-        .scalar()
+    # ── Latest bank statement balance ──
+    latest_txn = db.query(BankTransaction)\
+        .filter(BankTransaction.balance.isnot(None))\
+        .order_by(BankTransaction.effective_at.desc())\
+        .first()
     
-    all_time_expense = db.query(func.coalesce(func.sum(Expense.amount), 0))\
-        .filter(Expense.status != ExpenseStatus.CANCELLED)\
-        .scalar()
-    
-    total_balance = float(all_time_income) - float(all_time_expense)
+    if latest_txn:
+        total_balance = float(latest_txn.balance)
+        balance_as_of = latest_txn.effective_at.isoformat() if latest_txn.effective_at else None
+    else:
+        total_balance = 0
+        balance_as_of = None
     
     # ── Current month income & expense ──
     month_income = db.query(func.coalesce(func.sum(IncomeTransaction.amount), 0))\
@@ -266,6 +270,7 @@ async def get_village_summary(
     
     return {
         "total_balance": total_balance,
+        "balance_as_of": balance_as_of,
         "total_income": float(month_income),
         "total_expense": float(month_expense),
         "debtor_count": debtor_count,
