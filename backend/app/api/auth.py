@@ -533,12 +533,64 @@ async def get_current_user_info(
                     "role": m.role.value if hasattr(m.role, 'value') else m.role,
                 })
         
-        # PATCH-7: If token has no house_id but user has exactly 1 house → auto-select
+        # PATCH-7 rev2: If token has no house_id but user has exactly 1 house → auto-select AND reissue JWT
         if not house_id and len(active_memberships) == 1:
             house_id = active_memberships[0].house_id
             h = db.query(House).filter(House.id == house_id).first()
             house_code = h.house_code if h else None
-            logger.info(f"[AUTH_ME] Auto-selected single house {house_id} for user {current_user.id}")
+            logger.info(f"[AUTH_ME] Auto-selected single house {house_id} for user {current_user.id} → reissuing JWT")
+            
+            # Reissue JWT with house_id so old cookie is replaced
+            new_token_data = {
+                "sub": str(current_user.id),
+                "role": "resident",
+                "session_version": current_user.session_version,
+                "house_id": house_id,
+            }
+            # Carry forward line_user_id if present
+            if token:
+                try:
+                    old_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+                    if old_payload.get("line_user_id"):
+                        new_token_data["line_user_id"] = old_payload["line_user_id"]
+                except Exception:
+                    pass
+            
+            new_access_token = create_access_token(
+                data=new_token_data,
+                expires_delta=timedelta(days=RESIDENT_LINE_SESSION_DAYS)
+            )
+            new_refresh_token = create_refresh_token(
+                data={"sub": str(current_user.id), "role": "resident",
+                      "session_version": current_user.session_version,
+                      "house_id": house_id},
+                role="resident"
+            )
+            new_csrf = generate_csrf_token()
+            
+            resp_data = {
+                "id": current_user.id,
+                "email": current_user.email,
+                "full_name": current_user.full_name,
+                "role": current_user.role,
+                "is_active": current_user.is_active,
+                "phone": current_user.phone,
+                "house_id": house_id,
+                "house_code": house_code,
+                "houses": houses,
+            }
+            resp = JSONResponse(content=resp_data)
+            access_max_age = int(timedelta(days=RESIDENT_LINE_SESSION_DAYS).total_seconds())
+            resp.set_cookie(key="access_token", value=new_access_token,
+                            httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+                            max_age=access_max_age, path="/", domain=COOKIE_DOMAIN)
+            resp.set_cookie(key="refresh_token", value=new_refresh_token,
+                            httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+                            max_age=access_max_age, path="/api/auth", domain=COOKIE_DOMAIN)
+            resp.set_cookie(key="csrf_token", value=new_csrf,
+                            httponly=False, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+                            max_age=access_max_age, path="/", domain=COOKIE_DOMAIN)
+            return resp
         elif house_id:
             house = db.query(House).filter(House.id == house_id).first()
             house_code = house.house_code if house else None
