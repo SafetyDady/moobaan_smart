@@ -30,12 +30,33 @@ export function AuthProvider({ children }) {
           const response = await api.get('/api/auth/me');
           const data = response.data;
           
-          // R.3: If resident has no house_id but has houses → redirect to select-house
-          if (data.role === 'resident' && !data.house_id && data.houses?.length > 0) {
-            console.log('[AuthContext] Resident has houses but no house_id → need select-house');
+          console.log('[AuthContext] /api/auth/me response:', JSON.stringify(data));
+          
+          // R.3 FIX: Resident with no house_id → auto-select or redirect
+          if (data.role === 'resident' && !data.house_id) {
+            if (data.houses?.length === 1) {
+              // Single house → auto-call select-house to get proper JWT with house_id
+              console.log('[AuthContext] Auto-selecting single house:', data.houses[0].id);
+              try {
+                const selectResp = await api.post('/api/auth/select-house', { house_id: data.houses[0].id });
+                const userData = selectResp.data?.user || selectResp.data;
+                console.log('[AuthContext] Auto-select success:', JSON.stringify(userData));
+                setIsAuth(true);
+                setUser(userData);
+                return;
+              } catch (selectErr) {
+                console.error('[AuthContext] Auto-select house failed:', selectErr);
+                // Fall through — set user as-is, ProtectedRoute will handle
+              }
+            } else if (data.houses?.length > 1) {
+              console.log('[AuthContext] Multi-house resident → need select-house');
+            } else {
+              console.warn('[AuthContext] Resident has NO houses → clearing auth');
+              clearAuth();
+              return;
+            }
             setIsAuth(true);
             setUser(data);
-            // Let RoleContext/ProtectedRoute handle the redirect
             return;
           }
           

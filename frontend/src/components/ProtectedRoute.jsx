@@ -46,13 +46,17 @@ export default function ProtectedRoute({ children, allowedRoles = [] }) {
     }
   }
 
-  // R.3: Resident with no house_id but has houses → redirect to select-house
-  if (user.role === 'resident' && !user.house_id && user.houses?.length > 0) {
-    return <Navigate to="/select-house" state={{ 
-      houses: user.houses,
-      userId: user.id,
-      displayName: user.full_name,
-    }} replace />;
+  // R.3: Resident with no house_id → redirect to select-house or login
+  if (user.role === 'resident' && !user.house_id) {
+    if (user.houses?.length > 0) {
+      return <Navigate to="/select-house" state={{ 
+        houses: user.houses,
+        userId: user.id,
+        displayName: user.full_name,
+      }} replace />;
+    }
+    // No houses at all → force re-login
+    return <Navigate to="/login" replace />;
   }
 
   return children;
