@@ -52,6 +52,7 @@ moobaan_smart/
 - ✅ **Vendor & Category master** (Phase H.1.1)
 - ✅ **Chart of Accounts (COA Lite)** — account_code linkage
 - ✅ **Expense ↔ Bank Allocation** — M:N junction with row locks (FOR UPDATE)
+- ✅ **Expense Categories** — MAINTENANCE, SECURITY, CLEANING, ELECTRICITY, WATER, ADMIN, OTHER (split from UTILITIES)
 - ✅ **Attachments Evidence Layer** — presigned upload to Cloudflare R2
   - `POST /api/attachments/presign` → presigned PUT URL
   - `GET /api/attachments/` → list by entity
@@ -78,6 +79,11 @@ moobaan_smart/
   - Dashboard (My invoices + Payment history)
   - Submit payment slip
   - Edit & resubmit (REJECTED only)
+  - **Village Dashboard** — balance, income/expense, debtor cards + monthly stacked bar chart + expense breakdown by category (3-month comparison with mini-bars)
+- ✅ **Login Page:**
+  - Lucide Home icon with emerald gradient badge
+  - LINE Login (primary) + Admin Login (secondary)
+  - Matching style on LINE connecting screen
 
 ## 🚀 Quick Start
 
@@ -232,7 +238,7 @@ VITE_API_BASE_URL=http://localhost:8000
 - Mobile responsive design
 
 **❌ Not Yet Implemented:**
-- LINE Login full flow (admin link line_user_id → resident)
+- ~~LINE Login full flow~~ ✅ Implemented (LINE OAuth + cookie-based auth + Vercel proxy)
 - Real-time updates / WebSocket
 - CSRF enforcement (currently warn mode)
 - Mobile-native app
@@ -256,9 +262,9 @@ VITE_API_BASE_URL=http://localhost:8000
 
 ## 🔄 Next Steps
 
-1. **LINE Resident Login** — full flow with admin linking
+1. ~~LINE Resident Login~~ ✅ Done (LINE OAuth, Vercel API proxy for cross-origin cookies)
 2. **CSRF Enforcement** — switch from warn to block mode
-3. **Mobile UX Polish** — responsive tweaks
+3. ~~Mobile UX Polish~~ ✅ Done (Village Dashboard, expense breakdown, login redesign)
 4. **Testing** — pytest (backend), vitest (frontend), E2E
 5. **Period Close Reporting** — month-end export improvements
 
@@ -273,5 +279,5 @@ For questions or support, please open an issue on GitHub.
 ---
 
 **Status:** Production ✅  
-**Last Updated:** 2026-02-13  
-**Git HEAD:** `cd842f2`
+**Last Updated:** 2026-02-14  
+**Git HEAD:** `932fe08`

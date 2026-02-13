@@ -1,6 +1,6 @@
 # 📋 สรุปการอัปเดตระบบ Moobaan Smart
 
-> **อัปเดตล่าสุด:** 13 กุมภาพันธ์ 2569 | **Latest Commit:** `cd842f2`
+> **อัปเดตล่าสุด:** 14 กุมภาพันธ์ 2569 | **Latest Commit:** `932fe08`
 
 ## 🏗️ Stack
 | Component | Technology | Host |
@@ -71,6 +71,22 @@
 | 21 | `c24ab03` | **Attachments Evidence Layer** — table, migration (h13), API (presign/list/delete), business rules | ✅ |
 | 22 | `cd842f2` | **Expense Attachments UI** — upload Invoice/Receipt to R2, view/delete modal | ✅ |
 
+### 🎨 Session 7 — Village Dashboard + Login Redesign (13-14 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 23 | `003b726` | **LINE Login Loop Fix** — Vercel API proxy แก้ cross-origin cookie | ✅ |
+| 24 | `caab412` | **Manus AI UI Merge** — 4 safe UI-only changes (tailwind, icons, cards) | ✅ |
+| 25 | `5d1c95a` | **Village Dashboard Redesign** — header card, icon badges, stacked bar chart | ✅ |
+| 26 | `062e004` | **Chart Fix** — pixel-based bars, "จาก Statement" title, correct bar order | ✅ |
+| 27 | `755500e` | **Expense Breakdown** — category × 3-month comparison mini-bars | ✅ |
+| 28 | `9c7a2cd` | **ELECTRICITY / WATER** — split UTILITIES into separate categories | ✅ |
+| 29 | `7d082b1` | **Migration Endpoint** — admin-only UTILITIES→ELECTRICITY DB migration | ✅ |
+| 30 | `eda726b` | **Semantic Category Colors** — emoji icons + fixed colors per category | ✅ |
+| 31 | `05e75f7` | **Login Icon Redesign** — Lucide Home + emerald gradient badge | ✅ |
+| 32 | `53b92b5` | **Title → English** — "Moobaan Smart" แทน "หมู่บ้านสมาร์ท" | ✅ |
+| 33 | `932fe08` | **LineLogin Match** — LINE connecting screen ให้ตรงกับหน้า login ใหม่ | ✅ |
+
 ---
 
 ## 🔑 Credentials
@@ -93,7 +109,7 @@
 - 💰 Invoice / Pay-in / Ledger — ระบบบัญชี
 - 📄 Financial Reports — Invoice Aging, Cash Flow
 - 🔒 Period Closing — ปิดงวดบัญชี
-- 🏢 Vendors & Categories — จัดการ vendor master + หมวดหมู่ค่าใช้จ่าย
+- 🏢 Vendors & Categories — จัดการ vendor master + หมวดหมู่ค่าใช้จ่าย (ELECTRICITY/WATER แยกจาก UTILITIES)
 - 👥 User Management — จัดการ Staff + Resident
 - 💸 Expense Matching — จับคู่ค่าใช้จ่ายกับรายการธนาคาร (M:N allocation)
 - 📎 Expense Attachments — แนบไฟล์ Invoice/Receipt ผ่าน Cloudflare R2
@@ -103,6 +119,8 @@
 - 🏡 เลือกบ้าน (Select House)
 - 💳 ส่งหลักฐานการชำระเงิน (Pay-in Submit)
 - 📋 ดูประวัติการชำระเงิน
+- 📊 Village Dashboard — ยอดเงิน, รายรับ/จ่าย, ลูกหนี้ + chart + expense breakdown
+- 🏠 Login Page — Lucide Home icon + gradient badge + "Moobaan Smart"
 
 ---
 
@@ -124,7 +142,7 @@
 | รายการ | ความสำคัญ | สถานะ |
 |--------|----------|-------|
 | ตั้ง R2_PUBLIC_URL บน Railway | 🟡 กลาง | ❌ ยังไม่ทำ |
-| ทดสอบ Resident LINE Login flow จริง | 🟡 กลาง | ❌ ยังไม่ทำ |
+| ~~ทดสอบ Resident LINE Login flow จริง~~ | 🟡 กลาง | ✅ เสร็จแล้ว |
 | ตั้ง Vercel Git Integration ให้ auto-deploy เมื่อ push | 🟢 ต่ำ | ❌ ยังไม่ทำ |
 | เปิด CSRF enforcement (เปลี่ยนจาก warn → block) | 🟢 ต่ำ | ❌ ยังไม่ทำ |
 

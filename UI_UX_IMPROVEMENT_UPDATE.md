@@ -1,7 +1,7 @@
 # UI/UX Improvement Update - Moobaan Smart
 
-**Date:** February 13, 2026  
-**Version:** 1.1.0  
+**Date:** February 13-14, 2026  
+**Version:** 1.2.0  
 **Status:** ✅ Completed
 
 ---
@@ -157,6 +157,65 @@ Month Label                                    Total
 
 ---
 
+## 🎯 Session 2 Updates (Feb 14, 2026)
+
+### 5. **Village Dashboard — Expense Breakdown by Category**
+**Files Modified:**
+- `backend/app/api/dashboard.py`
+- `frontend/src/pages/resident/mobile/VillageDashboard.jsx`
+
+**Changes:**
+- ✅ Backend: query Expense grouped by category + month for last 3 calendar months
+- ✅ Frontend: category mini-bars with color-coded bars per month
+- ✅ Percentage change arrows (↑ red / ↓ green) comparing month-over-month
+- ✅ Grand total footer
+- ✅ Section hidden when no expense data exists
+
+### 6. **Expense Category Split: UTILITIES → ELECTRICITY + WATER**
+**Files Modified:**
+- `backend/app/db/models/expense.py`
+- `backend/app/api/expenses_v2.py` (migration endpoint)
+- `frontend/src/pages/admin/ExpensesV2.jsx`
+- `frontend/src/pages/resident/mobile/VillageDashboard.jsx`
+
+**Changes:**
+- ✅ Added `ELECTRICITY` and `WATER` to ExpenseCategory enum (keep UTILITIES as legacy)
+- ✅ Created admin-only migration endpoint (`GET /api/expenses/migrate/preview`, `POST /api/expenses/migrate/utilities-to-electricity`)
+- ✅ Migrated 1 UTILITIES record → ELECTRICITY in production DB
+- ✅ Updated frontend fallback categories
+
+### 7. **Semantic Category Colors & Icons**
+**File Modified:** `frontend/src/pages/resident/mobile/VillageDashboard.jsx`
+
+**Changes:**
+- ✅ Each category has a fixed semantic color (not positional):
+
+| Category | Icon | Color | Label |
+|----------|------|-------|-------|
+| ELECTRICITY | ⚡ | amber | ค่าไฟฟ้า |
+| WATER | 💧 | cyan | ค่าน้ำประปา |
+| SECURITY | 🛡️ | blue | รปภ. |
+| CLEANING | 🧹 | emerald | ทำความสะอาด |
+| MAINTENANCE | 🔧 | orange | ซ่อมบำรุง |
+| ADMIN | 📋 | purple | บริหาร |
+| OTHER | 📦 | gray | อื่นๆ |
+
+### 8. **Login Page Icon Redesign**
+**Files Modified:**
+- `frontend/src/pages/UnifiedLogin.jsx`
+- `frontend/src/pages/auth/LineLogin.jsx`
+
+**Changes:**
+- ✅ Replaced emoji 🏠 with Lucide `Home` icon inside emerald→teal gradient badge
+- ✅ Title changed: "หมู่บ้านสมาร์ท" → "Moobaan Smart"
+- ✅ LineLogin connecting screen updated to match new style
+
+---
+
+## 📝 Files Changed (Total)
+
+---
+
 ## 🚀 Deployment
 
 ### Build Status
@@ -225,6 +284,11 @@ All objectives met:
 - ✅ Login page admin link de-emphasized
 - ✅ All emoji icons replaced with Lucide icons
 - ✅ Stacked bar chart implemented with actual values
+- ✅ Expense breakdown by category (3-month mini-bars)
+- ✅ UTILITIES split into ELECTRICITY / WATER
+- ✅ Semantic category colors + emoji icons
+- ✅ Login icon: Lucide Home + gradient badge
+- ✅ Title: "Moobaan Smart" (English)
 - ✅ No breaking changes to functionality
 - ✅ Mobile-responsive design maintained
 - ✅ Professional visual appearance achieved
@@ -243,9 +307,9 @@ All objectives met:
 
 ## 👤 Author
 
-**Manus AI Agent**  
-Date: February 13, 2026  
-Task: UI/UX Improvement Implementation
+**Manus AI Agent + GitHub Copilot (Claude)**  
+Date: February 13-14, 2026  
+Task: UI/UX Improvement Implementation + Village Dashboard + Expense Categories
 
 ---
 
