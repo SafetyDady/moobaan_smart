@@ -5,6 +5,7 @@ import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import PayinDetailModal from './PayinDetailModal';
 import PaymentHistoryCompactList from './PaymentHistoryCompactList';
+import InvoiceTable from './InvoiceTable';
 import { Home, Loader2, FileText, CreditCard } from 'lucide-react';
 import {
   canEditPayin,
@@ -95,31 +96,7 @@ export default function MobileDashboard() {
   const isOverpaid = currentBalance > 0;
   const displayAmount = Math.abs(currentBalance);
 
-  // Invoice status colors (separate from Pay-in)
-  const getInvoiceStatusColor = (status) => {
-    const upperStatus = status?.toUpperCase();
-    const colors = {
-      PENDING: 'bg-yellow-500 text-black',  // เหลือง - รอชำระ
-      UNPAID: 'bg-yellow-500 text-black',   // เหลือง - ยังไม่ชำระ
-      PAID: 'bg-green-500 text-white',      // เขียว - ชำระแล้ว
-      OVERDUE: 'bg-red-500 text-white',     // แดง - เกินกำหนด
-    };
-    return colors[upperStatus] || 'bg-gray-500 text-white';
-  };
-
-  const getInvoiceStatusText = (status) => {
-    const upperStatus = status?.toUpperCase();
-    const texts = {
-      PENDING: 'รอชำระ',
-      UNPAID: 'ยังไม่ชำระ',
-      PAID: 'ชำระแล้ว',
-      OVERDUE: 'เกินกำหนด',
-    };
-    return texts[upperStatus] || status;
-  };
-
   // Guard: Wait for house context before rendering dashboard
-  // This handles the brief moment after login but before RoleContext syncs
   if (!currentHouseId) {
     return (
       <MobileLayout>
@@ -163,15 +140,15 @@ export default function MobileDashboard() {
         </div>
       )}
 
-      {/* Sticky Balance Card - Enhanced Design */}
+      {/* Compact Hero Card (Balance Card) */}
       <div className="sticky top-0 z-10 bg-gray-900 p-4">
-        <div className={`rounded-2xl p-6 shadow-xl ${
+        <div className={`rounded-2xl p-5 shadow-xl ${
           isOverpaid 
             ? 'bg-gradient-to-br from-emerald-600 to-emerald-700' 
             : 'bg-gradient-to-br from-red-600 to-red-700'
         }`}>
           {/* Status Badge */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <span className={`text-sm font-medium ${
               isOverpaid ? 'text-emerald-100' : 'text-red-100'
             }`}>
@@ -187,13 +164,13 @@ export default function MobileDashboard() {
           </div>
           
           {/* Amount */}
-          <div className="mb-6">
+          <div className="mb-4">
             <p className={`text-sm mb-1 ${
               isOverpaid ? 'text-emerald-100' : 'text-red-100'
             }`}>
               จำนวนเงิน
             </p>
-            <p className="text-4xl font-bold text-white">
+            <p className="text-3xl font-bold text-white">
               ฿{displayAmount.toLocaleString()}
             </p>
           </div>
@@ -202,7 +179,7 @@ export default function MobileDashboard() {
           {!isOverpaid && (
             hasBlockingPayin ? (
               <div className="w-full">
-                <div className="w-full bg-gray-400 text-gray-600 font-semibold py-3 rounded-lg text-center cursor-not-allowed flex items-center justify-center gap-2">
+                <div className="w-full bg-gray-400 text-gray-600 font-semibold py-2 rounded-lg text-center cursor-not-allowed flex items-center justify-center gap-2">
                   <CreditCard size={20} />
                   ชำระเงินเลย
                 </div>
@@ -213,7 +190,7 @@ export default function MobileDashboard() {
             ) : (
               <Link 
                 to="/resident/submit" 
-                className="flex items-center justify-center gap-2 w-full bg-white text-red-600 font-semibold py-3 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors duration-200 shadow-md"
+                className="flex items-center justify-center gap-2 w-full bg-white text-red-600 font-semibold py-2 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors duration-200 shadow-md"
               >
                 <CreditCard size={20} />
                 ชำระเงินเลย
@@ -223,78 +200,15 @@ export default function MobileDashboard() {
         </div>
       </div>
 
-      {/* Quick Stats - Enhanced Cards */}
-      <div className="grid grid-cols-2 gap-3 px-4 mb-6">
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-sm hover:border-gray-600 transition-colors">
-          <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide">ใบแจ้งหนี้ทั้งหมด</p>
-          <p className="text-3xl font-bold text-white">{invoices.length}</p>
-          <p className="text-xs text-gray-500 mt-1">รายการ</p>
-        </div>
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-sm hover:border-gray-600 transition-colors">
-          <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide">ส่งสลิปแล้ว</p>
-          <p className="text-3xl font-bold text-white">{payins.length}</p>
-          <p className="text-xs text-gray-500 mt-1">ครั้ง</p>
-        </div>
-      </div>
-
-      {/* Invoices Section - Enhanced Card Design */}
+      {/* Invoice Table Section */}
       <div className="px-4 mb-6">
         <h2 className="text-xl font-bold text-white mb-4">ใบแจ้งหนี้</h2>
-        {invoices.length === 0 ? (
-          <div className="bg-gray-800 rounded-xl p-8 text-center border border-gray-700">
-            <FileText className="mx-auto text-gray-600 mb-3" size={48} />
-            <p className="text-gray-400 font-medium">ไม่มีใบแจ้งหนี้</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {invoices.map(inv => (
-              <div 
-                key={inv.id} 
-                className="relative bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-gray-600 active:bg-gray-750 transition-all shadow-sm"
-              >
-                {/* Status Indicator Line */}
-                <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${
-                  inv.status?.toUpperCase() === 'PAID' ? 'bg-gradient-to-b from-green-500 to-transparent' :
-                  inv.status?.toUpperCase() === 'OVERDUE' ? 'bg-gradient-to-b from-red-500 to-transparent' :
-                  'bg-gradient-to-b from-yellow-500 to-transparent'
-                }`} />
-                
-                {/* Header */}
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className="text-xs text-gray-400 uppercase tracking-wide">รอบบิล</span>
-                    <p className="text-lg font-semibold text-white">{inv.cycle || '-'}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getInvoiceStatusColor(inv.status)}`}>
-                    {getInvoiceStatusText(inv.status)}
-                  </span>
-                </div>
-                
-                {/* Amount */}
-                <div className="mb-4 pb-4 border-b border-gray-700">
-                  <p className="text-3xl font-bold text-emerald-400">
-                    ฿{inv.total.toLocaleString()}
-                  </p>
-                </div>
-                
-                {/* Details */}
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>
-                    {inv.invoice_type === 'monthly_auto' ? 'รายเดือน' : 'พิเศษ'}
-                  </span>
-                  <span>
-                    ครบกำหนด: {formatThaiDate(inv.due_date)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <InvoiceTable invoices={invoices} />
       </div>
 
       {/* Payment History Section */}
       <div className="px-4 pb-6">
-        <h2 className="text-lg font-bold text-white mb-3">ประวัติการส่งสลิป</h2>
+        <h2 className="text-xl font-bold text-white mb-4">ประวัติการส่งสลิป</h2>
         {payins.length === 0 ? (
           <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
             <CreditCard className="mx-auto text-gray-600 mb-2" size={48} />
