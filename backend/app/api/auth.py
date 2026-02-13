@@ -609,6 +609,54 @@ async def get_current_user_info(
     }
 
 
+class UpdateProfileRequest(BaseModel):
+    full_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+
+
+@router.patch("/me")
+async def update_current_user_profile(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Let any authenticated user update their own profile (full_name, email, phone).
+    Returns the updated fields.
+    """
+    updated = False
+    if body.full_name is not None:
+        current_user.full_name = body.full_name.strip()
+        updated = True
+    if body.email is not None:
+        val = body.email.strip() or None
+        # Check uniqueness if setting a new email
+        if val:
+            existing = db.query(User).filter(User.email == val, User.id != current_user.id).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="อีเมลนี้ถูกใช้งานแล้ว")
+        current_user.email = val
+        updated = True
+    if body.phone is not None:
+        val = body.phone.strip() or None
+        current_user.phone = val
+        updated = True
+
+    if updated:
+        db.commit()
+        db.refresh(current_user)
+
+    return {
+        "id": current_user.id,
+        "full_name": current_user.full_name,
+        "email": current_user.email,
+        "phone": current_user.phone,
+        "role": current_user.role,
+        "is_active": current_user.is_active,
+    }
+
+
 @router.post("/change-password")
 async def change_password(
     request: ChangePasswordRequest,

@@ -160,6 +160,11 @@ export function AuthProvider({ children }) {
     setUser(userData);
   };
 
+  // Update user fields in local state (after PATCH /me success)
+  const updateUser = (fields) => {
+    setUser(prev => prev ? { ...prev, ...fields } : prev);
+  };
+
   const value = {
     user,
     loading,
@@ -167,6 +172,7 @@ export function AuthProvider({ children }) {
     logout,
     checkAuth,  // For app init / page reload only
     setResidentUser,  // For Resident OTP login flow - direct state set
+    updateUser,  // For profile edit — merge updated fields into user state
     // AUTHORITATIVE AUTH RULE: Cookie presence = authenticated
     // User state is for display/role info, not auth gate
     // This prevents race condition during page refresh
