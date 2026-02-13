@@ -22,6 +22,7 @@ from decimal import Decimal
 from app.db.session import get_db
 from app.db.models import Expense, ExpenseStatus, House, User, ChartOfAccount, AccountType
 from app.db.models.vendor import Vendor
+from app.db.models.expense_bank_allocation import ExpenseBankAllocation
 from app.core.deps import require_admin_or_accounting, require_admin, get_current_user
 from app.core.period_lock import validate_period_not_locked
 
@@ -414,6 +415,16 @@ async def mark_expense_paid(
     
     if expense.status == ExpenseStatus.PAID:
         raise HTTPException(status_code=400, detail="Expense is already paid")
+    
+    # Block mark-paid if expense has bank allocations (must use allocation layer)
+    alloc_count = db.query(ExpenseBankAllocation).filter(
+        ExpenseBankAllocation.expense_id == expense_id
+    ).count()
+    if alloc_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="This expense has bank allocations. Use the Expense Matching page to manage payment status."
+        )
     
     # Validate paid_date >= expense_date
     if data.paid_date < expense.expense_date:

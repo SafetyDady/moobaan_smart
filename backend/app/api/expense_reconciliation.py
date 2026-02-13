@@ -229,15 +229,15 @@ async def create_allocation(
 
     matched_amount = Decimal(str(data.matched_amount))
 
-    # 1. Get expense
-    expense = db.query(Expense).filter(Expense.id == data.expense_id).first()
+    # 1. Get expense (FOR UPDATE — row lock to prevent race condition)
+    expense = db.query(Expense).filter(Expense.id == data.expense_id).with_for_update().first()
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
     if expense.status == ExpenseStatus.CANCELLED:
         raise HTTPException(status_code=400, detail="Cannot allocate to a cancelled expense")
 
-    # 2. Get bank transaction
-    bank_txn = db.query(BankTransaction).filter(BankTransaction.id == txn_uuid).first()
+    # 2. Get bank transaction (FOR UPDATE — row lock to prevent race condition)
+    bank_txn = db.query(BankTransaction).filter(BankTransaction.id == txn_uuid).with_for_update().first()
     if not bank_txn:
         raise HTTPException(status_code=404, detail="Bank transaction not found")
     if not bank_txn.debit or bank_txn.debit <= 0:
