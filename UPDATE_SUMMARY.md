@@ -1,6 +1,6 @@
 # 📋 สรุปการอัปเดตระบบ Moobaan Smart
 
-> **อัปเดตล่าสุด:** 11 กุมภาพันธ์ 2569 | **Latest Commit:** `4f5b7fb`
+> **อัปเดตล่าสุด:** 13 กุมภาพันธ์ 2569 | **Latest Commit:** `cd842f2`
 
 ## 🏗️ Stack
 | Component | Technology | Host |
@@ -8,6 +8,7 @@
 | Frontend | React + Vite | Vercel (`moobaan-smart.vercel.app`) |
 | Backend | FastAPI + SQLAlchemy | Railway (`moobaansmart-production.up.railway.app`) |
 | Database | PostgreSQL | Railway (managed) |
+| Object Storage | Cloudflare R2 | `moobaan-smart-production` bucket |
 | Auth | JWT Cookie + CSRF + LINE OAuth | — |
 
 ---
@@ -44,6 +45,32 @@
 | — | manual | **SECRET_KEY rotated** — เปลี่ยนเป็น 64-byte hex key บน Railway | ✅ |
 | — | manual | **ลบ ENV ชั่วคราว** — `RUN_PROD_SEED`, `PROD_RESET_ADMIN_PASSWORD`, `PROD_ADMIN_PASSWORD` | ✅ |
 
+### 📦 Session 4 — Vendor & Category + Reconciliation (12 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 12 | `e5a3eb3` | **Phase H.1.1 Vendor & Category Foundation** — vendor master, expense categories, DB migration | ✅ |
+| 13 | `c92bbf7` | แก้ Vendors route ที่ขาดใน App.jsx | ✅ |
+| 14 | `f1f12c9` | Staff User Management API | ✅ |
+| 15 | `a0785af` | แก้ EmailStr dependency issue | ✅ |
+| 16 | `81258eb` | ลบ duplicate Vendors menu ใน sidebar | ✅ |
+| 17 | `c832b8c` | **User Management Dashboard** — Staff + Resident CRUD | ✅ |
+
+### 💰 Session 5 — Expense Reconciliation + Hardening (12 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 18 | `6971a86` | **Expense ↔ Bank Allocation Layer** — M:N junction table, 5 API endpoints, หน้า Reconciliation UI | ✅ |
+| 19 | `fbe7c5f` | **Allocation Hardening** — row lock (FOR UPDATE), mark-paid guard | ✅ |
+
+### 📎 Session 6 — R2 Storage + Attachments Evidence Layer (12-13 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 20 | `7e237a7` | **R2 Integration Test** — presigned URL smoke test ผ่าน | ✅ |
+| 21 | `c24ab03` | **Attachments Evidence Layer** — table, migration (h13), API (presign/list/delete), business rules | ✅ |
+| 22 | `cd842f2` | **Expense Attachments UI** — upload Invoice/Receipt to R2, view/delete modal | ✅ |
+
 ---
 
 ## 🔑 Credentials
@@ -66,6 +93,10 @@
 - 💰 Invoice / Pay-in / Ledger — ระบบบัญชี
 - 📄 Financial Reports — Invoice Aging, Cash Flow
 - 🔒 Period Closing — ปิดงวดบัญชี
+- 🏢 Vendors & Categories — จัดการ vendor master + หมวดหมู่ค่าใช้จ่าย
+- 👥 User Management — จัดการ Staff + Resident
+- 💸 Expense Matching — จับคู่ค่าใช้จ่ายกับรายการธนาคาร (M:N allocation)
+- 📎 Expense Attachments — แนบไฟล์ Invoice/Receipt ผ่าน Cloudflare R2
 
 ### สำหรับ Resident (ลูกบ้าน)
 - 📱 LINE Login — เข้าสู่ระบบผ่าน LINE
@@ -92,7 +123,8 @@
 
 | รายการ | ความสำคัญ | สถานะ |
 |--------|----------|-------|
-| ทดสอบ Resident LINE Login flow จริง (admin ผูก line_user_id → resident ใช้ LINE) | 🟡 กลาง | ❌ ยังไม่ทำ |
+| ตั้ง R2_PUBLIC_URL บน Railway | 🟡 กลาง | ❌ ยังไม่ทำ |
+| ทดสอบ Resident LINE Login flow จริง | 🟡 กลาง | ❌ ยังไม่ทำ |
 | ตั้ง Vercel Git Integration ให้ auto-deploy เมื่อ push | 🟢 ต่ำ | ❌ ยังไม่ทำ |
 | เปิด CSRF enforcement (เปลี่ยนจาก warn → block) | 🟢 ต่ำ | ❌ ยังไม่ทำ |
 

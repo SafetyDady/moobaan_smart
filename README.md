@@ -1,10 +1,13 @@
-# Moobaan Smart - Village Accounting System
+# Moobaan Smart - Village Operational Finance System
 
-**Phase 1 Complete:** UI/UX with Mock Backend ✅
+**Production System** — Backend (FastAPI + PostgreSQL) + Frontend (React + Vite) ✅
 
 ## 🎯 Project Overview
 
-A comprehensive village accounting system with house-centric design, payment tracking, invoice management, and expense tracking.
+A village operational finance system with house-centric design: income collection, expense tracking, bank reconciliation, and evidence storage.
+
+> **Design Principle:** Moobaan Smart = Village Operational Finance System, NOT Accounting Software.
+> No GL, No Journal Entry, No Double Entry, No Document Management, No Versioning, No Approval Workflow.
 
 **Live Deployments:**
 - Frontend (Vercel): https://moobaan-smart.vercel.app
@@ -15,46 +18,62 @@ A comprehensive village accounting system with house-centric design, payment tra
 **Monorepo Structure:**
 ```
 moobaan_smart/
-├── backend/          # FastAPI + Python
+├── backend/                    # FastAPI + SQLAlchemy + PostgreSQL
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── models.py
-│   │   ├── mock_data.py
-│   │   └── api/      # API routers
+│   │   ├── api/                # API routers
+│   │   │   ├── expenses_v2.py
+│   │   │   ├── expense_reconciliation.py
+│   │   │   ├── attachments.py  # Evidence layer (R2)
+│   │   │   └── ...
+│   │   └── db/models/          # SQLAlchemy models
+│   ├── alembic/                # Database migrations
 │   └── requirements.txt
-├── frontend/         # React + Vite + Tailwind
+├── frontend/                   # React + Vite + Tailwind
 │   ├── src/
 │   │   ├── components/
 │   │   ├── contexts/
-│   │   ├── pages/
-│   │   └── api/
+│   │   ├── pages/admin/        # Admin pages (ExpensesV2, etc.)
+│   │   └── api/client.js       # API client (incl. attachmentsAPI)
 │   └── package.json
 └── docker-compose.yml
 ```
 
 ## ✨ Features Implemented (Phase 1)
 
-### Backend (Mock Endpoints)
+### Backend
 - ✅ Dashboard summary statistics
 - ✅ Houses CRUD with search/filter
 - ✅ Members CRUD with 3-member validation
 - ✅ Invoices CRUD (Auto-gen + Manual)
 - ✅ Pay-in reports workflow (SUBMITTED → REJECTED → MATCHED → ACCEPTED)
-- ✅ Expenses CRUD
+- ✅ Expenses CRUD with amount immutability guard
 - ✅ Bank statements upload & matching
+- ✅ **Vendor & Category master** (Phase H.1.1)
+- ✅ **Chart of Accounts (COA Lite)** — account_code linkage
+- ✅ **Expense ↔ Bank Allocation** — M:N junction with row locks (FOR UPDATE)
+- ✅ **Attachments Evidence Layer** — presigned upload to Cloudflare R2
+  - `POST /api/attachments/presign` → presigned PUT URL
+  - `GET /api/attachments/` → list by entity
+  - `DELETE /api/attachments/{id}` → soft delete with immutability check
+- ✅ **Period Closing & Snapshot** (Phase G.1)
+- ✅ **User Management** — Staff + Resident CRUD
 
 ### Frontend (Complete UI)
 - ✅ Dark + Green theme with Tailwind CSS
 - ✅ Sidebar navigation with role-based menu
-- ✅ Mock role switching (Super Admin / Accounting / Resident)
+- ✅ JWT Cookie auth (httpOnly, secure, SameSite=None) + CSRF
 - ✅ **Admin/Accounting Pages:**
   - Dashboard with stats cards
   - Houses management (List + CRUD + Search)
   - Members management (3-member validation)
   - Invoices (Auto/Manual tabs + Generate)
   - Pay-ins inbox (Reject/Match/Accept actions)
-  - Expenses tracking
+  - Expenses tracking with **📎 Attachments UI** (upload Invoice/Receipt to R2)
   - Bank statements (Upload + Matching UI)
+  - **Expense ↔ Bank Matching** (reconciliation page)
+  - Vendors & Categories management
+  - User Management Dashboard
 - ✅ **Resident Pages:**
   - Dashboard (My invoices + Payment history)
   - Submit payment slip
@@ -128,6 +147,27 @@ POST /api/payin-reports/{id}/accept
 CRUD /api/expenses
 POST /api/bank-statements/upload
 GET  /api/bank-statements/{id}/rows
+
+# Expense Reconciliation
+GET  /api/reconcile/expenses
+GET  /api/reconcile/bank-debits
+POST /api/reconcile/allocate
+DEL  /api/reconcile/allocate/{id}
+GET  /api/reconcile/allocations
+
+# Attachments (Evidence Layer — Cloudflare R2)
+POST /api/attachments/presign     # Get presigned PUT URL
+GET  /api/attachments/             # List by entity_type + entity_id
+DEL  /api/attachments/{id}         # Soft delete
+
+# Vendors & Categories
+CRUD /api/vendors
+CRUD /api/expense-categories
+
+# User Management
+GET  /api/users/staff
+POST /api/users/staff
+GET  /api/users/residents
 ```
 
 ## 🔐 Core Business Rules
@@ -161,14 +201,24 @@ Use the dropdown in sidebar to switch between:
 **Backend (.env):**
 ```env
 APP_NAME=moobaan_smart_backend
-ENV=local
+ENV=production
 PORT=8000
+SECRET_KEY=<64-byte-hex>
+DATABASE_URL=postgresql+psycopg://...
+
+# Cloudflare R2 (Object Storage)
+R2_ACCOUNT_ID=<account-id>
+R2_ACCESS_KEY_ID=<access-key>
+R2_SECRET_ACCESS_KEY=<secret-key>
+R2_BUCKET_NAME=moobaan-smart-production
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+R2_PUBLIC_URL=https://pub-xxx.r2.dev
 ```
 
 **Frontend (.env):**
 ```env
 VITE_API_BASE_URL=http://localhost:8000
-# Production: https://moobaan-smart-production.up.railway.app
+# Production: https://moobaansmart-production.up.railway.app
 ```
 
 ## 🚧 Phase 1 Scope & Limitations
@@ -181,14 +231,11 @@ VITE_API_BASE_URL=http://localhost:8000
 - Workflow status tracking
 - Mobile responsive design
 
-**❌ Not Implemented (Phase 2+):**
-- Real authentication (mock role switching only)
-- Real database (mock data in memory)
-- File upload to S3 (mock URLs)
-- Excel parsing (mock statement rows)
-- Matching algorithm (placeholder)
-- Accounting correctness (no double-entry)
-- Real-time updates
+**❌ Not Yet Implemented:**
+- LINE Login full flow (admin link line_user_id → resident)
+- Real-time updates / WebSocket
+- CSRF enforcement (currently warn mode)
+- Mobile-native app
 
 ## 📝 Development Notes
 
@@ -207,32 +254,13 @@ VITE_API_BASE_URL=http://localhost:8000
 - 5 expenses
 - 2 bank statements with rows
 
-## 🔄 Next Steps (Phase 2)
+## 🔄 Next Steps
 
-1. **Database Layer:**
-   - PostgreSQL setup
-   - SQLAlchemy models
-   - Alembic migrations
-
-2. **Authentication:**
-   - JWT tokens
-   - OAuth2 flow
-   - Role-based access control
-
-3. **File Storage:**
-   - S3 integration
-   - Image upload/download
-   - Excel parsing
-
-4. **Business Logic:**
-   - Matching algorithm
-   - Transaction ledger
-   - Accounting rules
-
-5. **Testing:**
-   - pytest (backend)
-   - vitest (frontend)
-   - E2E tests
+1. **LINE Resident Login** — full flow with admin linking
+2. **CSRF Enforcement** — switch from warn to block mode
+3. **Mobile UX Polish** — responsive tweaks
+4. **Testing** — pytest (backend), vitest (frontend), E2E
+5. **Period Close Reporting** — month-end export improvements
 
 ## 📄 License
 
@@ -244,6 +272,6 @@ For questions or support, please open an issue on GitHub.
 
 ---
 
-**Status:** Phase 1 Complete ✅  
-**Last Updated:** 2025-01-12  
-**Next Phase:** Database Integration & Authentication
+**Status:** Production ✅  
+**Last Updated:** 2026-02-13  
+**Git HEAD:** `cd842f2`

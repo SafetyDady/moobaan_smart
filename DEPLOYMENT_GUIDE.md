@@ -9,7 +9,14 @@
 │    Vercel       │────▶│    Railway      │────▶│    Railway      │
 │   (Frontend)    │     │   (Backend)     │     │  (PostgreSQL)   │
 │   React + Vite  │     │   FastAPI       │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
+└─────────────────┘     └────────┬────────┘     └─────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  Cloudflare R2    │
+                    │ (Object Storage)  │
+                    │  Invoice/Receipt  │
+                    └─────────────────┘
 ```
 
 ---
@@ -74,6 +81,12 @@ git push origin main
 | `ENV` | `production` | |
 | `SECRET_KEY` | `<generate-random-64-chars>` | ⚠️ ต้อง generate ใหม่! |
 | `PORT` | `${{PORT}}` | Railway จะ inject อัตโนมัติ |
+| `R2_ACCOUNT_ID` | `<cloudflare-account-id>` | Cloudflare R2 |
+| `R2_ACCESS_KEY_ID` | `<r2-access-key>` | R2 API Token |
+| `R2_SECRET_ACCESS_KEY` | `<r2-secret-key>` | R2 API Token |
+| `R2_BUCKET_NAME` | `moobaan-smart-production` | R2 bucket name |
+| `R2_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` | R2 S3-compatible endpoint |
+| `R2_PUBLIC_URL` | `https://pub-xxx.r2.dev` | Public read URL (r2.dev domain) |
 
 **Generate SECRET_KEY:**
 ```bash
@@ -286,6 +299,7 @@ curl https://your-backend.up.railway.app/api/houses
 | **Vercel** | ✅ Unlimited for hobby | $20/mo Pro |
 | **Railway** | $5 free credit/month | Pay-as-you-go |
 | **PostgreSQL (Railway)** | Included in $5 | ~ $5-20/mo |
+| **Cloudflare R2** | ✅ 10GB storage + 1M class A ops/mo | $0.015/GB/mo |
 
 **สำหรับ Project ขนาดเล็ก:** ใช้ได้ฟรี หรือ < $10/เดือน
 
@@ -320,4 +334,4 @@ railway run alembic upgrade head
 
 ---
 
-*อัพเดทล่าสุด: January 2026*
+*อัพเดทล่าสุด: February 2026*
