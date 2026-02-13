@@ -179,7 +179,7 @@ export default function VillageDashboard() {
 
         {/* ── Monthly Chart — Vertical Stacked Bars ── */}
         <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-          <h3 className="text-base font-semibold text-white mb-4">ภาพรวมรายเดือน</h3>
+          <h3 className="text-base font-semibold text-white mb-3">ภาพรวมรายเดือน <span className="text-xs font-normal text-gray-500">จาก Statement</span></h3>
 
           {months.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
@@ -191,7 +191,7 @@ export default function VillageDashboard() {
               {/* Chart area */}
               <div className="flex">
                 {/* Y-axis labels */}
-                <div className="flex flex-col justify-between pr-2 text-right" style={{ height: 180 }}>
+                <div className="flex flex-col justify-between pr-1 text-right" style={{ height: 150, minWidth: 40 }}>
                   {yLabels.map((v, i) => (
                     <span key={i} className="text-[10px] text-gray-500 leading-none">
                       ฿{v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
@@ -200,7 +200,7 @@ export default function VillageDashboard() {
                 </div>
                 
                 {/* Bars */}
-                <div className="flex-1 relative border-l border-b border-gray-700" style={{ height: 180 }}>
+                <div className="flex-1 relative border-l border-b border-gray-700" style={{ height: 150 }}>
                   {/* Grid lines */}
                   {yLabels.map((_, i) => (
                     <div
@@ -211,27 +211,29 @@ export default function VillageDashboard() {
                   ))}
 
                   {/* Bar groups */}
-                  <div className="flex items-end justify-around h-full px-1 relative z-10">
+                  <div className="flex items-end justify-around h-full px-0.5 relative z-10">
                     {months.map((month) => {
                       const inc = month.income || 0;
                       const exp = month.expense || 0;
                       const total = inc + exp;
-                      const barH = niceMax > 0 ? (total / niceMax) * 100 : 0;
-                      const incH = total > 0 ? (inc / total) * barH : 0;
-                      const expH = total > 0 ? (exp / total) * barH : 0;
+                      const barPct = niceMax > 0 ? (total / niceMax) * 100 : 0;
+                      // Use pixel-based heights for reliability
+                      const barPx = Math.max((barPct / 100) * 150, total > 0 ? 4 : 0);
+                      const incPx = total > 0 ? (inc / total) * barPx : 0;
+                      const expPx = total > 0 ? (exp / total) * barPx : 0;
 
                       return (
-                        <div key={month.period} className="flex flex-col items-center" style={{ width: `${100 / months.length}%` }}>
+                        <div key={month.period} className="flex flex-col items-center justify-end h-full" style={{ width: `${100 / months.length}%` }}>
                           {/* Amount label above bar */}
-                          <div className="text-[9px] text-gray-400 mb-1 text-center leading-tight">
+                          <div className="text-[8px] text-center leading-tight mb-0.5 whitespace-nowrap">
                             <span className="text-emerald-400">{fmtK(inc)}</span>
                             <br />
                             <span className="text-orange-400">({fmtK(exp)})</span>
                           </div>
-                          {/* Stacked bar */}
-                          <div className="w-7 sm:w-9 flex flex-col-reverse rounded-t overflow-hidden" style={{ height: `${Math.max(barH, total > 0 ? 3 : 0)}%` }}>
-                            <div className="bg-emerald-500 transition-all duration-500" style={{ height: `${total > 0 ? (inc / total) * 100 : 0}%` }} />
-                            <div className="bg-orange-500 transition-all duration-500" style={{ height: `${total > 0 ? (exp / total) * 100 : 0}%` }} />
+                          {/* Stacked bar — income on bottom (green), expense on top (orange) */}
+                          <div className="w-6 sm:w-8 flex flex-col rounded-t-sm overflow-hidden">
+                            <div className="bg-orange-500" style={{ height: expPx }} />
+                            <div className="bg-emerald-500" style={{ height: incPx }} />
                           </div>
                         </div>
                       );
