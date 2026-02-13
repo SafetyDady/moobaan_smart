@@ -57,6 +57,7 @@ function App() {
                     <Route path="payins" element={<PayIns />} />
                     <Route path="unidentified-receipts" element={<UnidentifiedReceipts />} />
                     <Route path="expenses" element={<Expenses />} />
+                    <Route path="vendors" element={<Vendors />} />
                     <Route path="statements" element={<BankStatements />} />
                     <Route path="reports/aging" element={<InvoiceAgingReport />} />
                     <Route path="reports/cashflow" element={<CashFlowReport />} />
