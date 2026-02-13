@@ -278,6 +278,68 @@ async def get_village_summary(
     for a in activities:
         a.pop('sort_key', None)
     
+    # ── Expense by category (last 3 months) ──
+    # Query non-cancelled expenses grouped by category + month for the last 3 calendar months
+    three_months_ago = (current_month_start - relativedelta(months=2)).date()  # include current + 2 prior
+    
+    cat_rows = (
+        db.query(
+            Expense.category,
+            func.extract('year', Expense.expense_date).label('yr'),
+            func.extract('month', Expense.expense_date).label('mo'),
+            func.sum(Expense.amount).label('total'),
+            func.count(Expense.id).label('cnt'),
+        )
+        .filter(
+            Expense.status != ExpenseStatus.CANCELLED,
+            Expense.expense_date >= three_months_ago,
+        )
+        .group_by(Expense.category, 'yr', 'mo')
+        .order_by(func.extract('year', Expense.expense_date), func.extract('month', Expense.expense_date))
+        .all()
+    )
+    
+    # Build period list (last 3 months, oldest first)
+    expense_periods = []
+    for offset in [2, 1, 0]:
+        dt = current_month_start - relativedelta(months=offset)
+        y, m = dt.year, dt.month
+        expense_periods.append({
+            "period": f"{y}-{m:02d}",
+            "label": thai_months.get(m, str(m)),
+            "year_label": f"{(y + 543) % 100:02d}",
+        })
+    
+    # Organise into { category: { "YYYY-MM": { total, count } } }
+    cat_map = {}
+    for row in cat_rows:
+        cat = row.category or "OTHER"
+        period_key = f"{int(row.yr)}-{int(row.mo):02d}"
+        if cat not in cat_map:
+            cat_map[cat] = {}
+        cat_map[cat][period_key] = {"total": float(row.total), "count": int(row.cnt)}
+    
+    # Build final list sorted by total descending
+    expense_by_category = []
+    for cat, months_data in cat_map.items():
+        grand = sum(v["total"] for v in months_data.values())
+        monthly = []
+        for p in expense_periods:
+            d = months_data.get(p["period"], {"total": 0, "count": 0})
+            monthly.append({
+                "period": p["period"],
+                "label": p["label"],
+                "year_label": p["year_label"],
+                "total": d["total"],
+                "count": d["count"],
+            })
+        expense_by_category.append({
+            "category": cat,
+            "grand_total": grand,
+            "monthly": monthly,
+        })
+    expense_by_category.sort(key=lambda x: x["grand_total"], reverse=True)
+    
     return {
         "total_balance": total_balance,
         "balance_as_of": balance_as_of,
@@ -287,5 +349,7 @@ async def get_village_summary(
         "debtor_count": debtor_count,
         "total_debt": total_debt,
         "monthly_income": monthly_income,
-        "recent_activities": activities[:5]
+        "recent_activities": activities[:5],
+        "expense_by_category": expense_by_category,
+        "expense_periods": expense_periods,
     }

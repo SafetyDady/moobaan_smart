@@ -259,6 +259,108 @@ export default function VillageDashboard() {
             </div>
           )}
         </div>
+
+        {/* ── Expense by Category — 3-month comparison ── */}
+        {(data.expense_by_category || []).length > 0 && (() => {
+          const cats = data.expense_by_category;
+          const periods = data.expense_periods || [];
+          // Max for bar scaling across ALL categories
+          const globalMax = Math.max(...cats.flatMap(c => c.monthly.map(m => m.total)), 1);
+          // Category color palette
+          const catColors = ['bg-orange-500', 'bg-blue-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500', 'bg-yellow-500', 'bg-red-500', 'bg-indigo-500'];
+          const catTextColors = ['text-orange-400', 'text-blue-400', 'text-purple-400', 'text-pink-400', 'text-teal-400', 'text-yellow-400', 'text-red-400', 'text-indigo-400'];
+          const catLabelMap = {
+            'MAINTENANCE': 'ซ่อมบำรุง',
+            'SECURITY': 'รปภ.',
+            'CLEANING': 'ทำความสะอาด',
+            'UTILITIES': 'ค่าไฟ/น้ำ',
+            'ADMIN': 'บริหาร',
+            'OTHER': 'อื่นๆ',
+          };
+          const grandTotal = cats.reduce((s, c) => s + c.grand_total, 0);
+
+          return (
+            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+              <div className="flex items-baseline justify-between mb-4">
+                <h3 className="text-base font-semibold text-white">
+                  ค่าใช้จ่ายแยกหมวด <span className="text-xs font-normal text-gray-500">3 เดือนล่าสุด</span>
+                </h3>
+              </div>
+
+              {/* Period header */}
+              {periods.length > 0 && (
+                <div className="flex items-center gap-3 mb-3 ml-0">
+                  {periods.map((p, i) => (
+                    <span key={p.period} className="text-[10px] text-gray-500">
+                      {p.label} {p.year_label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {cats.map((cat, ci) => {
+                  const color = catColors[ci % catColors.length];
+                  const textColor = catTextColors[ci % catTextColors.length];
+                  const label = catLabelMap[cat.category] || cat.category;
+
+                  return (
+                    <div key={cat.category}>
+                      {/* Category header */}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-sm ${color} inline-block`}></span>
+                          <span className="text-sm font-medium text-gray-200">{label}</span>
+                        </div>
+                        <span className={`text-sm font-semibold ${textColor}`}>
+                          ฿{cat.grand_total.toLocaleString('th-TH', { maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+
+                      {/* Monthly mini-bars */}
+                      <div className="space-y-1 ml-4">
+                        {cat.monthly.map((m, mi) => {
+                          const barW = globalMax > 0 ? (m.total / globalMax) * 100 : 0;
+                          // Change vs previous month
+                          const prev = mi > 0 ? cat.monthly[mi - 1].total : null;
+                          const pctChange = prev && prev > 0 ? ((m.total - prev) / prev) * 100 : null;
+
+                          return (
+                            <div key={m.period} className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500 w-8 text-right shrink-0">{m.label}</span>
+                              <div className="flex-1 h-4 bg-gray-700/40 rounded overflow-hidden">
+                                <div
+                                  className={`h-full ${color} rounded transition-all duration-500`}
+                                  style={{ width: `${Math.max(barW, m.total > 0 ? 2 : 0)}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-gray-300 w-14 text-right shrink-0">
+                                ฿{m.total >= 1000 ? `${(m.total / 1000).toFixed(1)}k` : m.total.toLocaleString('th-TH')}
+                              </span>
+                              {pctChange !== null && (
+                                <span className={`text-[9px] w-10 text-right shrink-0 ${
+                                  pctChange > 0 ? 'text-red-400' : pctChange < 0 ? 'text-emerald-400' : 'text-gray-500'
+                                }`}>
+                                  {pctChange > 0 ? '↑' : pctChange < 0 ? '↓' : '—'}{Math.abs(pctChange).toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Grand total footer */}
+              <div className="mt-4 pt-3 border-t border-gray-700 flex items-center justify-between">
+                <span className="text-xs text-gray-400">รวมทั้งหมด 3 เดือน</span>
+                <span className="text-sm font-bold text-white">฿{grandTotal.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </MobileLayout>
   );
