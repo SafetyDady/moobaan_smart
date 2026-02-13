@@ -306,6 +306,13 @@ export const bankReconciliationAPI = {
 
 // Users API
 export const usersAPI = {
+  // Staff management (super_admin only)
+  listStaff: () => apiClient.get('/api/users/staff'),
+  createStaff: (data) => apiClient.post('/api/users/staff', data),
+  deactivateStaff: (id) => apiClient.post(`/api/users/staff/${id}/deactivate`),
+  reactivateStaff: (id) => apiClient.post(`/api/users/staff/${id}/reactivate`),
+  resetStaffPassword: (id, data) => apiClient.post(`/api/users/staff/${id}/reset-password`, data),
+  // Resident management
   createResident: (data) => apiClient.post('/api/users/residents', data),
   listResidents: (params) => apiClient.get('/api/users/residents', { params }),
   getHouseMemberCount: (houseId) => apiClient.get(`/api/users/houses/${houseId}/member-count`),

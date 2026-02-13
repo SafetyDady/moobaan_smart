@@ -94,6 +94,62 @@ async def list_staff_users(
     }
 
 
+@router.post("/staff/{user_id}/deactivate")
+async def deactivate_staff(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["super_admin"]))
+):
+    """Deactivate a staff user. Super Admin only. Cannot deactivate yourself."""
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+    user = db.query(User).filter(User.id == user_id, User.role.in_(["accounting", "admin"])).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Staff user not found")
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Already inactive")
+    user.is_active = False
+    db.commit()
+    return {"message": f"Staff '{user.email}' deactivated", "id": user.id}
+
+
+@router.post("/staff/{user_id}/reactivate")
+async def reactivate_staff(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["super_admin"]))
+):
+    """Reactivate a staff user. Super Admin only."""
+    user = db.query(User).filter(User.id == user_id, User.role.in_(["accounting", "admin"])).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Staff user not found")
+    if user.is_active:
+        raise HTTPException(status_code=400, detail="Already active")
+    user.is_active = True
+    db.commit()
+    return {"message": f"Staff '{user.email}' reactivated", "id": user.id}
+
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str = Field(..., min_length=8)
+
+
+@router.post("/staff/{user_id}/reset-password")
+async def reset_staff_password(
+    user_id: int,
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["super_admin"]))
+):
+    """Reset a staff user's password. Super Admin only."""
+    user = db.query(User).filter(User.id == user_id, User.role.in_(["super_admin", "accounting", "admin"])).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Staff user not found")
+    user.hashed_password = get_password_hash(data.new_password)
+    db.commit()
+    return {"message": f"Password reset for '{user.email}'", "id": user.id}
+
+
 @router.get("/residents")
 async def list_residents(
     house_id: Optional[int] = None,

@@ -18,6 +18,7 @@ import Invoices from './pages/admin/Invoices';
 import PayIns from './pages/admin/PayIns';
 import Expenses from './pages/admin/ExpensesV2';  // Phase F.1: Expense Core
 import Vendors from './pages/admin/Vendors';  // Phase H.1.1: Vendor & Category
+import UserManagement from './pages/admin/UserManagement';
 import BankStatements from './pages/admin/BankStatements';
 import UnidentifiedReceipts from './pages/admin/UnidentifiedReceipts';
 import InvoiceAgingReport from './pages/admin/InvoiceAgingReport';
@@ -58,6 +59,7 @@ function App() {
                     <Route path="unidentified-receipts" element={<UnidentifiedReceipts />} />
                     <Route path="expenses" element={<Expenses />} />
                     <Route path="vendors" element={<Vendors />} />
+                    <Route path="users" element={<UserManagement />} />
                     <Route path="statements" element={<BankStatements />} />
                     <Route path="reports/aging" element={<InvoiceAgingReport />} />
                     <Route path="reports/cashflow" element={<CashFlowReport />} />
