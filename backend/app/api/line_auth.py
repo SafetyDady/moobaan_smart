@@ -1,31 +1,28 @@
 """
-Phase D.4.1: LINE Login API Endpoints
+Phase D.4.1 + R.3: LINE Login API Endpoints
 
 Purpose:
 - LINE OAuth login for residents
-- Residents enter ONLY via LINE OA
+- Self-service LINE account linking (Controlled — admin must pre-create resident)
 
 Flow:
 1. POST /api/auth/line/login with authorization code
 2. Verify with LINE API → get line_user_id
-3. Find user by line_user_id
-4. Validate: user exists, role=resident, has ACTIVE membership
-5. Issue JWT session (60 days)
+3a. Found user → validate role/membership → issue JWT (60 days)
+3b. Not found → return NEED_LINK + pending token (line_user_id inside)
+4. POST /api/auth/line/link-account with phone + house_code
+   → match admin-created resident → write line_user_id → issue JWT
 
-Error Codes:
-- 403 NOT_REGISTERED_RESIDENT: LINE user not registered or no membership
-
-IMPORTANT:
-- NO user creation
-- NO OTP
-- NO phone anchor
-- NO accounting logic
+Security Rules:
+- NO user creation from LINE (admin must pre-create)
+- NO override if line_user_id already bound
+- Must match: phone + house_code + ACTIVE membership
 """
 import os
 import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Response, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, status, Response, Request, Depends
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -60,12 +57,18 @@ class LINELoginRequest(BaseModel):
 class LINELoginResponse(BaseModel):
     """LINE Login response"""
     success: bool
-    message: str  # "เข้าสู่ระบบสำเร็จ" or "SELECT_HOUSE_REQUIRED"
+    message: str  # "เข้าสู่ระบบสำเร็จ" / "SELECT_HOUSE_REQUIRED" / "NEED_LINK"
     user_id: Optional[int] = None
     display_name: Optional[str] = None
     house_id: Optional[int] = None
     house_code: Optional[str] = None
     houses: Optional[list] = None
+
+
+class LINELinkAccountRequest(BaseModel):
+    """Request to link LINE account to existing resident"""
+    phone: str = Field(..., min_length=9, max_length=15)
+    house_code: str = Field(..., min_length=1, max_length=30)
 
 
 class LINEConfigResponse(BaseModel):
@@ -242,13 +245,42 @@ def line_login(
     user = db.query(User).filter(User.line_user_id == line_user_id).first()
     
     if not user:
-        logger.warning(f"[LINE_LOGIN] User not found for LINE ID: {line_user_id[:8]}...")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "NOT_REGISTERED_RESIDENT",
-                "message": "บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน กรุณาติดต่อผู้ดูแลหมู่บ้าน"
-            }
+        # R.3: LINE user not bound yet → issue NEED_LINK pending token
+        logger.info(f"[LINE_LOGIN] No user bound to LINE ID {line_user_id[:8]}... → NEED_LINK")
+        
+        LINK_TTL_MINUTES = 10
+        link_token_data = {
+            "line_user_id": line_user_id,
+            "line_display_name": profile.display_name or "",
+            "purpose": "link_account",
+        }
+        link_token = _create_pending_token(link_token_data, ttl_minutes=LINK_TTL_MINUTES)
+        
+        # Set pending token as cookie so /link-account can read it
+        response.set_cookie(
+            key="access_token",
+            value=link_token,
+            httponly=True,
+            secure=COOKIE_SECURE,
+            samesite=COOKIE_SAMESITE,
+            max_age=LINK_TTL_MINUTES * 60,
+            path="/"
+        )
+        csrf_token = generate_csrf_token()
+        response.set_cookie(
+            key="csrf_token",
+            value=csrf_token,
+            httponly=False,
+            secure=COOKIE_SECURE,
+            samesite=COOKIE_SAMESITE,
+            max_age=LINK_TTL_MINUTES * 60,
+            path="/"
+        )
+        
+        return LINELoginResponse(
+            success=True,
+            message="NEED_LINK",
+            display_name=profile.display_name,
         )
     
     # Step 3: Validate user role
@@ -379,3 +411,206 @@ def line_login(
         house_code=None,
         houses=houses,
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# R.3: Link LINE Account to existing Resident
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/link-account")
+def link_line_account(
+    request_obj: Request,
+    body: LINELinkAccountRequest,
+    response: Response,
+    db: Session = Depends(get_db)
+):
+    """
+    R.3: Controlled self-service LINE account linking.
+    
+    Precondition: Caller has a pending cookie token with purpose=link_account
+                  (issued by /login when line_user_id not found).
+    
+    Rules:
+    1. NO user creation — must match admin-created resident
+    2. NO override — if user.line_user_id is already set → 409
+    3. Must match phone + house_code + ACTIVE membership
+    """
+    from jose import jwt, JWTError
+    from app.core.auth import SECRET_KEY, ALGORITHM
+    from app.db.models.house import House as HouseModel
+    from datetime import timedelta
+    
+    # ── Step 1: Read pending token from cookie ──
+    token = request_obj.cookies.get("access_token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "NO_TOKEN", "message": "กรุณาเข้าสู่ระบบผ่าน LINE ก่อน"}
+        )
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "TOKEN_EXPIRED", "message": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบผ่าน LINE ใหม่"}
+        )
+    
+    # Must be a pending token with purpose=link_account
+    if payload.get("type") != "pending" or payload.get("purpose") != "link_account":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_TOKEN", "message": "Token ไม่ถูกต้อง กรุณาเข้าสู่ระบบผ่าน LINE ใหม่"}
+        )
+    
+    line_user_id = payload.get("line_user_id")
+    if not line_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_TOKEN", "message": "ไม่พบข้อมูล LINE"}
+        )
+    
+    # ── Step 2: Normalize phone ──
+    phone = body.phone.strip().replace("-", "").replace(" ", "")
+    house_code = body.house_code.strip()
+    
+    logger.info(f"[LINK_ACCOUNT] Attempting link: phone={phone[-4:]}, house={house_code}")
+    
+    # ── Step 3: Find house by house_code ──
+    house = db.query(HouseModel).filter(HouseModel.house_code == house_code).first()
+    if not house:
+        logger.warning(f"[LINK_ACCOUNT] House not found: {house_code}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "ไม่พบข้อมูล กรุณาตรวจสอบเบอร์โทรและบ้านเลขที่"}
+        )
+    
+    # ── Step 4: Find resident user by phone ──
+    user = db.query(User).filter(
+        User.phone == phone,
+        User.role == "resident",
+        User.is_active == True,
+    ).first()
+    
+    if not user:
+        logger.warning(f"[LINK_ACCOUNT] No resident with phone {phone[-4:]}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "ไม่พบข้อมูล กรุณาตรวจสอบเบอร์โทรและบ้านเลขที่"}
+        )
+    
+    # ── Step 5: Verify ACTIVE membership for this house ──
+    membership = db.query(ResidentMembership).filter(
+        ResidentMembership.user_id == user.id,
+        ResidentMembership.house_id == house.id,
+        ResidentMembership.status == ResidentMembershipStatus.ACTIVE
+    ).first()
+    
+    if not membership:
+        logger.warning(f"[LINK_ACCOUNT] User {user.id} has no ACTIVE membership for house {house.id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "ไม่พบข้อมูล กรุณาตรวจสอบเบอร์โทรและบ้านเลขที่"}
+        )
+    
+    # ── Step 6: Check line_user_id not already bound (ห้าม override) ──
+    if user.line_user_id and user.line_user_id != line_user_id:
+        logger.warning(f"[LINK_ACCOUNT] User {user.id} already bound to different LINE account")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "ALREADY_LINKED", "message": "บัญชีนี้ผูกกับ LINE อื่นอยู่แล้ว กรุณาติดต่อผู้ดูแลหมู่บ้าน"}
+        )
+    
+    # Also check: is this line_user_id already used by another user?
+    existing_line_user = db.query(User).filter(
+        User.line_user_id == line_user_id,
+        User.id != user.id,
+    ).first()
+    if existing_line_user:
+        logger.warning(f"[LINK_ACCOUNT] LINE ID already used by user {existing_line_user.id}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "LINE_ALREADY_USED", "message": "LINE นี้ผูกกับบัญชีอื่นอยู่แล้ว"}
+        )
+    
+    # ── Step 7: Bind line_user_id ──
+    user.line_user_id = line_user_id
+    db.commit()
+    logger.info(f"[LINK_ACCOUNT] ✅ Bound LINE {line_user_id[:8]}... → user {user.id} ({user.full_name})")
+    
+    # ── Step 8: Issue full JWT (same logic as single-house login) ──
+    houses = _get_user_houses(db, user.id)
+    display_name = user.full_name or payload.get("line_display_name", "")
+    
+    # Count active memberships to decide single vs multi-house
+    active_memberships = db.query(ResidentMembership).filter(
+        ResidentMembership.user_id == user.id,
+        ResidentMembership.status == ResidentMembershipStatus.ACTIVE
+    ).all()
+    
+    if len(active_memberships) == 1:
+        # Single house → full JWT immediately
+        selected_house_id = active_memberships[0].house_id
+        h = db.query(HouseModel).filter(HouseModel.id == selected_house_id).first()
+        selected_house_code = h.house_code if h else None
+        
+        token_data = {
+            "sub": str(user.id),
+            "role": "resident",
+            "line_user_id": line_user_id,
+            "session_version": user.session_version,
+            "house_id": selected_house_id,
+        }
+        access_token = create_access_token(
+            data=token_data,
+            expires_delta=timedelta(days=RESIDENT_LINE_SESSION_DAYS)
+        )
+        refresh_tok = create_refresh_token(
+            data={"sub": str(user.id), "role": "resident",
+                  "session_version": user.session_version,
+                  "house_id": selected_house_id},
+            role="resident"
+        )
+        csrf_token = generate_csrf_token()
+        _set_auth_cookies(response, access_token, refresh_tok, csrf_token)
+        
+        return LINELoginResponse(
+            success=True,
+            message="เข้าสู่ระบบสำเร็จ",
+            user_id=user.id,
+            display_name=display_name,
+            house_id=selected_house_id,
+            house_code=selected_house_code,
+            houses=houses,
+        )
+    
+    else:
+        # Multi-house → pending token for house selection
+        pending_token_data = {
+            "sub": str(user.id),
+            "role": "resident",
+            "line_user_id": line_user_id,
+            "session_version": user.session_version,
+        }
+        PENDING_TTL_MINUTES = 10
+        pending_token = _create_pending_token(pending_token_data, ttl_minutes=PENDING_TTL_MINUTES)
+        
+        response.set_cookie(
+            key="access_token", value=pending_token,
+            httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+            max_age=PENDING_TTL_MINUTES * 60, path="/"
+        )
+        csrf_token = generate_csrf_token()
+        response.set_cookie(
+            key="csrf_token", value=csrf_token,
+            httponly=False, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE,
+            max_age=PENDING_TTL_MINUTES * 60, path="/"
+        )
+        
+        return LINELoginResponse(
+            success=True,
+            message="SELECT_HOUSE_REQUIRED",
+            user_id=user.id,
+            display_name=display_name,
+            houses=houses,
+        )

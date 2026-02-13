@@ -58,6 +58,17 @@ export default function LineLogin() {
       });
       
       if (response.data.success) {
+        // R.3: LINE user not bound yet → redirect to link account page
+        if (response.data.message === 'NEED_LINK') {
+          navigate('/link-account', {
+            replace: true,
+            state: {
+              displayName: response.data.display_name || '',
+            },
+          });
+          return;
+        }
+        
         // PATCH-2 rev: Check if house selection is required (multi-house)
         if (response.data.message === 'SELECT_HOUSE_REQUIRED') {
           // Multi-house resident — redirect to house selection page
