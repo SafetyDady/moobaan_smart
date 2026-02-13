@@ -38,7 +38,6 @@ export default function Layout({ children }) {
         { name: 'Pay-ins', path: '/accounting/payins', icon: '💰' },
         { name: 'Expenses', path: '/accounting/expenses', icon: '💸' },
         { name: 'Vendors', path: '/accounting/vendors', icon: '🏢' },
-        { name: 'Vendors', path: '/accounting/vendors', icon: '🏢' },
         { name: 'Bank Statements', path: '/accounting/statements', icon: '🏦' },
         { name: 'Unidentified Receipts', path: '/accounting/unidentified-receipts', icon: '❓' },
         { name: 'Chart of Accounts', path: '/accounting/chart-of-accounts', icon: '📋' },
