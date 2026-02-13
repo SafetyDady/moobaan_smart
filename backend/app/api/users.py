@@ -7,11 +7,23 @@ from app.db.models.house import House
 from app.db.models.house_member import HouseMember
 from app.db.models.resident_membership import ResidentMembership, ResidentMembershipRole, ResidentMembershipStatus
 from app.db.session import get_db
-from app.core.deps import require_admin_or_accounting, get_current_user
+from app.core.deps import require_admin_or_accounting, get_current_user, require_roles
 from app.core.auth import get_password_hash
 from app.models import UserCreate
+from pydantic import BaseModel, EmailStr, Field
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+# Allowed staff roles (super_admin can only create these)
+STAFF_ROLES = ["accounting", "admin"]
+
+
+class StaffCreateRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    full_name: str = Field(..., min_length=2)
+    role: str = Field(..., pattern="^(accounting|admin)$")
+    phone: Optional[str] = None
 
 
 def count_active_house_members(house_id: int, db: Session) -> int:
@@ -20,6 +32,66 @@ def count_active_house_members(house_id: int, db: Session) -> int:
         HouseMember.house_id == house_id,
         User.is_active == True
     ).count()
+
+
+# ========== Staff Management (super_admin only) ==========
+
+@router.post("/staff")
+async def create_staff_user(
+    data: StaffCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["super_admin"]))
+):
+    """
+    Create a staff user (accounting / admin). Super Admin only.
+    """
+    # Check duplicate email
+    existing = db.query(User).filter(User.email == data.email).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    user = User(
+        email=data.email,
+        full_name=data.full_name,
+        hashed_password=get_password_hash(data.password),
+        role=data.role,
+        phone=data.phone,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "message": f"Staff user '{data.email}' created with role '{data.role}'"
+    }
+
+
+@router.get("/staff")
+async def list_staff_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["super_admin"]))
+):
+    """List all staff users (non-resident). Super Admin only."""
+    staff = db.query(User).filter(User.role.in_(["super_admin", "accounting", "admin"])).all()
+    return {
+        "staff": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "full_name": u.full_name,
+                "role": u.role,
+                "is_active": u.is_active,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u in staff
+        ]
+    }
 
 
 @router.get("/residents")
