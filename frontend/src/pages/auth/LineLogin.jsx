@@ -41,14 +41,15 @@ export default function LineLogin() {
   const [error, setError] = useState(null);
   
   // Get redirect URI for LINE OAuth
-  // Must use the registered production URL for LINE OAuth (LINE rejects unregistered URLs)
-  // VITE_APP_URL is set in Vercel to "https://moobaan-smart.vercel.app"
-  // Falls back to window.location.origin for local development
+  // LINE OAuth requires a redirect_uri that is EXACTLY registered in LINE Developers Console
+  // Production: https://moobaan-smart.vercel.app/login
+  // Local dev: http://localhost:5173/login (must also be registered in LINE console)
   const getRedirectUri = () => {
-    const productionUrl = import.meta.env.VITE_APP_URL;
-    if (productionUrl) {
-      return `${productionUrl}/login`;
+    // In production (Vercel), always use the stable production URL
+    if (import.meta.env.PROD) {
+      return 'https://moobaan-smart.vercel.app/login';
     }
+    // Local development
     return `${window.location.origin}/login`;
   };
   
