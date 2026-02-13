@@ -134,23 +134,31 @@ def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
     
     PATCH-2 rev: Also accepts token_type="pending" for house-selection flow.
     Returns token_type in dict so callers can guard against pending tokens.
+    
+    FIX: Pending tokens with purpose="link_account" may NOT have a 'sub' field
+    (user doesn't exist yet). Return the full payload for pending tokens.
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
-            return None
         actual_type = payload.get("type")
         # Verify token type matches expected
         if actual_type != token_type:
             logger.warning(f"Token type mismatch: expected {token_type}, got {actual_type}")
             return None
+        
+        user_id = payload.get("sub")
+        
+        # For pending tokens, sub may be absent (e.g. link_account flow)
+        if user_id is None and token_type != "pending":
+            return None
+        
         token_data = {
             "user_id": user_id,
             "role": payload.get("role"),
             "house_id": payload.get("house_id"),
             "session_version": payload.get("session_version"),  # Phase D.2
             "token_type": actual_type,  # PATCH-2 rev: expose for pending guard
+            "purpose": payload.get("purpose"),  # FIX: expose purpose for link_account
         }
         return token_data
     except JWTError as e:

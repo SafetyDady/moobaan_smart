@@ -256,6 +256,10 @@ def line_login(
         }
         link_token = _create_pending_token(link_token_data, ttl_minutes=LINK_TTL_MINUTES)
         
+        # FIX: Clear any stale refresh_token from previous sessions
+        # to prevent AuthContext refresh logic from overwriting the pending token
+        response.delete_cookie(key="refresh_token", path="/api/auth")
+        
         # Set pending token as cookie so /link-account can read it
         response.set_cookie(
             key="access_token",

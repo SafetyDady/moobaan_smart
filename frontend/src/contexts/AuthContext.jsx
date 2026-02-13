@@ -14,7 +14,15 @@ export function AuthProvider({ children }) {
   const [isAuth, setIsAuth] = useState(false);
 
   // Check for existing auth on mount
+  // Skip checkAuth on /link-account and /select-house — these pages use pending tokens
+  // and checkAuth would trigger refresh logic that overwrites them
   useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/link-account' || path === '/select-house') {
+      console.log('[AuthContext] Skipping checkAuth on', path);
+      setLoading(false);
+      return;
+    }
     checkAuth();
   }, []);
 

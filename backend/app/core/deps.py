@@ -57,6 +57,8 @@ def get_current_user(
         # PATCH-2 rev: Also try to detect pending tokens to give better error
         pending_data = verify_token(token, token_type="pending")
         if pending_data is not None:
+            # FIX: link_account pending tokens have no user_id (user not linked yet)
+            # Still return HOUSE_NOT_SELECTED so AuthContext stops early
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"code": "HOUSE_NOT_SELECTED", "message": "กรุณาเลือกบ้านก่อนเข้าใช้งาน"},
