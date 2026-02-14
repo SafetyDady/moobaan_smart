@@ -359,7 +359,6 @@ export default function MobileSubmitPayment() {
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handleCameraCapture}
                 className="hidden"
                 id="camera-input"
@@ -376,8 +375,8 @@ export default function MobileSubmitPayment() {
                     htmlFor="camera-input"
                     className="absolute bottom-3 right-3 bg-primary-600 text-white px-3 py-2 rounded-lg shadow-lg cursor-pointer active:bg-primary-700 flex items-center gap-2 text-sm"
                   >
-                    <span>📸</span>
-                    <span className="font-medium">เปลี่ยน</span>
+                    <span>�</span>
+                    <span className="font-medium">เปลี่ยน Slip</span>
                   </label>
                 </div>
               ) : (
@@ -386,14 +385,14 @@ export default function MobileSubmitPayment() {
                   className="block w-full bg-gray-800 border-2 border-dashed border-gray-600 rounded-lg p-4 text-center cursor-pointer active:bg-gray-750 transition-colors"
                 >
                   <div className="flex items-center justify-center gap-3">
-                    <span className="text-3xl">📸</span>
-                    <span className="text-white font-medium">แตะเพื่อถ่ายหรือเลือกรูป</span>
+                    <span className="text-3xl">�</span>
+                    <span className="text-white font-medium">แตะเพื่อแนบ Slip</span>
                   </div>
                 </label>
               )}
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              💡 ถ่ายให้เห็นรายละเอียดชัดเจน
+              💡 ถ่ายให้เห็นรายละเอียดชัดเจน หรือเลือกรูป Slip จากแกลเลอรี
             </p>
           </div>
         </form>
