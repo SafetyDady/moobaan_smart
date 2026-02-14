@@ -43,8 +43,8 @@ export function RoleProvider({ children }) {
         setCurrentHouseCode(null);
       }
     } else {
-      // No user: reset everything
-      console.log('⚠️ RoleContext - No user, resetting state');
+      // No user: reset everything (normal on initial load before auth resolves)
+      console.debug('RoleContext - No user, resetting state');
       setCurrentRole(null);
       setCurrentHouseId(null);
       setCurrentHouseCode(null);
