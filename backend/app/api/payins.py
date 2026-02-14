@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
+from app.core.timezone import ensure_utc, utc_now
 from app.models import (
     PayInReport as PayInReportSchema, PayInReportCreate, PayInReportUpdate,
     RejectPayInRequest, PayInStatus
@@ -268,15 +269,17 @@ async def create_payin_report(
         if amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be greater than 0")
         
-        # Parse paid_at (ISO datetime string)
+        # Parse paid_at (ISO datetime string) → normalize to UTC
         from dateutil import parser as date_parser
         try:
             paid_at_datetime = date_parser.isoparse(paid_at)
+            paid_at_datetime = ensure_utc(paid_at_datetime)  # naive=Bangkok→UTC
         except (ValueError, TypeError) as e:
             raise HTTPException(status_code=400, detail=f"Invalid paid_at format: {str(e)}")
         
-        # Phase G.1: Check period lock for payment date
-        validate_period_not_locked(db, paid_at_datetime.date(), "pay-in report")
+        # Phase G.1: Check period lock for payment date (use Bangkok date for business logic)
+        from app.core.timezone import BANGKOK_TZ
+        validate_period_not_locked(db, paid_at_datetime.astimezone(BANGKOK_TZ).date(), "pay-in report")
         
         # Handle slip file upload
         slip_url = None
@@ -286,20 +289,22 @@ async def create_payin_report(
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
         
+        # Store hour/minute in Bangkok time for display, but transfer_date in UTC
+        bkk_dt = paid_at_datetime.astimezone(BANGKOK_TZ)
         new_payin = PayinReportModel(
             house_id=user_house_id,
             submitted_by_user_id=current_user.id,
             amount=amount,
             transfer_date=paid_at_datetime,
-            transfer_hour=paid_at_datetime.hour,
-            transfer_minute=paid_at_datetime.minute,
+            transfer_hour=bkk_dt.hour,
+            transfer_minute=bkk_dt.minute,
             slip_url=slip_url,
             status=PayinStatusEnum.PENDING,  # PENDING = editable by resident until admin reviews
             source=PayinSource.RESIDENT,
             rejection_reason=None,
             accepted_by=None,
             accepted_at=None,
-            submitted_at=datetime.now()
+            submitted_at=utc_now()
         )
         
         db.add(new_payin)
@@ -388,7 +393,7 @@ async def update_payin_report(
     if payin.amount is not None:
         existing.amount = payin.amount
     if payin.transfer_date is not None:
-        existing.transfer_date = payin.transfer_date
+        existing.transfer_date = ensure_utc(payin.transfer_date)  # naive=Bangkok→UTC
     if payin.transfer_hour is not None:
         existing.transfer_hour = payin.transfer_hour
     if payin.transfer_minute is not None:
@@ -400,8 +405,8 @@ async def update_payin_report(
     # Status only changes when admin accepts/rejects
     existing.status = PayinStatusEnum.PENDING
     existing.rejection_reason = None
-    existing.submitted_at = datetime.now()
-    existing.updated_at = datetime.now()
+    existing.submitted_at = utc_now()
+    existing.updated_at = utc_now()
     
     db.commit()
     db.refresh(existing)
@@ -451,7 +456,7 @@ async def reject_payin_report(
     
     payin.status = PayinStatusEnum.REJECTED_NEEDS_FIX
     payin.rejection_reason = request.reason
-    payin.updated_at = datetime.now()
+    payin.updated_at = utc_now()
     
     db.commit()
     db.refresh(payin)
@@ -533,8 +538,8 @@ async def accept_payin_report(
         # 1. Update payin status to ACCEPTED (locks the pay-in)
         payin.status = PayinStatusEnum.ACCEPTED
         payin.accepted_by = current_user.id
-        payin.accepted_at = datetime.now()
-        payin.updated_at = datetime.now()
+        payin.accepted_at = utc_now()
+        payin.updated_at = utc_now()
         
         # 2. Create IMMUTABLE ledger entry (IncomeTransaction)
         #    Uses bank transaction's effective_at as ledger_date (business truth)

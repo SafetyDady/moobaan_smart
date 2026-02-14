@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
+from app.core.timezone import BANGKOK_TZ, utc_now
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from app.models import Invoice as InvoiceSchema, InvoiceCreate, InvoiceType, InvoiceStatus, InvoiceItem
@@ -288,7 +289,7 @@ async def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db)):
         house_id=invoice.house_id,
         cycle_year=cycle_year,
         cycle_month=cycle_month,
-        issue_date=datetime.now().date(),
+        issue_date=datetime.now(BANGKOK_TZ).date(),
         due_date=invoice.due_date,
         total_amount=Decimal(str(total)),
         status="ISSUED",
@@ -392,7 +393,7 @@ async def generate_monthly_invoices(
     from app.services.accounting import AccountingService
     
     # Use provided year/month or default to current month
-    now = datetime.now()
+    now = datetime.now(BANGKOK_TZ)
     target_year = year if year else now.year
     target_month = month if month else now.month
     

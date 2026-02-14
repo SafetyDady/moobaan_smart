@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
+from app.core.timezone import utc_now
 import io
 import json
 
@@ -593,7 +594,7 @@ async def get_house_statement(
                 "success": True,
                 "statement": statement,
                 "meta": {
-                    "generated_at": datetime.now().isoformat(),
+                    "generated_at": utc_now().isoformat(),
                     "requested_by": current_user.username,
                     "format": "json"
                 }

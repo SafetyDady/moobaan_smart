@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple
 from calendar import monthrange
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
+from app.core.timezone import BANGKOK_TZ
 
 from app.db.models import (
     House, HouseStatus, Invoice, InvoiceStatus, PayinReport, PayinStatus,
@@ -756,7 +757,7 @@ class AccountingService:
                 "period": f"{year:04d}-{month:02d}",
                 "period_th": f"{AccountingService.THAI_MONTHS[month-1]} {year + 543}",  # Buddhist year
                 "period_en": f"{AccountingService.ENGLISH_MONTHS[month-1]} {year}",
-                "statement_date": datetime.now().date().isoformat(),
+                "statement_date": datetime.now(BANGKOK_TZ).date().isoformat(),
                 "closing_balance": float(snapshot["closing_balance"])
             },
             "summary": {

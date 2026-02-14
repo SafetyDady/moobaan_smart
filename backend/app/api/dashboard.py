@@ -9,6 +9,7 @@ from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
 from app.db.models.payin_report import PayinReport, PayinStatus
 from decimal import Decimal
 from datetime import datetime, date
+from app.core.timezone import BANGKOK_TZ, utc_now
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -138,7 +139,7 @@ async def get_village_summary(
     from app.db.models.bank_statement_batch import BankStatementBatch
     from dateutil.relativedelta import relativedelta
     
-    now = datetime.now()
+    now = datetime.now(BANGKOK_TZ)
     # Current month boundaries (1st of month 00:00 → 1st of next month 00:00)
     current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     current_month_end = current_month_start + relativedelta(months=1)

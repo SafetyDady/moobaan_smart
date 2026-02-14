@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
 from datetime import datetime
+from app.core.timezone import utc_now
 from app.models import Expense, ExpenseCreate, ExpenseUpdate, ExpenseStatus
 from app.mock_data import MOCK_EXPENSES
 
@@ -47,8 +48,8 @@ async def create_expense(expense: ExpenseCreate):
         description=expense.description,
         receipt_url=expense.receipt_url,
         status=ExpenseStatus.DRAFT,
-        created_at=datetime.now(),
-        updated_at=datetime.now()
+        created_at=utc_now(),
+        updated_at=utc_now()
     )
     expenses_db.append(new_expense)
     next_id += 1
@@ -76,7 +77,7 @@ async def update_expense(expense_id: int, expense: ExpenseUpdate):
     if expense.status is not None:
         existing.status = expense.status
     
-    existing.updated_at = datetime.now()
+    existing.updated_at = utc_now()
     return existing
 
 

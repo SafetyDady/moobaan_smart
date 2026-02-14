@@ -8,6 +8,7 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
+from app.core.timezone import ensure_utc
 from io import StringIO
 
 
@@ -236,7 +237,7 @@ class CSVParserService:
         if ' ' in date_str or ':' in date_str:
             for fmt in datetime_formats:
                 try:
-                    return datetime.strptime(date_str, fmt)
+                    return ensure_utc(datetime.strptime(date_str, fmt))
                 except ValueError:
                     continue
         
@@ -270,12 +271,12 @@ class CSVParserService:
             for time_fmt in time_formats:
                 try:
                     parsed_time = datetime.strptime(time_str, time_fmt).time()
-                    return datetime.combine(parsed_date.date(), parsed_time)
+                    return ensure_utc(datetime.combine(parsed_date.date(), parsed_time))
                 except ValueError:
                     continue
         
         # CASE 5: Return date with 00:00 time (fallback)
-        return parsed_date
+        return ensure_utc(parsed_date)
     
     @staticmethod
     def parse_date(date_str: str) -> Optional[datetime]:

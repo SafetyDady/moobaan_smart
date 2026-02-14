@@ -56,7 +56,10 @@ try:
     from app.api.r2_test import router as r2_test_router  # R2 connectivity test (temporary)
 except ImportError:
     r2_test_router = None  # boto3 not installed locally
-from app.api.attachments import router as attachments_router  # Operational evidence storage
+try:
+    from app.api.attachments import router as attachments_router  # Operational evidence storage
+except ImportError:
+    attachments_router = None  # boto3 not installed locally
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -175,7 +178,8 @@ app.include_router(vendors_router)  # Phase H.1.1: Vendor & Category Foundation
 app.include_router(expense_reconciliation_router)  # Expense ↔ Bank Allocation
 if r2_test_router:
     app.include_router(r2_test_router)  # R2 connectivity test (temporary)
-app.include_router(attachments_router)  # Operational evidence storage
+if attachments_router:
+    app.include_router(attachments_router)  # Operational evidence storage
 
 # Mount static files for uploaded slips
 # This serves files at /uploads/* from the uploads/ directory
