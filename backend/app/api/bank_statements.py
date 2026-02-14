@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
+from app.core.timezone import assert_utc
 import uuid
 
 from app.db.session import get_db
@@ -400,6 +401,7 @@ async def confirm_import(
     
     # Create transactions
     for txn in transactions:
+        assert_utc(txn['effective_at'], "bank_txn.effective_at")
         db_transaction = BankTransaction(
             bank_statement_batch_id=batch.id,
             bank_account_id=bank_account_id,

@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
-from app.core.timezone import ensure_utc, utc_now
+from app.core.timezone import ensure_utc, utc_now, assert_utc
 from app.models import (
     PayInReport as PayInReportSchema, PayInReportCreate, PayInReportUpdate,
     RejectPayInRequest, PayInStatus
@@ -291,6 +291,7 @@ async def create_payin_report(
         
         # Store hour/minute in Bangkok time for display, but transfer_date in UTC
         bkk_dt = paid_at_datetime.astimezone(BANGKOK_TZ)
+        assert_utc(paid_at_datetime, "transfer_date")
         new_payin = PayinReportModel(
             house_id=user_house_id,
             submitted_by_user_id=current_user.id,
@@ -393,7 +394,9 @@ async def update_payin_report(
     if payin.amount is not None:
         existing.amount = payin.amount
     if payin.transfer_date is not None:
-        existing.transfer_date = ensure_utc(payin.transfer_date)  # naive=Bangkok→UTC
+        td = ensure_utc(payin.transfer_date)  # naive=Bangkok→UTC
+        assert_utc(td, "transfer_date_update")
+        existing.transfer_date = td
     if payin.transfer_hour is not None:
         existing.transfer_hour = payin.transfer_hour
     if payin.transfer_minute is not None:
