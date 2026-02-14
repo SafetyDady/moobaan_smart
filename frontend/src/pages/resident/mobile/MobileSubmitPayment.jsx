@@ -242,6 +242,12 @@ export default function MobileSubmitPayment() {
         {error && (
           <div className="mb-4 bg-red-900/30 border border-red-600 rounded-lg p-3">
             <p className="text-sm text-red-300 whitespace-pre-line">{error}</p>
+            <button
+              onClick={() => { setError(null); navigate('/resident/payments'); }}
+              className="mt-3 w-full bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+            >
+              ✕ ปิด / กลับหน้าประวัติ
+            </button>
           </div>
         )}
 
