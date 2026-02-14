@@ -592,21 +592,53 @@ async def cancel_payin_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_accounting)
 ):
-    """Cancel a pay-in report for test cleanup (Admin or Accounting)"""
+    """Cancel a pay-in report for test cleanup (Admin or Accounting)
+    
+    Allowed statuses: PENDING, REJECTED, SUBMITTED, DRAFT
+    NOT allowed: ACCEPTED (must reverse first via bank reconciliation)
+    
+    If pay-in is matched with a bank transaction, the match is cleared first.
+    If pay-in has been POSTED (has income_transaction), must reverse first.
+    """
+    from app.db.models.bank_transaction import BankTransaction, PostingStatus
+    from app.db.models.income_transaction import IncomeTransaction
+    
     payin = db.query(PayinReportModel).options(
-        joinedload(PayinReportModel.house)
+        joinedload(PayinReportModel.house),
+        joinedload(PayinReportModel.matched_statement_txn),
     ).filter(PayinReportModel.id == payin_id).first()
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    if payin.status not in ["PENDING", "REJECTED"]:
+    allowed_statuses = ["DRAFT", "PENDING", "REJECTED", "SUBMITTED", "REJECTED_NEEDS_FIX"]
+    if payin.status not in allowed_statuses:
         raise HTTPException(
             status_code=400,
-            detail=f"Can only cancel PENDING or REJECTED pay-in reports (current status: {payin.status})"
+            detail=f"Cannot cancel pay-in with status '{payin.status}'. Must reverse posted transaction first if ACCEPTED."
         )
     
     if not request.reason or not request.reason.strip():
         raise HTTPException(status_code=400, detail="Cancellation reason is required")
+    
+    # Check if this pay-in has been posted (has income_transaction)
+    existing_ledger = db.query(IncomeTransaction).filter(
+        IncomeTransaction.payin_id == payin_id
+    ).first()
+    if existing_ledger:
+        raise HTTPException(
+            status_code=400,
+            detail="This pay-in has a posted ledger entry. Use 'Reverse' on the bank transaction first."
+        )
+    
+    # If matched with bank transaction, clear the match first
+    if payin.matched_statement_txn_id:
+        bank_txn = db.query(BankTransaction).filter(
+            BankTransaction.id == payin.matched_statement_txn_id
+        ).first()
+        if bank_txn:
+            bank_txn.posting_status = PostingStatus.UNMATCHED
+        payin.matched_statement_txn_id = None
+        db.flush()
     
     # Delete the payin report
     db.delete(payin)
