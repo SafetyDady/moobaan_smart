@@ -301,14 +301,17 @@ async def audit_tz_migration(
             "invoice_status": str(row.inv_status),
         })
 
-    # 3. Period locks
-    period_lock_rows = db.execute(text("""
-        SELECT * FROM period_locks ORDER BY lock_year, lock_month
-    """)).fetchall()
-    result["period_locks"] = [
-        {"year": r.lock_year, "month": r.lock_month, "locked": r.is_locked}
-        for r in period_lock_rows
-    ] if period_lock_rows else []
+    # 3. Period locks/snapshots
+    try:
+        period_rows = db.execute(text("""
+            SELECT period_year, period_month, status FROM period_snapshots ORDER BY period_year, period_month
+        """)).fetchall()
+        result["period_snapshots"] = [
+            {"year": r.period_year, "month": r.period_month, "status": str(r.status)}
+            for r in period_rows
+        ] if period_rows else []
+    except Exception:
+        result["period_snapshots"] = "table_not_found"
 
     # 4. Summary verdict
     has_posted = any(e["ledger_status"] == "POSTED" for e in result["ledger_entries"])
