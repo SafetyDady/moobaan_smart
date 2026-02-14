@@ -100,11 +100,12 @@ class PayinReport(Base):
 
     @hybrid_property
     def transfer_datetime(self):
-        """Compute complete transfer datetime from date + hour + minute (business truth)"""
-        if self.transfer_date and self.transfer_hour is not None and self.transfer_minute is not None:
-            # transfer_date is already datetime with timezone, just need to set hour/minute
-            return self.transfer_date.replace(hour=self.transfer_hour, minute=self.transfer_minute, second=0, microsecond=0)
-        return None
+        """Return the full transfer datetime (stored as UTC in transfer_date).
+        
+        Note: transfer_hour/transfer_minute are Bangkok display values only.
+        The transfer_date column contains the complete UTC datetime.
+        """
+        return self.transfer_date
 
     def is_locked(self):
         """Check if payin is locked (accepted state is terminal)"""
