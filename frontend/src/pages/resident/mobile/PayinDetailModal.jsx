@@ -18,6 +18,7 @@
  */
 
 import { Link } from 'react-router-dom';
+import { payinsAPI } from '../../../api/client';
 import {
   canEditPayin,
   canDeletePayin,
@@ -132,18 +133,18 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
             </div>
           </div>
 
-          {/* Slip Preview - support both slip_url (backend) and slip_image_url (legacy) */}
+          {/* Slip Preview — use backend redirect endpoint for R2 slips */}
           {(payin.slip_url || payin.slip_image_url) && (
             <div className="bg-gray-700 rounded-lg p-4">
               <p className="text-xs text-gray-400 mb-2">สลิป</p>
               <a 
-                href={payin.slip_url || payin.slip_image_url} 
+                href={payinsAPI.slipUrl(payin.id)} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="block"
               >
                 <img
-                  src={payin.slip_url || payin.slip_image_url}
+                  src={payinsAPI.slipUrl(payin.id)}
                   alt="สลิปการโอนเงิน"
                   className="w-full max-h-64 object-contain rounded-lg border border-gray-600"
                   onError={(e) => {

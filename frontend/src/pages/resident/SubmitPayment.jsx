@@ -128,14 +128,21 @@ export default function SubmitPayment() {
       });
 
       if (editPayin) {
-        // For edit, still use JSON (keep old behavior for now)
+        // For edit: upload new slip first if changed, then update payin
+        let slipUrl = undefined; // undefined = don't update slip_url
+        if (slipFile) {
+          const uploadRes = await payinsAPI.uploadSlip(slipFile, currentHouseId);
+          slipUrl = uploadRes.data.slip_url;
+        }
         const jsonData = {
           amount: parseFloat(formData.amount),
           transfer_date: formData.transfer_date,
           transfer_hour: hour,
           transfer_minute: minute,
-          slip_image_url: formData.slip_image_url || `https://example.com/slips/${slipFile?.name || 'updated.jpg'}`
         };
+        if (slipUrl !== undefined) {
+          jsonData.slip_image_url = slipUrl;
+        }
         await payinsAPI.update(editPayin.id, jsonData);
         alert('✅ แก้ไขและส่งรายงานการชำระเงินเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
       } else {
@@ -329,11 +336,6 @@ export default function SubmitPayment() {
                   const file = e.target.files[0];
                   if (file) {
                     setSlipFile(file);
-                    // Mock file upload - in production, upload to S3 and get URL
-                    setFormData({ 
-                      ...formData, 
-                      slip_image_url: `https://example.com/slips/${file.name}` 
-                    });
                   }
                 }}
                 className="hidden"

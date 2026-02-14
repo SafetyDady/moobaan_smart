@@ -210,6 +210,15 @@ export const payinsAPI = {
   cancel: (id, reason) => apiClient.post(`/api/payin-reports/${id}/cancel`, { reason }),
   // Phase D.3: FIFO Allocation
   applyFifo: (id) => apiClient.post(`/api/payin-reports/${id}/apply-fifo`),
+  // Slip upload (for edit flow) — returns { slip_url }
+  uploadSlip: (file, houseId) => {
+    const fd = new FormData();
+    fd.append('slip', file);
+    fd.append('house_id', houseId);
+    return apiClient.post('/api/payin-reports/upload-slip', fd);
+  },
+  // Slip view URL — use for window.open()
+  slipUrl: (id) => `/api/payin-reports/${id}/slip`,
 };
 
 // Expenses API (Phase F.1: Expense Core)

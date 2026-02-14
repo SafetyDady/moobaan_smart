@@ -214,7 +214,7 @@ export default function PayIns() {
                     <td>
                       {payin.slip_image_url ? (
                         <button
-                          onClick={() => window.open(payin.slip_image_url, '_blank')}
+                          onClick={() => window.open(payinsAPI.slipUrl(payin.id), '_blank')}
                           className="text-blue-400 hover:text-blue-300 text-sm"
                         >
                           📎 View
@@ -248,7 +248,7 @@ export default function PayIns() {
                         {/* View Slip - always visible */}
                         {payin.slip_image_url && (
                           <button
-                            onClick={() => window.open(payin.slip_image_url, '_blank')}
+                            onClick={() => window.open(payinsAPI.slipUrl(payin.id), '_blank')}
                             className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 border border-blue-400 rounded"
                           >
                             👁️ View Slip

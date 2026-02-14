@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Form, File, UploadFile, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
@@ -16,7 +17,7 @@ from app.core.deps import (
     get_user_house_id, require_resident_house_context,
     get_house_id_from_token
 )
-from app.core.uploads import save_slip_file
+from app.core.uploads import save_slip_file, get_slip_download_url
 from app.core.period_lock import validate_period_not_locked
 
 router = APIRouter(prefix="/api/payin-reports", tags=["payin-reports"])
@@ -131,6 +132,76 @@ async def get_payin_report(
         "created_at": payin.created_at,
         "updated_at": payin.updated_at
     }
+
+
+# ===== Slip file endpoints =====
+
+@router.get("/{payin_id}/slip")
+async def get_slip_image(
+    payin_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_user),
+    token_house_id: Optional[int] = Depends(get_house_id_from_token),
+):
+    """
+    Redirect to the actual slip image URL.
+
+    - R2 object keys → generates presigned GET URL (1 hour) and 302 redirects.
+    - Old local paths (``/uploads/…``) → redirects to the static mount.
+    - Full URLs → redirects as-is.
+
+    This endpoint is the **canonical** way for the frontend to open a slip.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
+    if not payin:
+        raise HTTPException(status_code=404, detail="Pay-in report not found")
+
+    # Residents can only view their own house slips
+    if current_user.role == "resident":
+        if token_house_id is None or token_house_id != payin.house_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    if not payin.slip_url:
+        raise HTTPException(status_code=404, detail="No slip attached to this pay-in")
+
+    url = get_slip_download_url(payin.slip_url)
+    if not url:
+        logger.warning(f"Cannot resolve slip URL for payin {payin_id}: {payin.slip_url}")
+        raise HTTPException(status_code=404, detail="Slip image not available")
+
+    return RedirectResponse(url=url, status_code=302)
+
+
+@router.post("/upload-slip", response_model=dict)
+async def upload_slip_file(
+    slip: UploadFile = File(...),
+    house_id: int = Form(...),
+    current_user: User = Depends(require_user),
+    token_house_id: Optional[int] = Depends(get_house_id_from_token),
+):
+    """
+    Upload a slip image to R2 (or local fallback) and return the stored key/path.
+
+    Used by the **edit** flow: frontend uploads the slip here first,
+    then PUTs the payin with the returned ``slip_url``.
+    """
+    # Residents can only upload for their own house
+    if current_user.role == "resident":
+        if token_house_id is None or token_house_id != house_id:
+            raise HTTPException(status_code=403, detail="Access denied to this house")
+
+    try:
+        slip_url = await save_slip_file(slip, house_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not slip_url:
+        raise HTTPException(status_code=400, detail="No file received")
+
+    return {"slip_url": slip_url}
 
 
 @router.post("", response_model=dict, status_code=201)

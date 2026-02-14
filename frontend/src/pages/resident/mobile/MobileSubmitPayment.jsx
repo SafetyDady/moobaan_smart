@@ -21,7 +21,7 @@ export default function MobileSubmitPayment() {
     transfer_hour: editPayin?.transfer_hour !== undefined ? String(editPayin.transfer_hour).padStart(2, '0') : '',
     transfer_minute: editPayin?.transfer_minute !== undefined ? String(editPayin.transfer_minute).padStart(2, '0') : '',
     slip_image: null,
-    slip_preview: editPayin?.slip_image_url || null,
+    slip_preview: editPayin?.slip_image_url ? payinsAPI.slipUrl(editPayin.id) : null,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -117,14 +117,22 @@ export default function MobileSubmitPayment() {
       const paidAtISO = `${year}-${month}-${day}T${hourStr}:${minuteStr}:00`;
 
       if (editPayin) {
-        // For edit, use JSON (legacy behavior)
+        // For edit: upload new slip first if changed, then update payin
+        let slipUrl = undefined; // undefined = don't update slip_url field
+        if (formData.slip_image) {
+          // User picked a new slip file — upload to R2
+          const uploadRes = await payinsAPI.uploadSlip(formData.slip_image, currentHouseId);
+          slipUrl = uploadRes.data.slip_url;
+        }
         const jsonData = {
           amount: parseFloat(formData.amount),
           transfer_date: `${year}-${month}-${day}`,
           transfer_hour: hour,
           transfer_minute: minute,
-          slip_image_url: formData.slip_preview || 'https://example.com/slips/updated.jpg'
         };
+        if (slipUrl !== undefined) {
+          jsonData.slip_image_url = slipUrl;
+        }
         await payinsAPI.update(editPayin.id, jsonData);
         setSuccessMessage('✅ แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
         setTimeout(() => navigate('/resident/dashboard'), 1500);
