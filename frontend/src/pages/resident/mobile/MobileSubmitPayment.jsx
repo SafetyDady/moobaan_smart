@@ -173,7 +173,7 @@ export default function MobileSubmitPayment() {
             case 'SUBMITTED': statusText = '(ส่งแล้ว)'; break;
             default: statusText = '';
           }
-          const msg = `⚠️ คุณมีสลิปที่ส่งแล้ว ${statusText}\n(รอ Admin ตรวจสอบ) ระบบป้องกันส่งซ้ำๆ\n\nกรุณารอให้ Admin กระทบยอดภายในวันที่ 10 ก่อน\nจึงบันทึกรายการใหม่ได้\nขออภัยในความไม่สะดวก`;
+          const msg = `⚠️ คุณมีสลิปที่ส่งแล้ว (รอตรวจสอบ) ระบบป้องกันส่งซ้ำๆ\nกรุณารอให้ Admin กระทบยอดภายในวันที่ 10 ก่อน\nจึงบันทึกรายการใหม่ได้   ขออภัยในความไม่สะดวก`;
           setError(msg);
           setSubmitting(false);
           return;
