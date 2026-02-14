@@ -233,6 +233,86 @@ async def list_unmatched_credit_transactions(
     }
 
 
+# ===== TEMPORARY: Timezone Diagnostic (remove after fixing) =====
+
+@router.get("/diagnostic/timezone/{payin_id}")
+async def diagnose_timezone(
+    payin_id: int,
+    current_user: User = Depends(require_role(["super_admin"])),
+    db: Session = Depends(get_db),
+):
+    """Temporary diagnostic endpoint to check timezone values"""
+    from sqlalchemy import text
+    from app.db.models.house import House
+    
+    result = {}
+    
+    # 1. PostgreSQL session timezone
+    tz_row = db.execute(text("SHOW timezone")).fetchone()
+    result["pg_session_timezone"] = tz_row[0] if tz_row else "unknown"
+    
+    # 2. Pay-in data
+    payin = db.query(PayinReport).filter(PayinReport.id == payin_id).first()
+    if not payin:
+        raise HTTPException(status_code=404, detail="Pay-in not found")
+    
+    house = db.query(House).filter(House.id == payin.house_id).first()
+    
+    payin_time = payin.transfer_datetime
+    result["payin"] = {
+        "id": payin.id,
+        "house_code": house.house_code if house else "N/A",
+        "amount": float(payin.amount),
+        "transfer_date_raw": str(payin.transfer_date),
+        "transfer_date_repr": repr(payin.transfer_date),
+        "transfer_date_tzinfo": str(payin.transfer_date.tzinfo) if payin.transfer_date and payin.transfer_date.tzinfo else "NAIVE",
+        "transfer_hour": payin.transfer_hour,
+        "transfer_minute": payin.transfer_minute,
+        "computed_transfer_datetime": str(payin_time) if payin_time else None,
+        "computed_tzinfo": str(payin_time.tzinfo) if payin_time and payin_time.tzinfo else "NAIVE",
+    }
+    
+    # 3. Bank transactions with same amount
+    payin_amount = float(payin.amount)
+    all_credit = db.query(BankTransaction).filter(
+        BankTransaction.credit > 0,
+    ).all()
+    
+    matching_amount = []
+    for txn in all_credit:
+        if abs(float(txn.credit) - payin_amount) <= 0.01:
+            entry = {
+                "id": str(txn.id)[:8],
+                "effective_at_raw": str(txn.effective_at),
+                "effective_at_repr": repr(txn.effective_at),
+                "effective_at_tzinfo": str(txn.effective_at.tzinfo) if txn.effective_at and txn.effective_at.tzinfo else "NAIVE",
+                "credit": float(txn.credit),
+                "matched_payin_id": txn.matched_payin_id,
+                "posting_status": txn.posting_status.value if txn.posting_status else None,
+                "description": (txn.description or "")[:40],
+            }
+            
+            # Compute time diff if both have values
+            if payin_time and txn.effective_at:
+                try:
+                    diff_secs = abs((payin_time - txn.effective_at).total_seconds())
+                    entry["diff_seconds"] = diff_secs
+                    entry["diff_hours"] = round(diff_secs / 3600, 2)
+                    entry["within_60s"] = diff_secs <= 60
+                    entry["is_unmatched"] = txn.matched_payin_id is None
+                except Exception as e:
+                    entry["diff_error"] = str(e)
+            
+            matching_amount.append(entry)
+    
+    # Sort by time diff
+    matching_amount.sort(key=lambda x: x.get("diff_seconds", 999999))
+    
+    result["bank_transactions_same_amount"] = matching_amount[:20]  # Limit to 20
+    result["total_same_amount"] = len(matching_amount)
+    
+    return result
+
 # ===== Get Candidate Transactions for Pay-in (Pay-in Centric UX) =====
 
 @router.get("/candidates/payin/{payin_id}")
