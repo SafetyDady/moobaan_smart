@@ -586,19 +586,26 @@ async def accept_payin_report(
 
 
 @router.post("/{payin_id}/cancel")
-async def cancel_payin_report(
+@router.post("/{payin_id}/delete-submission")
+async def delete_submission(
     payin_id: int,
     request: RejectPayInRequest,  # Reuse same schema (has 'reason' field)
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_accounting)
 ):
-    """Cancel a pay-in report for test cleanup (Admin or Accounting)
+    """Delete Submission — ลบรายการส่งเงินที่ยังไม่ Confirm
     
-    Allowed statuses: PENDING, REJECTED, SUBMITTED, DRAFT
-    NOT allowed: ACCEPTED (must reverse first via bank reconciliation)
+    Action 1 of 4 in Pay-in Lifecycle:
+    - Delete Submission | Reject | Confirm & Post | Reverse
     
-    If pay-in is matched with a bank transaction, the match is cleared first.
-    If pay-in has been POSTED (has income_transaction), must reverse first.
+    เงื่อนไข:
+    - payin.status = PENDING or SUBMITTED (ยังไม่ Confirm)
+    - ยังไม่มี IncomeTransaction (ยังไม่ Post)
+    
+    ผลลัพธ์:
+    - ลบ payin_report ออกจากระบบ
+    - ไม่มี ledger, ไม่มี invoice allocation, ไม่มีผลบัญชี
+    - ถ้า matched อยู่ → unmatch ให้อัตโนมัติก่อนลบ
     """
     from app.db.models.bank_transaction import BankTransaction, PostingStatus
     from app.db.models.income_transaction import IncomeTransaction
@@ -610,15 +617,17 @@ async def cancel_payin_report(
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    allowed_statuses = ["DRAFT", "PENDING", "REJECTED", "SUBMITTED", "REJECTED_NEEDS_FIX"]
-    if payin.status not in allowed_statuses:
+    # Per Pay-in Lifecycle Contract: Delete only for PENDING/SUBMITTED
+    status_value = payin.status.value if hasattr(payin.status, 'value') else str(payin.status)
+    allowed_statuses = ["DRAFT", "PENDING", "SUBMITTED", "REJECTED", "REJECTED_NEEDS_FIX"]
+    if status_value not in allowed_statuses:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot cancel pay-in with status '{payin.status}'. Must reverse posted transaction first if ACCEPTED."
+            detail=f"ไม่สามารถลบได้ — สถานะปัจจุบัน: {status_value}. ถ้า ACCEPTED ต้องใช้ Reverse ก่อน"
         )
     
     if not request.reason or not request.reason.strip():
-        raise HTTPException(status_code=400, detail="Cancellation reason is required")
+        raise HTTPException(status_code=400, detail="กรุณาระบุเหตุผลในการลบ")
     
     # Check if this pay-in has been posted (has income_transaction)
     existing_ledger = db.query(IncomeTransaction).filter(
@@ -627,7 +636,7 @@ async def cancel_payin_report(
     if existing_ledger:
         raise HTTPException(
             status_code=400,
-            detail="This pay-in has a posted ledger entry. Use 'Reverse' on the bank transaction first."
+            detail="รายการนี้ถูก Confirm & Post แล้ว — ต้องใช้ Reverse ก่อนจึงจะลบได้"
         )
     
     # If matched with bank transaction, clear the match first
@@ -645,7 +654,7 @@ async def cancel_payin_report(
     db.commit()
     
     return {
-        "message": "Pay-in report cancelled and deleted",
+        "message": "ลบรายการส่งเงินสำเร็จ (Submission deleted)",
         "payin_id": payin_id,
         "reason": request.reason
     }

@@ -13,11 +13,11 @@ export default function PayIns() {
   const [statusFilter, setStatusFilter] = useState('SUBMITTED'); // Default to SUBMITTED for review queue (new state machine)
   const [selectedPayin, setSelectedPayin] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [showReverseModal, setShowReverseModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [cancelReason, setCancelReason] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
   const [reverseReason, setReverseReason] = useState('');
   const [bankTransactions, setBankTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -157,21 +157,21 @@ export default function PayIns() {
     }
   };
 
-  const handleCancel = async () => {
-    if (!cancelReason.trim()) {
-      alert('Please provide a reason for cancellation');
+  const handleDeleteSubmission = async () => {
+    if (!deleteReason.trim()) {
+      alert('กรุณาระบุเหตุผลในการลบ');
       return;
     }
     try {
-      await payinsAPI.cancel(selectedPayin.id, cancelReason);
-      alert('Pay-in cancelled and deleted');
-      setShowCancelModal(false);
-      setCancelReason('');
+      await payinsAPI.cancel(selectedPayin.id, deleteReason);
+      alert('ลบรายการส่งเงินสำเร็จ (Submission deleted)');
+      setShowDeleteModal(false);
+      setDeleteReason('');
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
-      console.error('Failed to cancel:', error);
-      alert(error.response?.data?.detail || 'Failed to cancel pay-in');
+      console.error('Failed to delete submission:', error);
+      alert(error.response?.data?.detail || 'ไม่สามารถลบรายการส่งเงินได้');
     }
   };
 
@@ -345,33 +345,44 @@ export default function PayIns() {
                             <button
                               onClick={() => {
                                 setSelectedPayin(payin);
-                                setShowCancelModal(true);
+                                setShowDeleteModal(true);
                               }}
                               className="btn-secondary text-sm px-3 py-1"
                             >
-                              🗑 Cancel
+                              🗑 Delete
                             </button>
                           </>
                         )}
                         
-                        {/* Cancel option for REJECTED status */}
+                        {/* Delete option for REJECTED status */}
                         {payin.status === 'REJECTED' && canManagePayins && (
                           <button
                             onClick={() => {
                               setSelectedPayin(payin);
-                              setShowCancelModal(true);
+                              setShowDeleteModal(true);
                             }}
                             className="btn-secondary text-sm px-3 py-1"
                           >
-                            🗑 Cancel
+                            🗑 Delete
                           </button>
                         )}
 
                         {/* REJECTED_NEEDS_FIX - waiting for resident to fix and resubmit */}
-                        {payin.status === 'REJECTED_NEEDS_FIX' && (
-                          <span className="text-orange-400 text-sm" title="Cannot match until resident resubmits">
-                            ⏳ Awaiting resident fix
-                          </span>
+                        {payin.status === 'REJECTED_NEEDS_FIX' && canManagePayins && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-orange-400 text-sm" title="Cannot match until resident resubmits">
+                              ⏳ รอลูกบ้านแก้ไข
+                            </span>
+                            <button
+                              onClick={() => {
+                                setSelectedPayin(payin);
+                                setShowDeleteModal(true);
+                              }}
+                              className="btn-secondary text-sm px-3 py-1"
+                            >
+                              🗑 Delete
+                            </button>
+                          </div>
                         )}
                         
                         {/* Status indicators */}
@@ -409,27 +420,32 @@ export default function PayIns() {
       {showRejectModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">Reject Pay-in</h2>
+            <h2 className="text-xl font-bold text-white mb-4">✗ ปฏิเสธรายการ (Reject Submission)</h2>
             <p className="text-gray-300 mb-2">
-              House: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
+              บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              Amount: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString()}</span>
+              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString()}</span>
             </p>
+            <div className="bg-orange-900 bg-opacity-30 border border-orange-600 rounded p-3 mb-4">
+              <p className="text-orange-400 text-sm">
+                ⚠️ รายการจะถูกเปลี่ยนเป็น REJECTED — เก็บ record ไว้เพื่อ audit ไม่มีผลบัญชี
+              </p>
+            </div>
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">
-                Reason for Rejection *
+                เหตุผลในการปฏิเสธ *
               </label>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 className="input w-full h-24 resize-none"
-                placeholder="e.g., Wrong amount, unclear slip, incorrect date..."
+                placeholder="เช่น ยอดเงินไม่ตรง, สลิปไม่ชัด, วันที่ไม่ถูกต้อง..."
               />
             </div>
             <div className="flex gap-3">
               <button onClick={handleReject} className="btn-danger flex-1">
-                Reject
+                ✗ Reject
               </button>
               <button
                 onClick={() => {
@@ -439,53 +455,53 @@ export default function PayIns() {
                 }}
                 className="btn-secondary flex-1"
               >
-                Cancel
+                ยกเลิก
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Cancel Modal */}
-      {showCancelModal && (
+      {/* Delete Submission Modal */}
+      {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">Cancel Pay-in (Test Cleanup)</h2>
+            <h2 className="text-xl font-bold text-white mb-4">🗑 ลบรายการส่งเงิน (Delete Submission)</h2>
             <p className="text-gray-300 mb-2">
-              House: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
+              บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              Amount: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString()}</span>
+              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString()}</span>
             </p>
             <div className="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded p-3 mb-4">
               <p className="text-yellow-400 text-sm">
-                ⚠️ This will permanently delete the pay-in report. Use for test cleanup only.
+                ⚠️ ระบบจะลบรายการส่งเงินนี้ออก — ไม่มีผลต่อบัญชี เพราะยังไม่ได้ Confirm & Post
               </p>
             </div>
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">
-                Reason for Cancellation *
+                เหตุผลในการลบ *
               </label>
               <textarea
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
                 className="input w-full h-24 resize-none"
-                placeholder="e.g., Test data, duplicate submission..."
+                placeholder="เช่น ข้อมูลทดสอบ, ส่งซ้ำ, ยอดไม่ตรง..."
               />
             </div>
             <div className="flex gap-3">
-              <button onClick={handleCancel} className="btn-danger flex-1">
-                Delete
+              <button onClick={handleDeleteSubmission} className="btn-danger flex-1">
+                🗑 Delete
               </button>
               <button
                 onClick={() => {
-                  setShowCancelModal(false);
-                  setCancelReason('');
+                  setShowDeleteModal(false);
+                  setDeleteReason('');
                   setSelectedPayin(null);
                 }}
                 className="btn-secondary flex-1"
               >
-                Cancel
+                ยกเลิก
               </button>
             </div>
           </div>
