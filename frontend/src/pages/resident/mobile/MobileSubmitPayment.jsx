@@ -173,7 +173,7 @@ export default function MobileSubmitPayment() {
             case 'SUBMITTED': statusText = '(ส่งแล้ว)'; break;
             default: statusText = '';
           }
-          const msg = `⚠️ คุณมีรายการส่งสลิปค้างอยู่ ${statusText}\n\nกรุณากลับไปดำเนินการรายการเดิมให้เสร็จก่อน หรือลบรายการเดิมออก`;
+          const msg = `⚠️ คุณมีสลิปที่ส่งแล้ว ${statusText}\n(รอ Admin ตรวจสอบ) ระบบป้องกันส่งซ้ำๆ\n\nกรุณารอให้ Admin กระทบยอดภายในวันที่ 10 ก่อน\nจึงบันทึกรายการใหม่ได้\nขออภัยในความไม่สะดวก`;
           setError(msg);
           setSubmitting(false);
           return;

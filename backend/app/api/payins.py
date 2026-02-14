@@ -253,7 +253,7 @@ async def create_payin_report(
                 status_code=409,
                 detail={
                     "code": "PAYIN_ALREADY_OPEN",
-                    "message": "คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน",
+                    "message": "คุณมีสลิปที่ส่งแล้ว (รอ Admin ตรวจสอบ) ระบบป้องกันส่งซ้ำๆ กรุณารอให้ Admin กระทบยอดภายในวันที่ 10 ก่อน จึงบันทึกรายการใหม่ได้ ขออภัยในความไม่สะดวก",
                     "existing_payin_id": existing_incomplete.id,
                     "existing_status": status_value,
                     "created_at": existing_incomplete.created_at.isoformat() if existing_incomplete.created_at else None
