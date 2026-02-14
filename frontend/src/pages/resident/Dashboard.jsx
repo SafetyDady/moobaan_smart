@@ -312,16 +312,34 @@ export default function ResidentDashboard() {
                             </>
                           )}
                           {payin.status === 'SUBMITTED' && (
-                            <span className="text-blue-400 text-sm">⏳ กำลังตรวจสอบ</span>
+                            <>
+                              <span className="text-blue-400 text-sm">⏳ กำลังตรวจสอบ</span>
+                              {!payin.is_matched && (
+                                <button
+                                  onClick={() => handleDeletePayin(payin.id)}
+                                  className="text-red-400 hover:text-red-300 text-sm"
+                                >
+                                  🗑️ ลบ
+                                </button>
+                              )}
+                            </>
                           )}
                           {payin.status === 'REJECTED_NEEDS_FIX' && (
-                            <Link 
-                              to="/resident/submit" 
-                              state={{ editPayin: payin }} 
-                              className="text-primary-400 hover:text-primary-300 text-sm"
-                            >
-                              🔄 แก้ไขและส่งใหม่
-                            </Link>
+                            <>
+                              <Link 
+                                to="/resident/submit" 
+                                state={{ editPayin: payin }} 
+                                className="text-primary-400 hover:text-primary-300 text-sm"
+                              >
+                                🔄 แก้ไขและส่งใหม่
+                              </Link>
+                              <button
+                                onClick={() => handleDeletePayin(payin.id)}
+                                className="text-red-400 hover:text-red-300 text-sm"
+                              >
+                                🗑️ ลบ
+                              </button>
+                            </>
                           )}
                           {/* Legacy status support */}
                           {payin.status === 'PENDING' && (

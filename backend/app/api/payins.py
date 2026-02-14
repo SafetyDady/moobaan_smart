@@ -627,13 +627,14 @@ async def delete_payin_report(
     
     R.3.1: Residents use house_id from token for access control.
     
-    Resident can delete:
+    Resident can delete if NOT matched:
     - DRAFT
+    - PENDING
+    - SUBMITTED
     - REJECTED_NEEDS_FIX (and legacy REJECTED)
     
     Resident CANNOT delete:
-    - PENDING (must edit instead)
-    - SUBMITTED (under review)
+    - Any matched pay-in (is_matched = true)
     - ACCEPTED (permanent record)
     """
     import logging
@@ -651,8 +652,8 @@ async def delete_payin_report(
         status_value = payin.status.value if hasattr(payin.status, 'value') else str(payin.status)
         logger.info(f"Payin {payin_id} status={status_value} house_id={payin.house_id}")
         
-        # Deletable statuses for residents
-        DELETABLE_STATUSES = ["DRAFT", "REJECTED_NEEDS_FIX", "REJECTED"]
+        # Check if matched (matched pay-ins cannot be deleted by anyone)
+        is_matched = payin.matched_statement_txn_id is not None
         
         # Role-based access control (R.3.1: use token house_id)
         if current_user.role == "resident":
@@ -668,37 +669,27 @@ async def delete_payin_report(
                 logger.warning(f"Access denied: token house={token_house_id} != payin house={payin.house_id}")
                 raise HTTPException(status_code=403, detail="Access denied to this house's data")
             
-            # Residents can only delete DRAFT or REJECTED pay-ins
-            if status_value not in DELETABLE_STATUSES:
-                logger.info(f"Cannot delete status={status_value}, not in {DELETABLE_STATUSES}")
-                # Return proper error code for UI to translate
-                if status_value in ["PENDING", "SUBMITTED"]:
-                    raise HTTPException(
-                        status_code=400,
-                        detail={
-                            "code": "CANNOT_DELETE_PENDING",
-                            "message": "ไม่สามารถลบรายการที่รอตรวจสอบได้ กรุณาแก้ไขแทน",
-                            "status": status_value
-                        }
-                    )
-                elif status_value == "ACCEPTED":
-                    raise HTTPException(
-                        status_code=400,
-                        detail={
-                            "code": "CANNOT_DELETE_ACCEPTED",
-                            "message": "ไม่สามารถลบรายการที่ยืนยันแล้วได้",
-                            "status": status_value
-                        }
-                    )
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail={
-                            "code": "CANNOT_DELETE",
-                            "message": f"ไม่สามารถลบรายการสถานะ {status_value} ได้",
-                            "status": status_value
-                        }
-                    )
+            # ACCEPTED is always non-deletable
+            if status_value == "ACCEPTED":
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "CANNOT_DELETE_ACCEPTED",
+                        "message": "ไม่สามารถลบรายการที่ยืนยันแล้วได้",
+                        "status": status_value
+                    }
+                )
+            
+            # Matched pay-ins cannot be deleted
+            if is_matched:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "CANNOT_DELETE_MATCHED",
+                        "message": "ไม่สามารถลบรายการที่จับคู่กับธนาคารแล้วได้",
+                        "status": status_value
+                    }
+                )
         elif current_user.role in ["accounting", "super_admin"]:
             # Admins can delete any non-accepted pay-in
             if status_value == "ACCEPTED":

@@ -52,11 +52,13 @@ const EDITABLE_STATUSES = [
 ];
 
 /**
- * Statuses where Resident CAN delete Pay-in
- * Note: PENDING is NOT deletable - must edit instead
+ * Statuses where Resident CAN delete Pay-in (if not matched)
+ * Rule: any unmatched, non-ACCEPTED pay-in can be deleted
  */
 const DELETABLE_STATUSES = [
   PayinStatus.DRAFT,
+  PayinStatus.PENDING,
+  PayinStatus.SUBMITTED,
   PayinStatus.REJECTED_NEEDS_FIX,
   PayinStatus.REJECTED,          // Legacy
 ];
@@ -96,12 +98,13 @@ export const canEditPayin = (payin) => {
 
 /**
  * Check if Resident can delete this Pay-in
- * Note: PENDING cannot be deleted (must edit instead)
+ * Rule: deletable status AND not matched
  * @param {object} payin - Pay-in object with status property
  * @returns {boolean}
  */
 export const canDeletePayin = (payin) => {
   if (!payin?.status) return false;
+  if (payin.is_matched) return false; // matched pay-ins cannot be deleted
   return DELETABLE_STATUSES.includes(payin.status);
 };
 

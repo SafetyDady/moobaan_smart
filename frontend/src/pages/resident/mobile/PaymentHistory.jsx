@@ -333,6 +333,16 @@ export default function PaymentHistory() {
         <PayinDetailModal
           payin={selectedPayin}
           onClose={() => setSelectedPayin(null)}
+          onDelete={async (payinId) => {
+            try {
+              await payinsAPI.delete(payinId);
+              setSelectedPayin(null);
+              loadData();
+            } catch (err) {
+              const msg = err.response?.data?.detail?.message || 'ลบไม่สำเร็จ';
+              alert(msg);
+            }
+          }}
           onUpdate={loadData}
         />
       )}
