@@ -1,9 +1,17 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, Numeric, UniqueConstraint, Text, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, Numeric, UniqueConstraint, Text, Integer, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.session import Base
 import uuid
+import enum
+
+
+class PostingStatus(enum.Enum):
+    UNMATCHED = "UNMATCHED"
+    MATCHED = "MATCHED"
+    POSTED = "POSTED"
+    REVERSED = "REVERSED"
 
 
 class BankTransaction(Base):
@@ -25,6 +33,13 @@ class BankTransaction(Base):
     
     # Reconciliation: 1:1 match with payin_report
     matched_payin_id = Column(Integer, ForeignKey("payin_reports.id", ondelete="SET NULL"), nullable=True, unique=True)
+    
+    # Phase P1: Statement-Driven posting status
+    posting_status = Column(
+        SAEnum(PostingStatus, name='posting_status_enum', create_constraint=False, native_enum=True),
+        nullable=False,
+        server_default='UNMATCHED'
+    )
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -53,6 +68,7 @@ class BankTransaction(Base):
             "channel": self.channel,
             "matched_payin_id": self.matched_payin_id,
             "is_matched": self.matched_payin_id is not None,
+            "posting_status": self.posting_status.value if self.posting_status else "UNMATCHED",
             "raw_row": self.raw_row,
             "fingerprint": self.fingerprint,
             "created_at": self.created_at.isoformat() if self.created_at else None,

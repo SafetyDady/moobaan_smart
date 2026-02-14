@@ -100,10 +100,11 @@ class Invoice(Base):
         return self.get_total_credited() >= float(self.total_amount)
 
     def get_total_paid(self):
-        """Calculate total amount paid for this invoice"""
+        """Calculate total amount paid for this invoice (only ACTIVE payments)"""
         if not self.payments:
             return 0
-        return sum(float(payment.amount) for payment in self.payments)
+        return sum(float(payment.amount) for payment in self.payments
+                   if not hasattr(payment, 'status') or payment.status is None or payment.status.value == 'ACTIVE')
 
     def get_outstanding_amount(self):
         """Calculate remaining amount to be paid (considering credits)"""

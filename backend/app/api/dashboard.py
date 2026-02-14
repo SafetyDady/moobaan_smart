@@ -5,7 +5,7 @@ from app.core.deps import get_db, get_current_user
 from app.db.models import User, Invoice, HouseMember, House
 from app.db.models.invoice import InvoiceStatus
 from app.db.models.house import HouseStatus
-from app.db.models.income_transaction import IncomeTransaction
+from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
 from app.db.models.payin_report import PayinReport, PayinStatus
 from decimal import Decimal
 from datetime import datetime, date
@@ -47,14 +47,15 @@ async def get_dashboard_summary(
         # Get all unpaid invoices for user's house
         invoices = db.query(Invoice).filter(
             Invoice.house_id == membership.house_id,
-            Invoice.status != InvoiceStatus.PAID
+            Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID])
         ).all()
         
-        total_outstanding = sum(float(inv.total_amount) for inv in invoices)
+        total_outstanding = sum(inv.get_outstanding_amount() for inv in invoices)
         
-        # Get total income (payments received)
+        # Get total income (payments received) — only POSTED ledger entries
         income_transactions = db.query(IncomeTransaction).filter(
-            IncomeTransaction.house_id == membership.house_id
+            IncomeTransaction.house_id == membership.house_id,
+            IncomeTransaction.status == LedgerStatus.POSTED,
         ).all()
         
         total_income = sum(float(inc.amount) for inc in income_transactions)
@@ -82,15 +83,19 @@ async def get_dashboard_summary(
         houses = db.query(House).all()
         active_houses = [h for h in houses if h.house_status == HouseStatus.ACTIVE]
         
-        invoices = db.query(Invoice).filter(Invoice.status != InvoiceStatus.PAID).all()
-        total_outstanding = sum(float(inv.total_amount) for inv in invoices)
+        invoices = db.query(Invoice).filter(
+            Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID])
+        ).all()
+        total_outstanding = sum(inv.get_outstanding_amount() for inv in invoices)
         
         # Count overdue invoices (due_date < today and not paid)
         today = date.today()
         overdue_invoices = [inv for inv in invoices if inv.due_date and inv.due_date < today]
         
-        # Get total income from all accepted payins
-        income_transactions = db.query(IncomeTransaction).all()
+        # Get total income from all POSTED ledger entries
+        income_transactions = db.query(IncomeTransaction).filter(
+            IncomeTransaction.status == LedgerStatus.POSTED,
+        ).all()
         total_income = sum(float(inc.amount) for inc in income_transactions)
         
         # Count pending payins

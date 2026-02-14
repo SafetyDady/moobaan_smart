@@ -317,6 +317,11 @@ export const bankReconciliationAPI = {
     apiClient.post(`/api/bank-statements/transactions/${txnId}/match`, { payin_id: payinId }),
   unmatchTransaction: (txnId) => 
     apiClient.post(`/api/bank-statements/transactions/${txnId}/unmatch`),
+  // Phase P1: Statement-Driven Confirm & Post
+  confirmAndPost: (txnId, data) => 
+    apiClient.post(`/api/bank-statements/transactions/${txnId}/confirm-and-post`, data || {}),
+  reverseTransaction: (txnId, reason) =>
+    apiClient.post(`/api/bank-statements/transactions/${txnId}/reverse`, { reason }),
 };
 
 // Expense Reconciliation API (Expense ↔ Bank Allocation)

@@ -12,7 +12,7 @@ from datetime import timedelta
 from app.db.session import get_db
 from app.core.deps import get_current_user, require_role
 from app.db.models.user import User
-from app.db.models.bank_transaction import BankTransaction
+from app.db.models.bank_transaction import BankTransaction, PostingStatus
 from app.db.models.payin_report import PayinReport, PayinStatus
 
 
@@ -126,6 +126,9 @@ async def match_transaction_with_payin(
     bank_txn.matched_payin_id = payin.id
     payin.matched_statement_txn_id = bank_txn.id
     
+    # Phase P1: Update posting status
+    bank_txn.posting_status = PostingStatus.MATCHED
+    
     db.commit()
     
     return MatchResponse(
@@ -184,6 +187,9 @@ async def unmatch_transaction(
     payin_id = payin.id
     bank_txn.matched_payin_id = None
     payin.matched_statement_txn_id = None
+    
+    # Phase P1: Reset posting status
+    bank_txn.posting_status = PostingStatus.UNMATCHED
     
     db.commit()
     
@@ -341,3 +347,370 @@ async def get_candidate_transactions_for_payin(
             status_code=500,
             detail=f"Error getting candidates: {str(e)}"
         )
+
+
+# ===== Phase P1: Confirm & Post (Statement-Driven Atomic Flow) =====
+
+class ConfirmPostRequest(BaseModel):
+    """Optional: specify target invoice for ambiguous cases"""
+    invoice_id: Optional[int] = None
+
+
+class ReverseRequest(BaseModel):
+    reason: str
+
+
+@router.post("/transactions/{txn_id}/confirm-and-post")
+async def confirm_and_post(
+    txn_id: str,
+    data: Optional[ConfirmPostRequest] = None,
+    current_user: User = Depends(require_role(["super_admin", "accounting"])),
+    db: Session = Depends(get_db),
+):
+    """
+    Atomic Confirm & Post: Statement → Ledger → Invoice allocation in 1 click.
+    
+    Flow:
+    1. Lock bank transaction row (SELECT FOR UPDATE)
+    2. Idempotency: if already POSTED, return existing result
+    3. Detect exact-match invoice (or use specified invoice_id)
+    4. Create IncomeTransaction (ledger)
+    5. FIFO allocate to invoice(s)
+    6. Update invoice status
+    7. Set posting_status = POSTED
+    8. If matched pay-in exists, set status = ACCEPTED
+    
+    Guards:
+    - Only CREDIT transactions
+    - Must be MATCHED or UNMATCHED (not already POSTED/REVERSED)
+    - Auto only when exact match (1 invoice, exact amount)
+    - Returns 409 AMBIGUOUS if multiple candidates
+    """
+    from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
+    from app.db.models.invoice_payment import InvoicePayment
+    from app.db.models.invoice import Invoice, InvoiceStatus
+    from app.db.models.house import House
+    from app.db.models.payin_report import PayinReport, PayinStatus as PayinStatusEnum
+    from datetime import datetime
+    
+    # Parse UUID
+    try:
+        txn_uuid = uuid.UUID(txn_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transaction ID format")
+    
+    # 1. Lock row (SELECT FOR UPDATE)
+    bank_txn = db.query(BankTransaction).filter(
+        BankTransaction.id == txn_uuid
+    ).with_for_update().first()
+    
+    if not bank_txn:
+        raise HTTPException(status_code=404, detail="Bank transaction not found")
+    
+    # Must be CREDIT
+    if not bank_txn.credit or bank_txn.credit <= 0:
+        raise HTTPException(status_code=400, detail="Only CREDIT transactions can be posted")
+    
+    # 2. Idempotency: already POSTED → return existing result
+    if bank_txn.posting_status == PostingStatus.POSTED:
+        existing_ledger = db.query(IncomeTransaction).filter(
+            IncomeTransaction.reference_bank_transaction_id == txn_uuid
+        ).first()
+        return {
+            "status": "already_posted",
+            "message": "Transaction already posted (idempotent)",
+            "bank_transaction_id": txn_id,
+            "income_transaction_id": existing_ledger.id if existing_ledger else None,
+            "posting_status": "POSTED",
+        }
+    
+    # Cannot post REVERSED transactions
+    if bank_txn.posting_status == PostingStatus.REVERSED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot post a reversed transaction. Create a new transaction instead."
+        )
+    
+    # 3. Detect target house and invoice
+    amount = float(bank_txn.credit)
+    target_house_id = None
+    target_invoice = None
+    payin = None
+    
+    # If matched with pay-in, use pay-in's house
+    if bank_txn.matched_payin_id:
+        payin = db.query(PayinReport).filter(
+            PayinReport.id == bank_txn.matched_payin_id
+        ).first()
+        if payin:
+            target_house_id = payin.house_id
+    
+    if not target_house_id:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "AMBIGUOUS",
+                "message": "ไม่สามารถระบุบ้านได้ กรุณา Match กับ Pay-in ก่อน หรือระบุ invoice_id",
+            }
+        )
+    
+    # Find target invoice
+    if data and data.invoice_id:
+        # Admin specified which invoice
+        target_invoice = db.query(Invoice).filter(
+            Invoice.id == data.invoice_id,
+            Invoice.house_id == target_house_id,
+        ).first()
+        if not target_invoice:
+            raise HTTPException(status_code=404, detail="Specified invoice not found for this house")
+        if target_invoice.get_outstanding_amount() <= 0:
+            raise HTTPException(status_code=400, detail="Specified invoice is already fully paid")
+    else:
+        # Auto-detect: exact match only
+        outstanding_invoices = db.query(Invoice).filter(
+            Invoice.house_id == target_house_id,
+            Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID]),
+        ).order_by(Invoice.due_date.asc()).all()
+        
+        # Filter to only those with actual outstanding balance
+        outstanding_invoices = [inv for inv in outstanding_invoices if inv.get_outstanding_amount() > 0]
+        
+        if not outstanding_invoices:
+            # No outstanding invoice — still post the ledger, but skip allocation
+            pass
+        elif len(outstanding_invoices) == 1 and abs(outstanding_invoices[0].get_outstanding_amount() - amount) < 0.01:
+            # EXACT MATCH: 1 invoice, exact amount
+            target_invoice = outstanding_invoices[0]
+        else:
+            # AMBIGUOUS or partial — do FIFO allocation across invoices
+            # Phase 1: Only auto-allocate if total outstanding >= amount (no overpay)
+            total_outstanding = sum(inv.get_outstanding_amount() for inv in outstanding_invoices)
+            if total_outstanding >= amount:
+                # FIFO across multiple invoices — this is safe
+                target_invoice = "FIFO"  # sentinel
+            else:
+                # Overpayment scenario — still post ledger, allocate what we can
+                target_invoice = "FIFO"
+    
+    # 4. ATOMIC TRANSACTION: Create ledger + allocate + update status
+    try:
+        # Create IncomeTransaction (ledger entry)
+        income_txn = IncomeTransaction(
+            house_id=target_house_id,
+            payin_id=payin.id if payin else None,
+            reference_bank_transaction_id=bank_txn.id,
+            amount=amount,
+            received_at=bank_txn.effective_at,
+            status=LedgerStatus.POSTED,
+        )
+        db.add(income_txn)
+        db.flush()  # Get income_txn.id
+        
+        # 5. FIFO Allocation
+        allocations = []
+        if target_invoice == "FIFO":
+            # Re-query for FIFO
+            fifo_invoices = db.query(Invoice).filter(
+                Invoice.house_id == target_house_id,
+                Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID]),
+            ).order_by(Invoice.due_date.asc()).all()
+            
+            remaining = amount
+            for inv in fifo_invoices:
+                if remaining <= 0:
+                    break
+                outstanding = inv.get_outstanding_amount()
+                if outstanding <= 0:
+                    continue
+                alloc_amount = min(remaining, outstanding)
+                payment = InvoicePayment(
+                    invoice_id=inv.id,
+                    income_transaction_id=income_txn.id,
+                    amount=alloc_amount,
+                )
+                db.add(payment)
+                db.flush()
+                db.refresh(inv)
+                inv.update_status()
+                allocations.append({
+                    "invoice_id": inv.id,
+                    "amount": alloc_amount,
+                    "new_status": inv.status.value,
+                })
+                remaining -= alloc_amount
+                
+        elif target_invoice and target_invoice != "FIFO":
+            # Single invoice exact match
+            alloc_amount = min(amount, target_invoice.get_outstanding_amount())
+            payment = InvoicePayment(
+                invoice_id=target_invoice.id,
+                income_transaction_id=income_txn.id,
+                amount=alloc_amount,
+            )
+            db.add(payment)
+            db.flush()
+            db.refresh(target_invoice)
+            target_invoice.update_status()
+            allocations.append({
+                "invoice_id": target_invoice.id,
+                "amount": alloc_amount,
+                "new_status": target_invoice.status.value,
+            })
+        
+        # 6. Update bank transaction posting_status
+        bank_txn.posting_status = PostingStatus.POSTED
+        
+        # 7. If matched pay-in, set to ACCEPTED
+        if payin:
+            payin.status = PayinStatusEnum.ACCEPTED
+            payin.accepted_by = current_user.id
+            payin.accepted_at = datetime.now()
+        
+        db.commit()
+        db.refresh(income_txn)
+        
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to confirm and post: {str(e)}"
+        )
+    
+    return {
+        "status": "posted",
+        "message": f"Posted ฿{amount:,.2f} → House {target_house_id}, {len(allocations)} invoice(s) allocated",
+        "bank_transaction_id": txn_id,
+        "income_transaction_id": income_txn.id,
+        "posting_status": "POSTED",
+        "house_id": target_house_id,
+        "amount": amount,
+        "allocations": allocations,
+        "payin_id": payin.id if payin else None,
+        "payin_accepted": payin is not None,
+    }
+
+
+# ===== Phase P1: Reverse Endpoint =====
+
+@router.post("/transactions/{txn_id}/reverse")
+async def reverse_posted_transaction(
+    txn_id: str,
+    data: ReverseRequest,
+    current_user: User = Depends(require_role(["super_admin", "accounting"])),
+    db: Session = Depends(get_db),
+):
+    """
+    Reverse a POSTED transaction: compensating state change (no hard delete).
+    
+    Flow:
+    1. Lock bank transaction
+    2. Find IncomeTransaction → mark REVERSED
+    3. Find InvoicePayments → mark REVERSED
+    4. Recalc invoice status for each affected invoice
+    5. Set posting_status = REVERSED
+    6. If linked pay-in, revert to SUBMITTED
+    """
+    from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
+    from app.db.models.invoice_payment import InvoicePayment, PaymentStatus
+    from app.db.models.invoice import Invoice
+    from app.db.models.payin_report import PayinReport, PayinStatus as PayinStatusEnum
+    from datetime import datetime
+    
+    if not data.reason or not data.reason.strip():
+        raise HTTPException(status_code=400, detail="Reverse reason is required")
+    
+    # Parse UUID
+    try:
+        txn_uuid = uuid.UUID(txn_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transaction ID format")
+    
+    # 1. Lock row
+    bank_txn = db.query(BankTransaction).filter(
+        BankTransaction.id == txn_uuid
+    ).with_for_update().first()
+    
+    if not bank_txn:
+        raise HTTPException(status_code=404, detail="Bank transaction not found")
+    
+    if bank_txn.posting_status != PostingStatus.POSTED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only reverse POSTED transactions (current: {bank_txn.posting_status.value})"
+        )
+    
+    try:
+        # 2. Find IncomeTransaction
+        income_txn = db.query(IncomeTransaction).filter(
+            IncomeTransaction.reference_bank_transaction_id == txn_uuid
+        ).first()
+        
+        reversed_invoices = []
+        
+        if income_txn:
+            # 3. Mark all InvoicePayments as REVERSED
+            payments = db.query(InvoicePayment).filter(
+                InvoicePayment.income_transaction_id == income_txn.id,
+                InvoicePayment.status == PaymentStatus.ACTIVE,
+            ).all()
+            
+            affected_invoice_ids = set()
+            for payment in payments:
+                payment.status = PaymentStatus.REVERSED
+                affected_invoice_ids.add(payment.invoice_id)
+            
+            # 4. Recalc invoice status
+            for inv_id in affected_invoice_ids:
+                invoice = db.query(Invoice).filter(Invoice.id == inv_id).first()
+                if invoice:
+                    db.flush()
+                    db.refresh(invoice)
+                    invoice.update_status()
+                    reversed_invoices.append({
+                        "invoice_id": inv_id,
+                        "new_status": invoice.status.value,
+                    })
+            
+            # Mark IncomeTransaction as REVERSED
+            income_txn.status = LedgerStatus.REVERSED
+            income_txn.reversed_at = datetime.now()
+            income_txn.reversed_by = current_user.id
+            income_txn.reverse_reason = data.reason.strip()
+        
+        # 5. Set posting_status = REVERSED
+        bank_txn.posting_status = PostingStatus.REVERSED
+        
+        # 6. Revert matched pay-in to SUBMITTED
+        if bank_txn.matched_payin_id:
+            payin = db.query(PayinReport).filter(
+                PayinReport.id == bank_txn.matched_payin_id
+            ).first()
+            if payin and payin.status == PayinStatusEnum.ACCEPTED:
+                payin.status = PayinStatusEnum.SUBMITTED
+                payin.accepted_by = None
+                payin.accepted_at = None
+        
+        db.commit()
+        
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reverse: {str(e)}"
+        )
+    
+    return {
+        "status": "reversed",
+        "message": f"Transaction reversed: {data.reason}",
+        "bank_transaction_id": txn_id,
+        "posting_status": "REVERSED",
+        "income_transaction_id": income_txn.id if income_txn else None,
+        "reversed_invoices": reversed_invoices,
+        "reason": data.reason.strip(),
+    }

@@ -15,10 +15,13 @@ export default function PayIns() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showMatchModal, setShowMatchModal] = useState(false);
+  const [showReverseModal, setShowReverseModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [cancelReason, setCancelReason] = useState('');
+  const [reverseReason, setReverseReason] = useState('');
   const [bankTransactions, setBankTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [posting, setPosting] = useState(null); // payin id currently being posted
 
   useEffect(() => {
     if (!roleLoading) {
@@ -105,17 +108,52 @@ export default function PayIns() {
     }
   };
 
-  const handleAccept = async (payin) => {
-    if (!confirm(`Accept payment of ฿${payin.amount} from House ${payin.house_number}?\n\nThis will create an immutable ledger entry and cannot be undone.`)) {
+  const handleConfirmAndPost = async (payin) => {
+    if (!confirm(`Confirm & Post ฿${payin.amount} จากบ้าน ${payin.house_number}?\n\nระบบจะสร้าง Ledger + จัดสรรยอดเข้าใบแจ้งหนี้อัตโนมัติ`)) {
+      return;
+    }
+    setPosting(payin.id);
+    try {
+      const result = await bankReconciliationAPI.confirmAndPost(payin.matched_statement_txn_id);
+      const data = result.data;
+      const allocCount = data.allocations?.length || 0;
+      if (data.status === 'already_posted') {
+        alert('รายการนี้ถูก Post ไปแล้ว (idempotent)');
+      } else {
+        alert(`✅ Posted สำเร็จ!\n\nLedger #${data.income_transaction_id}\nจัดสรร ${allocCount} ใบแจ้งหนี้`);
+      }
+      loadPayins();
+    } catch (error) {
+      console.error('Failed to confirm & post:', error);
+      const detail = error.response?.data?.detail;
+      if (typeof detail === 'object' && detail.code === 'AMBIGUOUS') {
+        alert(`⚠️ ${detail.message}`);
+      } else {
+        alert(typeof detail === 'string' ? detail : 'Failed to confirm & post');
+      }
+    } finally {
+      setPosting(null);
+    }
+  };
+
+  const handleReverse = async () => {
+    if (!reverseReason.trim()) {
+      alert('กรุณาระบุเหตุผลในการ Reverse');
       return;
     }
     try {
-      await payinsAPI.accept(payin.id);
-      alert('Pay-in accepted and ledger entry created');
+      const result = await bankReconciliationAPI.reverseTransaction(
+        selectedPayin.matched_statement_txn_id,
+        reverseReason
+      );
+      alert(`↩️ Reversed สำเร็จ\n\n${result.data.message}`);
+      setShowReverseModal(false);
+      setReverseReason('');
+      setSelectedPayin(null);
       loadPayins();
     } catch (error) {
-      console.error('Failed to accept:', error);
-      alert(error.response?.data?.detail || 'Failed to accept pay-in');
+      console.error('Failed to reverse:', error);
+      alert(error.response?.data?.detail || 'Failed to reverse');
     }
   };
 
@@ -229,6 +267,13 @@ export default function PayIns() {
                       ) : (
                         <span className="badge badge-warning text-xs">○ Unmatched</span>
                       )}
+                      {/* Posting status badge */}
+                      {payin.posting_status === 'POSTED' && (
+                        <span className="badge bg-green-700 text-green-100 text-xs ml-1">📌 Posted</span>
+                      )}
+                      {payin.posting_status === 'REVERSED' && (
+                        <span className="badge bg-red-700 text-red-100 text-xs ml-1">↩️ Reversed</span>
+                      )}
                     </td>
                     <td>
                       <span className={`badge ${getStatusBadge(payin.status)}`}>
@@ -275,18 +320,18 @@ export default function PayIns() {
                               </button>
                             )}
                             
-                            {/* Accept button - disabled if not matched */}
+                            {/* Confirm & Post button — replaces old Accept (Phase P1) */}
                             <button
-                              onClick={() => handleAccept(payin)}
-                              disabled={!payin.is_matched}
-                              className={`text-sm px-3 py-1 rounded ${
-                                payin.is_matched 
-                                  ? 'btn-primary' 
+                              onClick={() => handleConfirmAndPost(payin)}
+                              disabled={!payin.is_matched || posting === payin.id}
+                              className={`text-sm px-3 py-1 rounded font-medium ${
+                                payin.is_matched && posting !== payin.id
+                                  ? 'bg-green-600 hover:bg-green-700 text-white' 
                                   : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                               }`}
-                              title={!payin.is_matched ? 'Must match with bank statement first' : 'Accept and create ledger entry'}
+                              title={!payin.is_matched ? 'Must match with bank statement first' : 'Confirm & Post: Ledger + Invoice allocation'}
                             >
-                              ✓ Accept
+                              {posting === payin.id ? '⏳ Posting...' : '✅ Confirm & Post'}
                             </button>
                             <button
                               onClick={() => {
@@ -331,7 +376,21 @@ export default function PayIns() {
                         
                         {/* Status indicators */}
                         {payin.status === 'ACCEPTED' && (
-                          <span className="text-green-400 text-sm">✓ Ledger created</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-green-400 text-sm">✓ Ledger created</span>
+                            {canManagePayins && payin.matched_statement_txn_id && (
+                              <button
+                                onClick={() => {
+                                  setSelectedPayin(payin);
+                                  setShowReverseModal(true);
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
+                                title="Reverse this posting (undo ledger and invoice allocation)"
+                              >
+                                ↩️ Reverse
+                              </button>
+                            )}
+                          </div>
                         )}
                         {payin.status === 'REJECTED' && (
                           <span className="text-red-400 text-sm">Resident can resubmit</span>
@@ -546,6 +605,52 @@ export default function PayIns() {
                 className="btn-secondary px-6"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reverse Modal (Phase P1) */}
+      {showReverseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="card p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-white mb-4">↩️ Reverse Posting</h2>
+            <p className="text-gray-300 mb-2">
+              House: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
+            </p>
+            <p className="text-gray-300 mb-4">
+              Amount: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString()}</span>
+            </p>
+            <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-3 mb-4">
+              <p className="text-red-400 text-sm">
+                ⚠️ การ Reverse จะยกเลิก Ledger entry และคืนสถานะใบแจ้งหนี้ รายการจะยังอยู่ในระบบ (ไม่ถูกลบ)
+              </p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-2">
+                เหตุผลในการ Reverse *
+              </label>
+              <textarea
+                value={reverseReason}
+                onChange={(e) => setReverseReason(e.target.value)}
+                className="input w-full h-24 resize-none"
+                placeholder="เช่น ยอดเงินไม่ตรง, จับคู่ผิดบ้าน, ทดสอบ..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={handleReverse} className="btn-danger flex-1">
+                ↩️ Reverse
+              </button>
+              <button
+                onClick={() => {
+                  setShowReverseModal(false);
+                  setReverseReason('');
+                  setSelectedPayin(null);
+                }}
+                className="btn-secondary flex-1"
+              >
+                ยกเลิก
               </button>
             </div>
           </div>

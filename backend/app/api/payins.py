@@ -36,7 +36,10 @@ async def list_payin_reports(
     List all pay-in reports with role-based filtering.
     R.3.1: Residents use house_id from token, not DB lookup.
     """
-    query = db.query(PayinReportModel).options(joinedload(PayinReportModel.house))
+    query = db.query(PayinReportModel).options(
+        joinedload(PayinReportModel.house),
+        joinedload(PayinReportModel.matched_statement_txn)
+    )
     
     # Role-based filtering
     if current_user.role == "resident":
@@ -74,6 +77,7 @@ async def list_payin_reports(
         "reject_reason": payin.rejection_reason,
         "matched_statement_txn_id": str(payin.matched_statement_txn_id) if payin.matched_statement_txn_id else None,
         "is_matched": payin.matched_statement_txn_id is not None,
+        "posting_status": payin.matched_statement_txn.posting_status.value if payin.matched_statement_txn and payin.matched_statement_txn.posting_status else None,
         "source": payin.source.value if payin.source else "RESIDENT",
         "created_by_admin_id": payin.created_by_admin_id,
         "admin_note": payin.admin_note,
