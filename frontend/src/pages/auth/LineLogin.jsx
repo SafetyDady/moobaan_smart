@@ -45,7 +45,7 @@ export default function LineLogin() {
   // Production: uses VITE_APP_URL env var (set on Vercel)
   // Local dev: uses VITE_APP_URL from .env (http://localhost:5173)
   const getRedirectUri = () => {
-    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const appUrl = (import.meta.env.VITE_APP_URL || window.location.origin).trim();
     return `${appUrl}/login`;
   };
   
