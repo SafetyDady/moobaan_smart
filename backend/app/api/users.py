@@ -1042,16 +1042,18 @@ async def revoke_resident_session(
 # ── TEMP: Fix duplicate production users (remove after use) ──
 @router.post("/fix-duplicate-users")
 async def fix_duplicate_users(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_accounting)
+    secret: str = "",
+    db: Session = Depends(get_db)
 ):
     """
     TEMPORARY: Merge user_id=17 into user_id=6 (same phone 0635162459).
-    Transfer memberships, deactivate duplicate.
-    DELETE THIS ENDPOINT AFTER USE.
+    Requires secret key. DELETE THIS ENDPOINT AFTER USE.
     """
     import logging
     logger = logging.getLogger(__name__)
+    
+    if secret != "fix-dup-2026-02-21":
+        raise HTTPException(status_code=403, detail="Invalid secret")
     
     KEEP_ID = 6
     REMOVE_ID = 17
