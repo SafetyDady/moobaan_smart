@@ -196,3 +196,44 @@ else:
 @app.get("/")
 async def root():
     return {"name": settings.APP_NAME, "status": "running"}
+
+
+@app.get("/debug/phone-check/{phone}")
+async def debug_phone_check(phone: str):
+    """TEMP: Check phone duplicates (remove after debugging)"""
+    from app.db.session import SessionLocal
+    from app.db.models.user import User
+    from app.db.models.resident_membership import ResidentMembership
+    from app.db.models.house_member import HouseMember
+    from sqlalchemy.orm import joinedload
+    
+    db = SessionLocal()
+    try:
+        users = db.query(User).filter(User.phone == phone).order_by(User.id).all()
+        result = {"phone": phone, "total_users": len(users), "users": []}
+        for u in users:
+            memberships = db.query(ResidentMembership).options(
+                joinedload(ResidentMembership.house)
+            ).filter(ResidentMembership.user_id == u.id).all()
+            legacy = db.query(HouseMember).filter(HouseMember.user_id == u.id).all()
+            result["users"].append({
+                "id": u.id, "full_name": u.full_name, "email": u.email,
+                "phone": u.phone, "role": u.role, "is_active": u.is_active,
+                "has_line": bool(getattr(u, 'line_user_id', None)),
+                "line_user_id": getattr(u, 'line_user_id', None),
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+                "memberships": [
+                    {"id": m.id, "house_id": m.house_id,
+                     "house_code": m.house.house_code if m.house else None,
+                     "status": m.status.value if m.status else None,
+                     "role": m.role.value if m.role else None}
+                    for m in memberships
+                ],
+                "legacy_hm": [
+                    {"id": hm.id, "house_id": hm.house_id, "role": hm.member_role}
+                    for hm in legacy
+                ]
+            })
+        return result
+    finally:
+        db.close()
