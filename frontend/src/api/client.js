@@ -135,6 +135,7 @@ export const authAPI = {
   getMe: () => apiClient.get('/api/auth/me'),
   updateMe: (data) => apiClient.patch('/api/auth/me', data),
   changePassword: (data) => apiClient.post('/api/auth/change-password', data),
+  selectHouse: (houseId) => apiClient.post('/api/auth/select-house', { house_id: houseId }),
 };
 
 // Dashboard API

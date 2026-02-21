@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, LogOut, Home, User, Mail, Phone, Edit3, Check, X } from 'lucide-react';
+import { ChevronLeft, LogOut, Home, User, Mail, Phone, Edit3, Check, X, ArrowRightLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRole } from '../../../contexts/RoleContext';
@@ -8,7 +8,7 @@ import MobileLayout from './MobileLayout';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUser, setResidentUser } = useAuth();
   const { currentHouseCode } = useRole();
   const [toast, setToast] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -18,6 +18,7 @@ export default function Profile() {
     email: '',
     phone: '',
   });
+  const [switching, setSwitching] = useState(false);
   
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -62,6 +63,27 @@ export default function Profile() {
     }
   };
   
+  const handleSwitchHouse = async (houseId, houseCode) => {
+    if (switching) return;
+    if (!confirm(`ต้องการสลับไปบ้าน ${houseCode} หรือไม่?`)) return;
+    
+    setSwitching(true);
+    try {
+      const resp = await authAPI.selectHouse(houseId);
+      const userData = resp.data?.user || resp.data;
+      // Update auth context with new house info
+      setResidentUser(userData);
+      showToast(`✅ สลับไปบ้าน ${houseCode} เรียบร้อย`, 'success');
+      // Navigate to dashboard to reload data for new house
+      setTimeout(() => navigate('/resident/dashboard'), 1000);
+    } catch (err) {
+      const msg = err.response?.data?.detail?.message || err.response?.data?.detail || 'เกิดข้อผิดพลาด';
+      showToast(`❌ ${msg}`, 'error');
+    } finally {
+      setSwitching(false);
+    }
+  };
+
   const handleLogout = async () => {
     if (confirm('ต้องการออกจากระบบหรือไม่?')) {
       await logout();
@@ -239,17 +261,36 @@ export default function Profile() {
             
             {user?.houses && user.houses.length > 1 && (
               <div className="p-4 border-t border-gray-700">
-                <div className="text-xs text-gray-400 mb-2">บ้านที่เชื่อมต่อ</div>
-                <div className="flex flex-wrap gap-2">
-                  {user.houses.map(h => (
-                    <span key={h.id} className={`text-xs px-2 py-1 rounded-full ${
-                      h.house_code === currentHouseCode 
-                        ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30' 
-                        : 'bg-gray-700 text-gray-300'
-                    }`}>
-                      บ้าน {h.house_code}
-                    </span>
-                  ))}
+                <div className="flex items-center gap-2 mb-3">
+                  <ArrowRightLeft size={14} className="text-gray-400" />
+                  <span className="text-xs text-gray-400">สลับบ้าน</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {user.houses.map(h => {
+                    const isCurrent = h.house_code === currentHouseCode;
+                    return (
+                      <button
+                        key={h.id}
+                        disabled={isCurrent || switching}
+                        onClick={() => !isCurrent && handleSwitchHouse(h.id, h.house_code)}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                          isCurrent
+                            ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30 cursor-default'
+                            : 'bg-gray-700 text-gray-300 border border-gray-600 active:bg-gray-600 cursor-pointer'
+                        } ${switching && !isCurrent ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Home size={16} />
+                          <span>บ้าน {h.house_code}</span>
+                        </div>
+                        {isCurrent ? (
+                          <span className="text-xs bg-primary-500/30 px-2 py-0.5 rounded-full">ปัจจุบัน</span>
+                        ) : (
+                          <span className="text-xs text-gray-400">{switching ? 'กำลังสลับ...' : 'แตะเพื่อสลับ'}</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
