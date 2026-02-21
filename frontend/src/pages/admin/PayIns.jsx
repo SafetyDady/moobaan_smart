@@ -21,6 +21,7 @@ export default function PayIns() {
   const [reverseReason, setReverseReason] = useState('');
   const [bankTransactions, setBankTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [matchDebugInfo, setMatchDebugInfo] = useState(null);
   const [posting, setPosting] = useState(null); // payin id currently being posted
 
   useEffect(() => {
@@ -49,6 +50,12 @@ export default function PayIns() {
       const candidates = response.data.candidates || [];
       
       setBankTransactions(candidates);
+      
+      // Log debug info to console for troubleshooting
+      if (response.data.debug) {
+        console.log('[Match Debug]', JSON.stringify(response.data.debug, null, 2));
+        setMatchDebugInfo(response.data.debug);
+      }
     } catch (error) {
       console.error('Failed to load candidate bank transactions:', error);
       alert(error.response?.data?.detail || 'Failed to load candidate bank transactions');
@@ -87,6 +94,7 @@ export default function PayIns() {
   const openMatchModal = async (payin) => {
     setSelectedPayin(payin);
     setShowMatchModal(true);
+    setMatchDebugInfo(null);
     await loadBankTransactions(payin);
   };
 
@@ -552,6 +560,34 @@ export default function PayIns() {
                   <p className="text-xs text-gray-500">
                     Check if: (1) Bank statement imported, (2) Amount matches exactly, (3) Time within ±1 minute of transfer_datetime
                   </p>
+                  {/* Debug info for troubleshooting */}
+                  {matchDebugInfo && (
+                    <div className="mt-4 text-left bg-gray-800 rounded p-3 text-xs font-mono">
+                      <p className="text-gray-300 mb-1">🔍 Debug Info:</p>
+                      <p className="text-gray-400">Pay-in time (UTC): {matchDebugInfo.payin_time_utc}</p>
+                      <p className="text-gray-400">Pay-in tzinfo: {matchDebugInfo.payin_time_tzinfo}</p>
+                      <p className="text-gray-400">Unmatched credit txns: {matchDebugInfo.total_unmatched_credit}</p>
+                      <p className="text-gray-400">Amount matches: {matchDebugInfo.amount_matches}</p>
+                      {matchDebugInfo.near_misses?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-yellow-400">Near misses (amount OK, time off):</p>
+                          {matchDebugInfo.near_misses.map((nm, i) => (
+                            <p key={i} className="text-gray-400 ml-2">
+                              txn {nm.txn_id}: bank_time={nm.bank_time_utc}, diff={nm.time_diff_seconds}s ({nm.time_diff_hours}h), reason={nm.reason}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {matchDebugInfo.errors?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-red-400">Errors:</p>
+                          {matchDebugInfo.errors.map((e, i) => (
+                            <p key={i} className="text-red-300 ml-2">txn {e.txn_id}: {e.error}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">

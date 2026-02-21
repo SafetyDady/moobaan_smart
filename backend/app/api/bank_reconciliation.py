@@ -293,6 +293,16 @@ async def get_candidate_transactions_for_payin(
         candidates = []
         payin_amount = float(payin.amount)
         
+        # Debug: track rejection reasons and near-misses
+        debug_info = {
+            "payin_time_utc": payin_time.isoformat() if payin_time else None,
+            "payin_time_tzinfo": str(payin_time.tzinfo) if payin_time else None,
+            "total_unmatched_credit": len(all_unmatched),
+            "amount_matches": 0,
+            "near_misses": [],  # Txns that matched amount but not time
+            "errors": [],
+        }
+        
         for txn in all_unmatched:
             try:
                 # Amount must match exactly (±0.01 tolerance)
@@ -301,13 +311,30 @@ async def get_candidate_transactions_for_payin(
                 if amount_diff > 0.01:
                     continue
                 
+                debug_info["amount_matches"] += 1
+                
                 # Time must be within ±1 minute
                 bank_time = txn.effective_at
                 if not bank_time:
+                    debug_info["near_misses"].append({
+                        "txn_id": str(txn.id)[:8],
+                        "reason": "no effective_at",
+                    })
                     continue
                 
                 time_diff_seconds = abs((payin_time - bank_time).total_seconds())
+                
                 if time_diff_seconds > 60:
+                    # Track near-misses for debugging (first 5)
+                    if len(debug_info["near_misses"]) < 5:
+                        debug_info["near_misses"].append({
+                            "txn_id": str(txn.id)[:8],
+                            "bank_time_utc": bank_time.isoformat(),
+                            "bank_time_tzinfo": str(bank_time.tzinfo),
+                            "time_diff_seconds": round(time_diff_seconds, 1),
+                            "time_diff_hours": round(time_diff_seconds / 3600, 2),
+                            "reason": f"time_diff={round(time_diff_seconds)}s > 60s",
+                        })
                     continue
                 
                 # Add to candidates with metadata
@@ -317,7 +344,10 @@ async def get_candidate_transactions_for_payin(
                 txn_dict['is_perfect_match'] = amount_diff < 0.01 and time_diff_seconds <= 60
                 candidates.append(txn_dict)
             except Exception as e:
-                # Skip this transaction if there's any error
+                debug_info["errors"].append({
+                    "txn_id": str(txn.id)[:8] if txn else "?",
+                    "error": str(e),
+                })
                 continue
         
         # Sort by time difference (closest first)
@@ -337,7 +367,8 @@ async def get_candidate_transactions_for_payin(
                 "time_tolerance": "±1 minute",
                 "transaction_type": "CREDIT only",
                 "match_status": "unmatched only"
-            }
+            },
+            "debug": debug_info,
         }
     except HTTPException:
         raise
