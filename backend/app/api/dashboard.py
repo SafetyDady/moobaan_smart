@@ -45,13 +45,18 @@ async def get_dashboard_summary(
                 monthly_revenue=0.0
             )
         
-        # Get all unpaid invoices for user's house
-        invoices = db.query(Invoice).filter(
+        # Get ALL invoices for user's house (for total billed calculation)
+        all_invoices = db.query(Invoice).filter(
             Invoice.house_id == membership.house_id,
-            Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID])
         ).all()
         
-        total_outstanding = sum(inv.get_outstanding_amount() for inv in invoices)
+        # total_billed = sum of net amounts across ALL invoices (any status)
+        total_billed = sum(inv.get_net_amount() for inv in all_invoices)
+        
+        # total_outstanding = remaining balance on unpaid invoices only
+        unpaid_invoices = [inv for inv in all_invoices 
+                          if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)]
+        total_outstanding = sum(inv.get_outstanding_amount() for inv in unpaid_invoices)
         
         # Get total income (payments received) — only POSTED ledger entries
         income_transactions = db.query(IncomeTransaction).filter(
@@ -62,7 +67,10 @@ async def get_dashboard_summary(
         total_income = sum(float(inc.amount) for inc in income_transactions)
         
         # Calculate current balance (negative = house owes, positive = overpaid)
-        current_balance = total_income - total_outstanding
+        # Formula: money paid - money invoiced
+        # e.g. paid ฿7,000 but billed ฿1,200 → balance = +5,800 (overpaid)
+        # e.g. paid ฿0 but billed ฿1,200 → balance = -1,200 (owes ฿1,200)
+        current_balance = total_income - total_billed
         
         return DashboardSummary(
             current_balance=current_balance,
@@ -71,7 +79,7 @@ async def get_dashboard_summary(
             total_houses=1,
             active_houses=1,
             total_residents=1,
-            pending_invoices=len(invoices),
+            pending_invoices=len(unpaid_invoices),
             total_outstanding=total_outstanding,
             pending_payins=0,      # TODO: Get from payin_reports
             overdue_invoices=0,    # TODO: Filter by due_date
@@ -84,14 +92,17 @@ async def get_dashboard_summary(
         houses = db.query(House).all()
         active_houses = [h for h in houses if h.house_status == HouseStatus.ACTIVE]
         
-        invoices = db.query(Invoice).filter(
-            Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID])
-        ).all()
-        total_outstanding = sum(inv.get_outstanding_amount() for inv in invoices)
+        # Get ALL invoices for total billed, then filter for unpaid
+        all_invoices = db.query(Invoice).all()
+        total_billed = sum(inv.get_net_amount() for inv in all_invoices)
+        
+        unpaid_invoices = [inv for inv in all_invoices 
+                          if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)]
+        total_outstanding = sum(inv.get_outstanding_amount() for inv in unpaid_invoices)
         
         # Count overdue invoices (due_date < today and not paid)
         today = date.today()
-        overdue_invoices = [inv for inv in invoices if inv.due_date and inv.due_date < today]
+        overdue_invoices = [inv for inv in unpaid_invoices if inv.due_date and inv.due_date < today]
         
         # Get total income from all POSTED ledger entries
         income_transactions = db.query(IncomeTransaction).filter(
@@ -104,8 +115,8 @@ async def get_dashboard_summary(
             PayinReport.status == PayinStatus.PENDING
         ).count()
         
-        # Calculate current balance
-        current_balance = total_income - total_outstanding
+        # Calculate current balance: money received - money invoiced
+        current_balance = total_income - total_billed
         
         return DashboardSummary(
             current_balance=current_balance,
@@ -114,7 +125,7 @@ async def get_dashboard_summary(
             total_houses=len(houses),
             active_houses=len(active_houses),
             total_residents=db.query(HouseMember).count(),
-            pending_invoices=len(invoices),
+            pending_invoices=len(unpaid_invoices),
             total_outstanding=total_outstanding,
             pending_payins=pending_payins,
             overdue_invoices=len(overdue_invoices),
