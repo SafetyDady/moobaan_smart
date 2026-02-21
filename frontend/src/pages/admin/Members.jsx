@@ -34,6 +34,13 @@ export default function Members() {
     loading: false
   });
 
+  // Remove from house confirmation modal
+  const [removeHouseModal, setRemoveHouseModal] = useState({
+    show: false,
+    resident: null,
+    loading: false
+  });
+
   useEffect(() => {
     loadData();
   }, [houseFilter]);
@@ -244,6 +251,61 @@ export default function Members() {
 
   // NOTE: handleResetPassword removed - Residents are OTP-only
 
+  // Handle Remove from House
+  const handleRemoveFromHouse = (resident) => {
+    if (!resident.house) return;
+    setRemoveHouseModal({
+      show: true,
+      resident,
+      loading: false
+    });
+  };
+
+  const confirmRemoveFromHouse = async () => {
+    const { resident } = removeHouseModal;
+    if (!resident || !resident.house) return;
+
+    setRemoveHouseModal(prev => ({ ...prev, loading: true }));
+
+    try {
+      const response = await usersAPI.removeFromHouse(resident.id, resident.house.id);
+      setRemoveHouseModal({ show: false, resident: null, loading: false });
+
+      setMessageModal({
+        show: true,
+        type: 'success',
+        title: '✅ ถอดออกจากบ้านสำเร็จ',
+        message_th: response.data.message_th || `ถอด ${resident.full_name} ออกจากบ้าน ${resident.house.house_code} แล้ว`,
+        message_en: response.data.message || 'Removed from house successfully',
+        showDetails: false,
+        errorDetails: null
+      });
+
+      if (response.data.user_deactivated) {
+        setMessageModal(prev => ({
+          ...prev,
+          message_th: prev.message_th + '\n⚠️ ผู้ใช้ไม่มีบ้านเหลือ — ถูก deactivate อัตโนมัติ',
+          message_en: prev.message_en + '\nUser had no remaining houses and was deactivated.'
+        }));
+      }
+
+      loadData();
+    } catch (error) {
+      console.error('Failed to remove from house:', error);
+      setRemoveHouseModal({ show: false, resident: null, loading: false });
+      const detail = error.response?.data?.detail;
+      setMessageModal({
+        show: true,
+        type: 'error',
+        title: '❌ ไม่สำเร็จ',
+        message_th: typeof detail === 'object' ? (detail.error_th || 'เกิดข้อผิดพลาด') : (detail || 'เกิดข้อผิดพลาด'),
+        message_en: typeof detail === 'object' ? (detail.error_en || 'Failed') : (detail || 'Failed to remove from house'),
+        showDetails: false,
+        errorDetails: null
+      });
+    }
+  };
+
   // Phase D.2: Handle Force Logout
   const handleForceLogout = (resident) => {
     setForceLogoutModal({
@@ -386,6 +448,16 @@ export default function Members() {
                             Force Logout
                           </button>
                         )}
+                        {/* Remove from House */}
+                        {resident.is_active && resident.house && (
+                          <button
+                            onClick={() => handleRemoveFromHouse(resident)}
+                            className="text-purple-400 hover:text-purple-300 text-sm"
+                            title="Remove from this house"
+                          >
+                            ถอดบ้าน
+                          </button>
+                        )}
                         {/* NOTE: Reset Password button removed - Residents are OTP-only */}
                         {resident.is_active ? (
                           <button
@@ -426,6 +498,57 @@ export default function Members() {
       </div>
 
       {/* NOTE: Reset Password Modal removed - Residents are OTP-only */}
+
+      {/* Remove from House Confirmation Modal */}
+      {removeHouseModal.show && removeHouseModal.resident && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-white mb-4">⚠️ ถอดออกจากบ้าน</h3>
+
+            <div className="space-y-3 mb-6">
+              <p className="text-gray-300">
+                ต้องการถอดสมาชิกออกจากบ้านนี้?
+              </p>
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-white font-medium">{removeHouseModal.resident.full_name}</p>
+                <p className="text-gray-400 text-sm">
+                  🏠 บ้าน: {removeHouseModal.resident.house?.house_code || '-'}
+                </p>
+                <p className="text-gray-400 text-sm">
+                  📱 โทร: {removeHouseModal.resident.phone || '-'}
+                </p>
+              </div>
+              <div className="text-yellow-400 text-sm">
+                <p>⚠️ การดำเนินการนี้จะ:</p>
+                <ul className="list-disc list-inside ml-2 mt-1 text-gray-300">
+                  <li>ถอดสมาชิกออกจากบ้าน {removeHouseModal.resident.house?.house_code}</li>
+                  <li>Membership จะเปลี่ยนเป็น INACTIVE</li>
+                  <li>ถ้าไม่มีบ้านเหลือ จะ deactivate user อัตโนมัติ</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setRemoveHouseModal({ show: false, resident: null, loading: false })}
+                disabled={removeHouseModal.loading}
+                className="btn-outline flex-1"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemoveFromHouse}
+                disabled={removeHouseModal.loading}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded flex-1 disabled:opacity-50"
+              >
+                {removeHouseModal.loading ? 'กำลังดำเนินการ...' : 'ถอดออกจากบ้าน'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Phase D.2: Force Logout Confirmation Modal */}
       {forceLogoutModal.show && forceLogoutModal.resident && (

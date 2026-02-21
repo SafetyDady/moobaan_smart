@@ -359,6 +359,9 @@ export const usersAPI = {
   reactivateResident: (id) => apiClient.post(`/api/users/${id}/reactivate`),
   // Phase D.2: Force logout - revoke all sessions
   revokeResidentSession: (id) => apiClient.post(`/api/users/residents/${id}/revoke-session`),
+  // Phone-first resident management
+  searchByPhone: (phone) => apiClient.get('/api/users/residents/search', { params: { phone } }),
+  removeFromHouse: (userId, houseId) => apiClient.post(`/api/users/residents/${userId}/remove-house/${houseId}`),
 };
 
 // Members API (DEPRECATED - use usersAPI instead)

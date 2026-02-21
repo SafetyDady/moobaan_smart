@@ -150,6 +150,61 @@ async def reset_staff_password(
     return {"message": f"Password reset for '{user.email}'", "id": user.id}
 
 
+@router.get("/residents/search")
+async def search_resident_by_phone(
+    phone: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting)
+):
+    """
+    Search for an existing resident user by phone number.
+    Returns user info + all house memberships if found.
+    Used by AddResident UI to detect existing users before creating.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Normalize phone
+    phone = phone.strip().replace("-", "").replace(" ", "")
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required")
+    
+    user = db.query(User).filter(User.phone == phone).first()
+    
+    if not user:
+        return {"found": False, "user": None}
+    
+    # Get all memberships with house info
+    memberships = db.query(ResidentMembership).filter(
+        ResidentMembership.user_id == user.id
+    ).all()
+    
+    membership_list = []
+    for m in memberships:
+        house = db.query(House).filter(House.id == m.house_id).first()
+        membership_list.append({
+            "house_id": m.house_id,
+            "house_code": house.house_code if house else "?",
+            "role": m.role.value if hasattr(m.role, 'value') else str(m.role),
+            "status": m.status.value if hasattr(m.status, 'value') else str(m.status)
+        })
+    
+    logger.info(f"Phone search: {phone[:3]}***{phone[-3:]} → user_id={user.id}, {len(membership_list)} memberships")
+    
+    return {
+        "found": True,
+        "user": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "phone": user.phone,
+            "email": user.email,
+            "line_linked": user.line_user_id is not None,
+            "is_active": user.is_active,
+            "memberships": membership_list
+        }
+    }
+
+
 @router.get("/residents")
 async def list_residents(
     house_id: Optional[int] = None,
@@ -637,6 +692,99 @@ async def update_resident(
         )
 
 
+@router.post("/residents/{user_id}/remove-house/{house_id}")
+async def remove_resident_from_house(
+    user_id: int,
+    house_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting)
+):
+    """
+    Remove a resident from a specific house (deactivate membership).
+    If user has no remaining active memberships, also deactivate the user.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Find user
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Find membership
+    membership = db.query(ResidentMembership).filter(
+        ResidentMembership.user_id == user_id,
+        ResidentMembership.house_id == house_id
+    ).first()
+    
+    if not membership:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Membership not found",
+                "error_th": "ไม่พบข้อมูลสมาชิกภาพของบ้านนี้",
+                "error_en": f"No membership found for user {user_id} in house {house_id}"
+            }
+        )
+    
+    if membership.status == ResidentMembershipStatus.INACTIVE:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Already inactive",
+                "error_th": "สมาชิกภาพนี้ inactive อยู่แล้ว",
+                "error_en": "This membership is already inactive"
+            }
+        )
+    
+    house = db.query(House).filter(House.id == house_id).first()
+    house_code = house.house_code if house else str(house_id)
+    
+    try:
+        # Deactivate membership
+        membership.status = ResidentMembershipStatus.INACTIVE
+        membership.deactivated_at = datetime.utcnow()
+        
+        # Also remove legacy HouseMember
+        legacy_hm = db.query(HouseMember).filter(
+            HouseMember.user_id == user_id,
+            HouseMember.house_id == house_id
+        ).first()
+        if legacy_hm:
+            db.delete(legacy_hm)
+        
+        # Check remaining active memberships
+        remaining = db.query(ResidentMembership).filter(
+            ResidentMembership.user_id == user_id,
+            ResidentMembership.status == ResidentMembershipStatus.ACTIVE
+        ).count()
+        
+        user_deactivated = False
+        if remaining == 0:
+            user.is_active = False
+            user_deactivated = True
+        
+        db.commit()
+        
+        logger.info(
+            f"Removed user {user_id} ({user.full_name}) from house {house_code} "
+            f"by admin {current_user.id}. Remaining houses: {remaining}. "
+            f"User deactivated: {user_deactivated}"
+        )
+        
+        return {
+            "success": True,
+            "message": f"Removed from house {house_code}",
+            "message_th": f"ถอด {user.full_name} ออกจากบ้าน {house_code} แล้ว",
+            "remaining_houses": remaining,
+            "user_deactivated": user_deactivated
+        }
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error removing user from house: {e}")
+        raise HTTPException(status_code=500, detail="Failed to remove from house")
+
+
 @router.post("/{user_id}/deactivate")
 async def deactivate_resident(
     user_id: int,
@@ -889,3 +1037,81 @@ async def revoke_resident_session(
 
 
 # NOTE: reset-password endpoint REMOVED - Residents are OTP-only (Phase R cleanup)
+
+
+# ── TEMP: Fix duplicate production users (remove after use) ──
+@router.post("/fix-duplicate-users")
+async def fix_duplicate_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting)
+):
+    """
+    TEMPORARY: Merge user_id=17 into user_id=6 (same phone 0635162459).
+    Transfer memberships, deactivate duplicate.
+    DELETE THIS ENDPOINT AFTER USE.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    KEEP_ID = 6
+    REMOVE_ID = 17
+    PHONE = "0635162459"
+    
+    keep = db.query(User).filter(User.id == KEEP_ID).first()
+    remove = db.query(User).filter(User.id == REMOVE_ID).first()
+    
+    if not keep or not remove:
+        return {"error": "Users not found", "keep": KEEP_ID, "remove": REMOVE_ID}
+    if keep.phone != PHONE or remove.phone != PHONE:
+        return {"error": "Phone mismatch", "keep_phone": keep.phone, "remove_phone": remove.phone}
+    
+    results = []
+    
+    # Transfer ResidentMembership
+    memberships = db.query(ResidentMembership).filter(ResidentMembership.user_id == REMOVE_ID).all()
+    for m in memberships:
+        existing = db.query(ResidentMembership).filter(
+            ResidentMembership.user_id == KEEP_ID,
+            ResidentMembership.house_id == m.house_id
+        ).first()
+        if existing:
+            results.append(f"ResidentMembership house {m.house_id}: already exists, deleting dup")
+            db.delete(m)
+        else:
+            results.append(f"ResidentMembership house {m.house_id}: transferred to user {KEEP_ID}")
+            m.user_id = KEEP_ID
+    
+    # Transfer HouseMember
+    hms = db.query(HouseMember).filter(HouseMember.user_id == REMOVE_ID).all()
+    for hm in hms:
+        existing = db.query(HouseMember).filter(
+            HouseMember.user_id == KEEP_ID,
+            HouseMember.house_id == hm.house_id
+        ).first()
+        if existing:
+            results.append(f"HouseMember house {hm.house_id}: already exists, deleting dup")
+            db.delete(hm)
+        else:
+            results.append(f"HouseMember house {hm.house_id}: transferred to user {KEEP_ID}")
+            hm.user_id = KEEP_ID
+    
+    # Deactivate duplicate
+    remove.is_active = False
+    results.append(f"User {REMOVE_ID} deactivated")
+    
+    db.commit()
+    
+    # Verify
+    final = db.query(ResidentMembership).filter(
+        ResidentMembership.user_id == KEEP_ID,
+        ResidentMembership.status == ResidentMembershipStatus.ACTIVE
+    ).all()
+    
+    logger.info(f"DUPLICATE FIX: {results}")
+    
+    return {
+        "success": True,
+        "actions": results,
+        "user_6_houses": [{"house_id": m.house_id, "role": str(m.role), "status": str(m.status)} for m in final],
+        "user_17_active": remove.is_active
+    }
