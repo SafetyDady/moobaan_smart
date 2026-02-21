@@ -889,3 +889,61 @@ async def revoke_resident_session(
 
 
 # NOTE: reset-password endpoint REMOVED - Residents are OTP-only (Phase R cleanup)
+
+
+@router.get("/debug/phone/{phone}")
+async def debug_phone_users(
+    phone: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting)
+):
+    """TEMP DEBUG: Check all users and memberships for a phone number"""
+    users = db.query(User).filter(User.phone == phone).order_by(User.id).all()
+    
+    result = {
+        "phone": phone,
+        "total_users": len(users),
+        "users": []
+    }
+    
+    for u in users:
+        memberships = db.query(ResidentMembership).filter(
+            ResidentMembership.user_id == u.id
+        ).all()
+        
+        legacy_hm = db.query(HouseMember).filter(
+            HouseMember.user_id == u.id
+        ).all()
+        
+        user_info = {
+            "id": u.id,
+            "full_name": u.full_name,
+            "email": u.email,
+            "phone": u.phone,
+            "role": u.role,
+            "is_active": u.is_active,
+            "has_line": bool(getattr(u, 'line_user_id', None)),
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "memberships": [
+                {
+                    "id": m.id,
+                    "house_id": m.house_id,
+                    "house_code": m.house.house_code if m.house else None,
+                    "status": m.status.value if m.status else None,
+                    "role": m.role.value if m.role else None,
+                }
+                for m in memberships
+            ],
+            "legacy_house_members": [
+                {
+                    "id": hm.id,
+                    "house_id": hm.house_id,
+                    "house_code": hm.house.house_code if hasattr(hm, 'house') and hm.house else None,
+                    "member_role": hm.member_role,
+                }
+                for hm in legacy_hm
+            ]
+        }
+        result["users"].append(user_info)
+    
+    return result
