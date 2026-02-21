@@ -247,12 +247,15 @@ const BankStatements = () => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('th-TH');
+    return new Date(dateStr).toLocaleDateString('th-TH', {
+      timeZone: 'Asia/Bangkok',
+    });
   };
 
   const formatDateTime = (dateStr) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleString('th-TH', {
+      timeZone: 'Asia/Bangkok',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -292,22 +295,31 @@ const BankStatements = () => {
   };
 
   const handleDeleteBatch = async (batchId, filename) => {
-    if (!window.confirm(`Delete batch "${filename}"?\nThis will permanently delete all transactions in this batch.`)) {
+    if (!window.confirm(`ลบ batch "${filename}"?\nจะลบ transactions ทั้งหมดใน batch นี้อย่างถาวร`)) {
       return;
     }
     try {
       setLoading(true);
-      await bankStatementsAPI.deleteBatch(batchId);
-      setSuccess('Batch deleted successfully');
+      setError(null);
+      const res = await bankStatementsAPI.deleteBatch(batchId);
+      setSuccess(`ลบ batch สำเร็จ — ${res.data?.transactions_deleted || 0} transactions ถูกลบ`);
       // Close transactions view if this batch was open
       if (selectedBatchId === batchId) {
         handleCloseTransactions();
       }
       // Refresh batches list
-      loadBatches();
+      await loadBatches();
     } catch (err) {
       console.error('Failed to delete batch:', err);
-      setError(err.response?.data?.detail || 'Failed to delete batch');
+      const detail = err.response?.data?.detail;
+      const statusCode = err.response?.status;
+      if (statusCode === 409) {
+        setError(`ไม่สามารถลบได้: ${detail}`);
+      } else if (statusCode === 401) {
+        setError('Session หมดอายุ — กรุณา Login ใหม่');
+      } else {
+        setError(detail || 'Failed to delete batch');
+      }
     } finally {
       setLoading(false);
     }
@@ -529,7 +541,7 @@ const BankStatements = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {preview.transactions.map((txn, idx) => (
                   <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm">{formatDate(txn.effective_at)}</td>
+                    <td className="px-4 py-2 text-sm whitespace-nowrap">{formatDateTime(txn.effective_at)}</td>
                     <td className="px-4 py-2 text-sm">{txn.description}</td>
                     <td className="px-4 py-2 text-sm text-gray-600">{txn.details || '-'}</td>
                     <td className="px-4 py-2 text-sm text-right text-red-600">

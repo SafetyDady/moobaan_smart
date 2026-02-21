@@ -16,6 +16,9 @@ from app.db.models.user import User
 from app.db.models.bank_account import BankAccount
 from app.db.models.bank_statement_batch import BankStatementBatch
 from app.db.models.bank_transaction import BankTransaction
+from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
+from app.db.models.payin_report import PayinReport
+from app.db.models.expense_bank_allocation import ExpenseBankAllocation
 from app.services.csv_parser import CSVParserService
 from app.services.bank_statement_validator import BankStatementValidator
 
@@ -523,10 +526,10 @@ async def get_batch_transactions(
 @router.delete("/batches/{batch_id}")
 async def delete_batch(
     batch_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "accounting"])),
     db: Session = Depends(get_db),
 ):
-    """Delete a batch and all its transactions (super_admin only)"""
+    """Delete a batch and all its transactions (super_admin or accounting)"""
     try:
         batch_uuid = uuid.UUID(batch_id)
     except ValueError:
@@ -536,26 +539,84 @@ async def delete_batch(
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     
-    # Safety check: count matched transactions
-    matched_count = db.query(BankTransaction).filter(
-        BankTransaction.bank_statement_batch_id == batch_uuid,
-        BankTransaction.matched_payin_id.isnot(None),
-    ).count()
+    # Get all transaction IDs in this batch
+    batch_txn_ids = [
+        txn_id for (txn_id,) in db.query(BankTransaction.id).filter(
+            BankTransaction.bank_statement_batch_id == batch_uuid
+        ).all()
+    ]
     
-    if matched_count > 0:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Cannot delete: {matched_count} transaction(s) are matched with pay-in records. Please unmatch them first.",
+    if batch_txn_ids:
+        # Safety check: count matched transactions (matched_payin_id on bank_transaction)
+        matched_count = db.query(BankTransaction).filter(
+            BankTransaction.id.in_(batch_txn_ids),
+            BankTransaction.matched_payin_id.isnot(None),
+        ).count()
+        
+        if matched_count > 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"ไม่สามารถลบได้: มี {matched_count} รายการที่ match กับ pay-in อยู่ กรุณา unmatch ก่อน",
+            )
+        
+        # Check for POSTED income_transactions that reference these bank_transactions
+        posted_income_count = db.query(IncomeTransaction).filter(
+            IncomeTransaction.reference_bank_transaction_id.in_(batch_txn_ids),
+            IncomeTransaction.status == LedgerStatus.POSTED,
+        ).count()
+        
+        if posted_income_count > 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"ไม่สามารถลบได้: มี {posted_income_count} รายการบัญชีรายรับที่ผูกอยู่ กรุณา reverse ก่อน",
+            )
+        
+        # Clear FK references before deleting transactions:
+        
+        # 1. Clear income_transaction.reference_bank_transaction_id (REVERSED ones)
+        db.query(IncomeTransaction).filter(
+            IncomeTransaction.reference_bank_transaction_id.in_(batch_txn_ids),
+        ).update(
+            {IncomeTransaction.reference_bank_transaction_id: None},
+            synchronize_session='fetch',
+        )
+        
+        # 2. Clear payin_report.reference_bank_transaction_id (SET NULL)
+        db.query(PayinReport).filter(
+            PayinReport.reference_bank_transaction_id.in_(batch_txn_ids),
+        ).update(
+            {PayinReport.reference_bank_transaction_id: None},
+            synchronize_session='fetch',
+        )
+        
+        # 3. Delete expense_bank_allocations (CASCADE would handle, but be explicit)
+        db.query(ExpenseBankAllocation).filter(
+            ExpenseBankAllocation.bank_transaction_id.in_(batch_txn_ids),
+        ).delete(synchronize_session='fetch')
+        
+        # 4. Clear matched_payin_id on bank_transactions before delete
+        db.query(BankTransaction).filter(
+            BankTransaction.id.in_(batch_txn_ids),
+        ).update(
+            {BankTransaction.matched_payin_id: None},
+            synchronize_session='fetch',
         )
     
-    # Safe to delete — no matched transactions
-    txn_count = db.query(BankTransaction).filter(
-        BankTransaction.bank_statement_batch_id == batch_uuid
-    ).delete()
-    
-    # Delete batch
-    db.delete(batch)
-    db.commit()
+    try:
+        # Delete all transactions in this batch
+        txn_count = db.query(BankTransaction).filter(
+            BankTransaction.bank_statement_batch_id == batch_uuid
+        ).delete(synchronize_session='fetch')
+        
+        # Delete batch
+        db.delete(batch)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"ลบไม่สำเร็จ: {str(e)}",
+        )
     
     return {
         'message': f'Batch deleted successfully',
