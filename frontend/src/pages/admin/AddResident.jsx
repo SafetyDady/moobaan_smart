@@ -66,9 +66,11 @@ export default function AddResident() {
       newErrors.full_name = 'Full name is required / ชื่อ-นามสกุลจำเป็นต้องระบุ';
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required / อีเมลจำเป็นต้องระบุ';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone is required / เบอร์โทรจำเป็นต้องระบุ (ใช้เป็น key ในการอ้างอิงข้ามบ้าน)';
+    }
+
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
       newErrors.email = 'Invalid email format / รูปแบบอีเมลไม่ถูกต้อง';
     }
 
@@ -93,27 +95,31 @@ export default function AddResident() {
       const response = await usersAPI.createResident(formData);
       
       if (response.data.success) {
-        // OTP-only success message (no credentials to display)
+        const isExisting = response.data.existing_user;
+        const userData = response.data.user;
+        
         setCreationSuccess({
-          name: formData.full_name,
-          email: formData.email,
-          phone: formData.phone,
-          message_th: response.data.message_th || "ผู้ใช้สามารถเข้าสู่ระบบด้วย OTP ได้ทันที",
-          message_en: response.data.message || "User can login via OTP immediately."
+          name: userData.full_name || formData.full_name,
+          email: userData.email || formData.email,
+          phone: userData.phone || formData.phone,
+          existing_user: isExisting,
+          active_houses_count: userData.active_houses_count,
+          message_th: response.data.message_th,
+          message_en: response.data.message
         });
         
-        // Auto redirect after 3 seconds
+        // Auto redirect after 4 seconds
         setTimeout(() => {
           navigate('/admin/members', { 
             state: { 
               created: true, 
               newResident: { 
-                name: formData.full_name, 
-                email: formData.email 
+                name: userData.full_name || formData.full_name, 
+                phone: userData.phone || formData.phone 
               } 
             } 
           });
-        }, 3000);
+        }, 4000);
       }
     } catch (error) {
       console.error('Failed to create resident:', error);
@@ -210,40 +216,43 @@ export default function AddResident() {
                 )}
               </div>
 
-              {/* Email */}
+              {/* Phone (Primary Key) */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Email / อีเมล *
+                  Phone / เบอร์โทรศัพท์ *
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  placeholder="08X-XXX-XXXX"
+                  className={`input ${errors.phone ? 'border-red-500' : ''}`}
+                  disabled={loading}
+                />
+                {errors.phone && (
+                  <p className="text-red-400 text-sm mt-1">{errors.phone}</p>
+                )}
+                <p className="text-gray-500 text-sm mt-1">
+                  📌 ใช้เป็นตัวอ้างอิงผู้ใช้ — ถ้าเบอร์ซ้ำกับคนที่มีแล้ว จะเพิ่มบ้านให้คนเดิมอัตโนมัติ
+                </p>
+              </div>
+
+              {/* Email (Optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Email / อีเมล
                 </label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="Enter email address"
+                  placeholder="Enter email address (optional)"
                   className={`input ${errors.email ? 'border-red-500' : ''}`}
                   disabled={loading}
                 />
                 {errors.email && (
                   <p className="text-red-400 text-sm mt-1">{errors.email}</p>
                 )}
-                <p className="text-gray-500 text-sm mt-1">
-                  This will be used for login / ใช้สำหรับเข้าสู่ระบบ
-                </p>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Phone / เบอร์โทรศัพท์
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="Enter phone number"
-                  className="input"
-                  disabled={loading}
-                />
               </div>
 
               {/* Member Role */}
@@ -323,39 +332,48 @@ export default function AddResident() {
             </div>
           )}
 
-          {/* OTP Success Display (no password credentials) */}
+          {/* Success Display */}
           {creationSuccess && (
             <div className="card">
-              <div className="p-4 border-b border-gray-700">
-                <h3 className="font-bold text-white">✅ สร้างผู้อาศัยสำเร็จ / Resident Created</h3>
+              <div className={`p-4 border-b ${creationSuccess.existing_user ? 'border-blue-700 bg-blue-900/20' : 'border-gray-700'}`}>
+                <h3 className="font-bold text-white">
+                  {creationSuccess.existing_user 
+                    ? '🔗 เพิ่มบ้านให้ผู้ใช้เดิมสำเร็จ' 
+                    : '✅ สร้างผู้อาศัยสำเร็จ'}
+                </h3>
               </div>
               <div className="p-4 space-y-4">
-                <div className="bg-green-500/10 border border-green-500/20 rounded p-3">
-                  <p className="text-green-400 font-medium mb-2">✅ {creationSuccess.name}</p>
-                  <p className="text-gray-300 text-sm mb-2">
-                    📧 {creationSuccess.email}
+                <div className={`rounded p-3 ${
+                  creationSuccess.existing_user 
+                    ? 'bg-blue-500/10 border border-blue-500/20' 
+                    : 'bg-green-500/10 border border-green-500/20'
+                }`}>
+                  <p className={`font-medium mb-2 ${creationSuccess.existing_user ? 'text-blue-400' : 'text-green-400'}`}>
+                    {creationSuccess.existing_user ? '🔗' : '✅'} {creationSuccess.name}
                   </p>
-                  {creationSuccess.phone && (
-                    <p className="text-gray-300 text-sm mb-2">
-                      📱 {creationSuccess.phone}
+                  <p className="text-gray-300 text-sm mb-1">
+                    📱 {creationSuccess.phone}
+                  </p>
+                  {creationSuccess.email && (
+                    <p className="text-gray-300 text-sm mb-1">
+                      📧 {creationSuccess.email}
+                    </p>
+                  )}
+                  {creationSuccess.active_houses_count > 1 && (
+                    <p className="text-yellow-400 text-sm mt-2">
+                      🏠 ผู้ใช้คนนี้มี {creationSuccess.active_houses_count} บ้าน — สลับบ้านได้ในหน้า Profile
                     </p>
                   )}
                 </div>
                 
                 <div className="bg-primary-500/10 border border-primary-500/20 rounded p-3">
-                  <p className="text-primary-300 text-sm font-medium mb-2">
-                    🔑 {creationSuccess.message_th}
-                  </p>
-                  <p className="text-gray-400 text-sm">
-                    {creationSuccess.message_en}
+                  <p className="text-primary-300 text-sm font-medium">
+                    {creationSuccess.message_th}
                   </p>
                 </div>
                 
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded p-3 text-blue-300 text-sm">
-                  📲 แจ้งผู้ใช้ให้เข้าสู่ระบบด้วยเบอร์โทรศัพท์และรับ OTP
-                  <br />
-                  <br />
-                  📲 Please inform the user to login with their phone number and OTP
+                <div className="bg-gray-700/50 border border-gray-600 rounded p-3 text-gray-300 text-sm">
+                  📲 ผู้ใช้เข้าสู่ระบบผ่าน LINE — หลังเชื่อมต่อ LINE แล้วระบบจะจับคู่ด้วยเบอร์โทร
                 </div>
                 
                 <div className="flex gap-3 pt-2">
@@ -363,13 +381,13 @@ export default function AddResident() {
                     onClick={() => navigate('/admin/members')}
                     className="btn-primary flex-1"
                   >
-                    Go to Residents / ไปหน้ารายชื่อผู้อาศัย
+                    ไปหน้ารายชื่อผู้อาศัย
                   </button>
                   <button
                     onClick={() => setCreationSuccess(null)}
                     className="btn-secondary"
                   >
-                    Add Another / เพิ่มอีก
+                    เพิ่มอีก
                   </button>
                 </div>
               </div>

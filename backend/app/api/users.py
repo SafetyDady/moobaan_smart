@@ -231,7 +231,15 @@ async def create_resident(
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_admin_or_accounting)
 ):
-    """Create a new resident user linked to a house"""
+    """
+    Create a new resident user linked to a house, OR add existing user to a new house.
+    
+    Phone number is the primary identifier:
+    - If phone already exists → reuse existing user, add new membership to house
+    - If phone is new → create new user + membership
+    
+    This allows one person (same phone) to be assigned to multiple houses.
+    """
     
     # Extract data
     house_id = user_data.get("house_id")
@@ -240,12 +248,19 @@ async def create_resident(
     phone = user_data.get("phone")
     member_role = user_data.get("member_role", "resident")
     
-    # Validate required fields
-    if not house_id or not full_name or not email:
+    # Validate required fields — phone is required (key identifier for multi-house)
+    if not house_id or not full_name or not phone:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="house_id, full_name, and email are required"
+            detail={
+                "error": "Missing required fields",
+                "error_th": "กรุณากรอก บ้าน, ชื่อ-นามสกุล และเบอร์โทรศัพท์",
+                "error_en": "house_id, full_name, and phone are required"
+            }
         )
+    
+    # Normalize phone (strip spaces/dashes)
+    phone = phone.strip().replace("-", "").replace(" ", "")
     
     # Check if house exists
     house = db.query(House).filter(House.id == house_id).first()
@@ -269,78 +284,169 @@ async def create_resident(
             }
         )
     
-    # Check if email already exists
-    existing_user = db.query(User).filter(User.email == email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "Email already exists",
-                "error_th": "อีเมลนี้มีอยู่ในระบบแล้ว",
-                "error_en": "This email is already registered"
-            }
-        )
+    # Map member_role to ResidentMembershipRole
+    role_mapping = {
+        "owner": ResidentMembershipRole.OWNER,
+        "family": ResidentMembershipRole.FAMILY,
+        "resident": ResidentMembershipRole.OWNER,
+        "tenant": ResidentMembershipRole.FAMILY,
+    }
+    membership_role = role_mapping.get(member_role.lower(), ResidentMembershipRole.OWNER)
     
     try:
-        # Create user (OTP-only, no password)
-        new_user = User(
-            email=email,
-            full_name=full_name,
-            phone=phone,
-            hashed_password=None,  # OTP-only resident - no password
-            role="resident",
-            is_active=True
-        )
+        # ── Check if user with this phone already exists ──
+        existing_user = db.query(User).filter(User.phone == phone).first()
         
-        db.add(new_user)
-        db.flush()  # Flush to get the user ID
+        if existing_user:
+            # ── EXISTING USER → add new house membership ──
+            
+            # Check if already has membership to this house
+            existing_membership = db.query(ResidentMembership).filter(
+                ResidentMembership.user_id == existing_user.id,
+                ResidentMembership.house_id == house_id
+            ).first()
+            
+            if existing_membership:
+                if existing_membership.status == ResidentMembershipStatus.ACTIVE:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "error": "Already a member",
+                            "error_th": f"เบอร์ {phone} ({existing_user.full_name}) เป็นสมาชิกบ้าน {house.house_code} อยู่แล้ว",
+                            "error_en": f"Phone {phone} ({existing_user.full_name}) is already an active member of house {house.house_code}"
+                        }
+                    )
+                else:
+                    # Reactivate INACTIVE membership
+                    existing_membership.status = ResidentMembershipStatus.ACTIVE
+                    existing_membership.role = membership_role
+                    existing_membership.deactivated_at = None
+                    logger.info(f"Reactivated membership for user {existing_user.id} → house {house_id}")
+            else:
+                # Create new membership for existing user
+                new_membership = ResidentMembership(
+                    user_id=existing_user.id,
+                    house_id=house_id,
+                    role=membership_role,
+                    status=ResidentMembershipStatus.ACTIVE
+                )
+                db.add(new_membership)
+            
+            # Also add to legacy house_members if not exists
+            existing_hm = db.query(HouseMember).filter(
+                HouseMember.user_id == existing_user.id,
+                HouseMember.house_id == house_id
+            ).first()
+            if not existing_hm:
+                house_member = HouseMember(
+                    house_id=house_id,
+                    user_id=existing_user.id,
+                    member_role=member_role,
+                    phone=phone
+                )
+                db.add(house_member)
+            
+            # Update name if provided and different
+            if full_name and full_name != existing_user.full_name:
+                existing_user.full_name = full_name
+            if email and email != existing_user.email:
+                # Check email uniqueness before updating
+                email_taken = db.query(User).filter(User.email == email, User.id != existing_user.id).first()
+                if not email_taken:
+                    existing_user.email = email
+            
+            db.commit()
+            
+            # Count how many active houses this user has
+            active_houses = db.query(ResidentMembership).filter(
+                ResidentMembership.user_id == existing_user.id,
+                ResidentMembership.status == ResidentMembershipStatus.ACTIVE
+            ).count()
+            
+            return {
+                "success": True,
+                "existing_user": True,
+                "user": {
+                    "id": existing_user.id,
+                    "email": existing_user.email,
+                    "full_name": existing_user.full_name,
+                    "phone": existing_user.phone,
+                    "role": existing_user.role,
+                    "house_id": house_id,
+                    "active_houses_count": active_houses
+                },
+                "message": f"Existing user added to house {house.house_code}. Now has {active_houses} house(s).",
+                "message_th": f"เพิ่ม {existing_user.full_name} (เบอร์ {phone}) เข้าบ้าน {house.house_code} สำเร็จ — ปัจจุบันมี {active_houses} บ้าน"
+            }
         
-        # Create house member relationship (legacy table)
-        house_member = HouseMember(
-            house_id=house_id,
-            user_id=new_user.id,
-            member_role=member_role,
-            phone=phone
-        )
-        db.add(house_member)
+        else:
+            # ── NEW USER → create user + membership ──
+            
+            # Check email uniqueness (if provided)
+            if email:
+                email_exists = db.query(User).filter(User.email == email).first()
+                if email_exists:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "error": "Email already exists",
+                            "error_th": "อีเมลนี้มีอยู่ในระบบแล้ว กรุณาใช้อีเมลอื่น",
+                            "error_en": "This email is already registered"
+                        }
+                    )
+            
+            new_user = User(
+                email=email or None,
+                full_name=full_name,
+                phone=phone,
+                hashed_password=None,
+                role="resident",
+                is_active=True
+            )
+            
+            db.add(new_user)
+            db.flush()
+            
+            # Create house member (legacy)
+            house_member = HouseMember(
+                house_id=house_id,
+                user_id=new_user.id,
+                member_role=member_role,
+                phone=phone
+            )
+            db.add(house_member)
+            
+            # Create resident membership
+            resident_membership = ResidentMembership(
+                user_id=new_user.id,
+                house_id=house_id,
+                role=membership_role,
+                status=ResidentMembershipStatus.ACTIVE
+            )
+            db.add(resident_membership)
+            
+            db.commit()
+            
+            return {
+                "success": True,
+                "existing_user": False,
+                "user": {
+                    "id": new_user.id,
+                    "email": new_user.email,
+                    "full_name": new_user.full_name,
+                    "phone": new_user.phone,
+                    "role": new_user.role,
+                    "house_id": house_id
+                },
+                "message": "Resident created. User can login via LINE immediately.",
+                "message_th": f"สร้างผู้อาศัย {full_name} สำเร็จ — เข้าสู่ระบบผ่าน LINE ได้ทันที"
+            }
         
-        # Map member_role to ResidentMembershipRole
-        role_mapping = {
-            "owner": ResidentMembershipRole.OWNER,
-            "family": ResidentMembershipRole.FAMILY,
-            "resident": ResidentMembershipRole.OWNER,  # Default to OWNER
-            "tenant": ResidentMembershipRole.FAMILY,
-        }
-        membership_role = role_mapping.get(member_role.lower(), ResidentMembershipRole.OWNER)
-        
-        # Create resident membership (for OTP login)
-        resident_membership = ResidentMembership(
-            user_id=new_user.id,
-            house_id=house_id,
-            role=membership_role,
-            status=ResidentMembershipStatus.ACTIVE
-        )
-        db.add(resident_membership)
-        
-        db.commit()
-        
-        # Return success (OTP-only, no credentials)
-        return {
-            "success": True,
-            "user": {
-                "id": new_user.id,
-                "email": new_user.email,
-                "full_name": new_user.full_name,
-                "phone": new_user.phone,
-                "role": new_user.role,
-                "house_id": house_id
-            },
-            "message": "Resident created. User can login via OTP immediately.",
-            "message_th": "สร้างผู้อาศัยสำเร็จ ผู้ใช้สามารถเข้าสู่ระบบด้วย OTP ได้ทันที"
-        }
-        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         db.rollback()
+        logger.exception(f"Error creating/assigning resident: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
