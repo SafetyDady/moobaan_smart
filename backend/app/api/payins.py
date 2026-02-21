@@ -271,9 +271,21 @@ async def create_payin_report(
         
         # Parse paid_at (ISO datetime string) → normalize to UTC
         from dateutil import parser as date_parser
+        import logging
+        logger = logging.getLogger(__name__)
         try:
             paid_at_datetime = date_parser.isoparse(paid_at)
+            logger.info(f"[CREATE PAYIN] Raw paid_at='{paid_at}', parsed={paid_at_datetime!r}, tzinfo={paid_at_datetime.tzinfo}")
+            
+            # Safety: if frontend accidentally sends timezone-aware string (e.g. '...Z' or '+00:00'),
+            # but the user intended Bangkok time, strip tz and treat as naive Bangkok
+            if paid_at_datetime.tzinfo is not None:
+                logger.warning(f"[CREATE PAYIN] paid_at has timezone info ({paid_at_datetime.tzinfo}), "
+                             f"stripping and treating as Bangkok time to prevent double-conversion")
+                paid_at_datetime = paid_at_datetime.replace(tzinfo=None)
+            
             paid_at_datetime = ensure_utc(paid_at_datetime)  # naive=Bangkok→UTC
+            logger.info(f"[CREATE PAYIN] Final UTC={paid_at_datetime!r}")
         except (ValueError, TypeError) as e:
             raise HTTPException(status_code=400, detail=f"Invalid paid_at format: {str(e)}")
         
@@ -393,14 +405,36 @@ async def update_payin_report(
     # Update fields if provided
     if payin.amount is not None:
         existing.amount = payin.amount
-    if payin.transfer_date is not None:
-        td = ensure_utc(payin.transfer_date)  # naive=Bangkok→UTC
-        assert_utc(td, "transfer_date_update")
-        existing.transfer_date = td
+    
+    # Collect transfer_hour / transfer_minute (update individually first)
+    new_hour = payin.transfer_hour if payin.transfer_hour is not None else existing.transfer_hour
+    new_minute = payin.transfer_minute if payin.transfer_minute is not None else existing.transfer_minute
     if payin.transfer_hour is not None:
         existing.transfer_hour = payin.transfer_hour
     if payin.transfer_minute is not None:
         existing.transfer_minute = payin.transfer_minute
+    
+    if payin.transfer_date is not None:
+        # transfer_date is a string like "2026-01-12" — combine with hour/minute
+        # to build a naive Bangkok datetime, then convert to UTC
+        from dateutil import parser as date_parser
+        try:
+            td_date = date_parser.isoparse(payin.transfer_date)  # may be date-only or full ISO
+        except (ValueError, TypeError) as e:
+            raise HTTPException(status_code=400, detail=f"Invalid transfer_date format: {str(e)}")
+        
+        # If it's date-only (no time component), build datetime with hour/minute
+        if td_date.hour == 0 and td_date.minute == 0 and 'T' not in payin.transfer_date:
+            from datetime import datetime as dt_cls
+            td_naive = dt_cls(td_date.year, td_date.month, td_date.day,
+                              new_hour or 0, new_minute or 0, 0)
+        else:
+            td_naive = td_date.replace(tzinfo=None)  # strip any tz, treat as Bangkok
+        
+        td_utc = ensure_utc(td_naive)  # naive Bangkok → UTC
+        assert_utc(td_utc, "transfer_date_update")
+        existing.transfer_date = td_utc
+        logger.info(f"  transfer_date updated: Bangkok {td_naive} → UTC {td_utc}")
     if payin.slip_image_url is not None:
         existing.slip_url = payin.slip_image_url  # Database field is slip_url
     
