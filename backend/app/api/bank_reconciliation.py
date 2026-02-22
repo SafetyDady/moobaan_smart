@@ -525,6 +525,26 @@ async def confirm_and_post(
     
     # 4. ATOMIC TRANSACTION: Create ledger + allocate + update status
     try:
+        # Handle re-post after reverse: if a REVERSED IncomeTransaction exists
+        # for this bank_txn, clear its reference to unblock the unique constraint
+        old_reversed = db.query(IncomeTransaction).filter(
+            IncomeTransaction.reference_bank_transaction_id == bank_txn.id,
+            IncomeTransaction.status == LedgerStatus.REVERSED,
+        ).first()
+        if old_reversed:
+            old_reversed.reference_bank_transaction_id = None
+            db.flush()
+        
+        # Also clear old payin_id unique constraint if re-posting same pay-in
+        if payin:
+            old_payin_ledger = db.query(IncomeTransaction).filter(
+                IncomeTransaction.payin_id == payin.id,
+                IncomeTransaction.status == LedgerStatus.REVERSED,
+            ).first()
+            if old_payin_ledger:
+                old_payin_ledger.payin_id = None
+                db.flush()
+        
         # Create IncomeTransaction (ledger entry)
         income_txn = IncomeTransaction(
             house_id=target_house_id,

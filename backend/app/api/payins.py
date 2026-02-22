@@ -11,7 +11,7 @@ from app.models import (
 from app.db.models.payin_report import PayinReport as PayinReportModel, PayinStatus as PayinStatusEnum, PayinSource
 from app.db.models.house import House as HouseModel
 from app.db.models.user import User
-from app.db.models.income_transaction import IncomeTransaction
+from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
 from app.db.session import get_db
 from app.core.deps import (
     require_user, require_admin, require_admin_or_accounting, 
@@ -565,10 +565,26 @@ async def accept_payin_report(
         IncomeTransaction.payin_id == payin_id
     ).first()
     if existing_income:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Income transaction already exists for this payin (ledger_id: {existing_income.id})"
-        )
+        if existing_income.status == LedgerStatus.REVERSED:
+            # Clear old REVERSED entry's references to allow re-posting
+            existing_income.payin_id = None
+            existing_income.reference_bank_transaction_id = None
+            db.flush()
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Income transaction already exists for this payin (ledger_id: {existing_income.id})"
+            )
+    
+    # Also clear any REVERSED entry referencing the same bank_txn
+    if payin.matched_statement_txn_id:
+        old_reversed_bank = db.query(IncomeTransaction).filter(
+            IncomeTransaction.reference_bank_transaction_id == payin.matched_statement_txn_id,
+            IncomeTransaction.status == LedgerStatus.REVERSED,
+        ).first()
+        if old_reversed_bank:
+            old_reversed_bank.reference_bank_transaction_id = None
+            db.flush()
     
     # ATOMIC TRANSACTION: Update payin + Create ledger entry
     try:
