@@ -10,7 +10,7 @@ export default function PayIns() {
   
   const [payins, setPayins] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('SUBMITTED'); // Default to SUBMITTED for review queue (new state machine)
+  const [statusFilter, setStatusFilter] = useState('PENDING'); // Default to PENDING for review queue
   const [selectedPayin, setSelectedPayin] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
