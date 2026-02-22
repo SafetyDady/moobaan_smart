@@ -355,9 +355,17 @@ export default function Members() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Residents Directory</h1>
-        <p className="text-gray-400">View all residents (max 3 per house)</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Residents Directory</h1>
+          <p className="text-gray-400">จัดการลูกบ้านทั้งหมด (สูงสุด 3 คนต่อบ้าน)</p>
+        </div>
+        <Link
+          to="/admin/add-resident"
+          className="btn-primary flex items-center gap-2"
+        >
+          <span className="text-lg">+</span> เพิ่มลูกบ้าน
+        </Link>
       </div>
 
       {/* Filters */}

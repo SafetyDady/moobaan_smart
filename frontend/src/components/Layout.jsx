@@ -4,7 +4,7 @@ import {
   BarChart3, Home, Users, Building2, FileText, DollarSign, 
   TrendingDown, CreditCard, PieChart, TrendingUp, List, 
   Lock, LogOut, ChevronDown, ChevronRight, GitCompare,
-  HelpCircle, UserCog, Send, UserPlus
+  HelpCircle, UserCog, Send
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -48,7 +48,6 @@ export default function Layout({ children }) {
             items: [
               { name: 'Houses', path: '/admin/houses', icon: Home },
               { name: 'Members', path: '/admin/members', icon: Users },
-              { name: 'เพิ่มลูกบ้าน', path: '/admin/add-resident', icon: UserPlus },
               { name: 'Vendors', path: '/admin/vendors', icon: Building2 },
               { name: 'User Management', path: '/admin/users', icon: UserCog },
             ]
