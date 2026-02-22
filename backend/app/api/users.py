@@ -169,7 +169,14 @@ async def search_resident_by_phone(
     if not phone:
         raise HTTPException(status_code=400, detail="Phone number is required")
     
-    user = db.query(User).filter(User.phone == phone).first()
+    # Prefer active user; if multiple with same phone, pick active one with LINE first
+    user = db.query(User).filter(
+        User.phone == phone
+    ).order_by(
+        User.is_active.desc(),          # active first
+        User.line_user_id.isnot(None).desc(),  # LINE-linked first
+        User.id.asc()                    # oldest first
+    ).first()
     
     if not user:
         return {"found": False, "user": None}
@@ -350,7 +357,14 @@ async def create_resident(
     
     try:
         # ── Check if user with this phone already exists ──
-        existing_user = db.query(User).filter(User.phone == phone).first()
+        # Prefer active user with LINE linked (avoid picking deactivated duplicates)
+        existing_user = db.query(User).filter(
+            User.phone == phone
+        ).order_by(
+            User.is_active.desc(),
+            User.line_user_id.isnot(None).desc(),
+            User.id.asc()
+        ).first()
         
         if existing_user:
             # ── EXISTING USER → add new house membership ──
