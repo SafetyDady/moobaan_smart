@@ -2,7 +2,8 @@
 Pay-in State Machine Endpoints
 Phase A: State transitions, quality gates, admin-created pay-ins
 """
-from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form, Request
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
 from typing import List, Optional
@@ -15,7 +16,7 @@ from app.db.models.bank_transaction import BankTransaction
 from app.db.models.house import House
 from app.db.models.user import User
 from app.db.session import get_db
-from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_user_house_id
+from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_house_id_from_token, security
 from app.core.uploads import save_slip_file
 
 router = APIRouter(prefix="/api/payin-state", tags=["payin-state-machine"])
@@ -63,9 +64,10 @@ async def get_rejection_reasons():
 @router.post("/{payin_id}/submit")
 async def submit_payin_for_review(
     payin_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
-    user_house_id: Optional[int] = Depends(get_user_house_id)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     """
     Submit a DRAFT or REJECTED_NEEDS_FIX pay-in for admin review.
@@ -80,7 +82,8 @@ async def submit_payin_for_review(
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    # Access control: residents can only submit their own
+    # Access control: residents can only submit their own (use JWT house_id)
+    user_house_id = get_house_id_from_token(request, credentials)
     if current_user.role == "resident":
         if user_house_id != payin.house_id:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -174,6 +177,7 @@ async def reject_payin_needs_fix(
 @router.post("/{payin_id}/save-draft")
 async def save_payin_draft(
     payin_id: int,
+    request: Request,
     amount: Optional[float] = Form(None),
     transfer_date: Optional[str] = Form(None),
     transfer_hour: Optional[int] = Form(None),
@@ -181,7 +185,7 @@ async def save_payin_draft(
     slip: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
-    user_house_id: Optional[int] = Depends(get_user_house_id)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     """
     Save changes to a pay-in in DRAFT or REJECTED_NEEDS_FIX state.
@@ -194,7 +198,8 @@ async def save_payin_draft(
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
-    # Access control
+    # Access control (use JWT house_id)
+    user_house_id = get_house_id_from_token(request, credentials)
     if current_user.role == "resident":
         if user_house_id != payin.house_id:
             raise HTTPException(status_code=403, detail="Access denied")

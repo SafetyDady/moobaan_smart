@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.models import DashboardSummary
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_db, get_current_user, get_house_id_from_token, security
 from app.db.models import User, Invoice, HouseMember, House
 from app.db.models.invoice import InvoiceStatus
 from app.db.models.house import HouseStatus
@@ -16,17 +17,28 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 @router.get("/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(
+    request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     """Get dashboard summary statistics for current user"""
     
     # For residents, get their house invoices
     if current_user.role == "resident":
-        # Get user's house via HouseMember
-        membership = db.query(HouseMember).filter(
-            HouseMember.user_id == current_user.id
-        ).first()
+        # R.3.1: Get house_id from JWT token (not legacy HouseMember)
+        token_house_id = get_house_id_from_token(request, credentials)
+        
+        if token_house_id:
+            # Use token house_id — create a simple namespace for compatibility
+            class _Membership:
+                house_id = token_house_id
+            membership = _Membership()
+        else:
+            # Fallback: legacy HouseMember lookup (for tokens without house_id)
+            membership = db.query(HouseMember).filter(
+                HouseMember.user_id == current_user.id
+            ).first()
         
         if not membership:
             # No house assigned - return empty summary
