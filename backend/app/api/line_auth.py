@@ -496,12 +496,26 @@ def link_line_account(
             detail={"code": "NOT_FOUND", "message": "ไม่พบข้อมูล กรุณาตรวจสอบเบอร์โทรและบ้านเลขที่"}
         )
     
-    # ── Step 4: Find resident user by phone ──
-    user = db.query(User).filter(
+    # ── Step 4: Find resident user by phone (deterministic ordering) ──
+    phone_matches = db.query(User).filter(
         User.phone == phone,
         User.role == "resident",
         User.is_active == True,
-    ).first()
+    ).order_by(
+        User.is_active.desc(),
+        User.line_user_id.isnot(None).desc(),
+        User.id.asc()
+    ).all()
+    
+    if len(phone_matches) > 1:
+        logger.warning(
+            f"[LINK_ACCOUNT] ⚠️ DUPLICATE PHONE DETECTED: phone=***{phone[-4:]}, "
+            f"matching user_ids={[u.id for u in phone_matches]}. "
+            f"Selected user_id={phone_matches[0].id} (active={phone_matches[0].is_active}, "
+            f"line={'YES' if phone_matches[0].line_user_id else 'NO'})"
+        )
+    
+    user = phone_matches[0] if phone_matches else None
     
     if not user:
         logger.warning(f"[LINK_ACCOUNT] No resident with phone {phone[-4:]}")
