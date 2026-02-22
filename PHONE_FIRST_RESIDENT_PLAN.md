@@ -1,13 +1,14 @@
 # แผนปรับปรุง: Phone-First Resident Management
 
-## สถานะก่อนเริ่มงาน
+## ✅ สถานะ: เสร็จสมบูรณ์ (22 กุมภาพันธ์ 2569)
 
 | รายการ | ค่า |
 |--------|-----|
-| **Last Safe Commit** | `ee1ddbb` — `cleanup: remove temp debug endpoints` |
-| **Rollback Command** | `git reset --hard ee1ddbb && git push --force origin master` |
-| **วันที่** | 21 กุมภาพันธ์ 2026 |
-| **Production Status** | LIVE — app.moobaan.app |
+| **Last Safe Commit (ก่อนเริ่ม)** | `ee1ddbb` — `cleanup: remove temp debug endpoints` |
+| **Final Commit** | `2a313b6` — `fix: dashboard uses JWT house_id` |
+| **วันที่เริ่ม** | 21 กุมภาพันธ์ 2026 |
+| **วันที่เสร็จ** | 22 กุมภาพันธ์ 2026 |
+| **Production Status** | LIVE — app.moobaan.app ✅ ทดสอบแล้ว |
 
 ---
 
@@ -239,12 +240,58 @@ Production จะ auto-deploy กลับไปสถานะเดิม ภ�
 
 หลัง deploy ต้อง test:
 
-- [ ] Admin: ค้นหาเบอร์ที่มีอยู่ → เห็นข้อมูล user + บ้าน
-- [ ] Admin: ค้นหาเบอร์ใหม่ → เห็นฟอร์มสร้าง
-- [ ] Admin: เพิ่ม user เดิมเข้าบ้านใหม่ → สำเร็จ, user มี 2 บ้าน
-- [ ] Admin: สร้าง user ใหม่ + เพิ่มเข้าบ้าน → สำเร็จ
-- [ ] Admin: ถอด user ออกจากบ้าน → membership INACTIVE
-- [ ] Resident: LINE login → ยังทำงานปกติ
-- [ ] Resident: Profile → เห็นปุ่มสลับบ้าน (ถ้ามีหลายบ้าน)
-- [ ] Resident: Pay-in → สร้างได้ปกติ
-- [ ] Admin: Members list → แสดงถูกต้อง
+- [x] Admin: ค้นหาเบอร์ที่มีอยู่ → เห็นข้อมูล user + บ้าน
+- [x] Admin: ค้นหาเบอร์ใหม่ → เห็นฟอร์มสร้าง
+- [x] Admin: เพิ่ม user เดิมเข้าบ้านใหม่ → สำเร็จ, user มี 2 บ้าน
+- [x] Admin: สร้าง user ใหม่ + เพิ่มเข้าบ้าน → สำเร็จ
+- [x] Admin: ถอด user ออกจากบ้าน → membership INACTIVE
+- [x] Resident: LINE login → ยังทำงานปกติ
+- [x] Resident: Profile → เห็นปุ่มสลับบ้าน (ถ้ามีหลายบ้าน)
+- [x] Resident: Pay-in → สร้างได้ปกติ
+- [x] Admin: Members list → แสดงถูกต้อง
+- [x] Resident: Dashboard balance ตรงกับบ้านที่เลือก (fix JWT house_id)
+- [x] Phone search: ได้ active user ที่ถูกต้อง (ordering fix)
+- [x] Link-account: ผูก LINE กับ user ที่ถูกต้อง (ordering fix)
+
+---
+
+## Commits ที่ Deploy (ตามลำดับ)
+
+| # | Commit | Message | สถานะ |
+|---|--------|---------|-------|
+| 1 | `680fe81` | feat: phone-first resident management + remove-from-house | ✅ |
+| 2 | `639d739` | temp: secret-key fix-duplicate endpoint | ✅ |
+| 3 | `0f43558` | cleanup: remove temp fix-duplicate endpoint | ✅ |
+| 4 | `89f6e14` | feat: add sidebar menu for Add Resident | ✅ |
+| 5 | `6a0986d` | refactor: merge Add Resident into Members page header button | ✅ |
+| 6 | `05bfb29` | fix: phone search prefers active user with LINE | ✅ |
+| 7 | `62bcbd3` | fix: link-account deterministic phone lookup + duplicate warning | ✅ |
+| 8 | `2a313b6` | fix: dashboard uses JWT house_id for multi-house residents | ✅ |
+
+---
+
+## Identity Hardening สรุป
+
+ทุก phone lookup ในระบบใช้ deterministic ordering:
+
+```python
+.order_by(
+    User.is_active.desc(),              # active ก่อน
+    User.line_user_id.isnot(None).desc(), # มี LINE ก่อน
+    User.id.asc()                        # id ต่ำสุด (stable)
+)
+```
+
+| Endpoint | ไฟล์ | สถานะ |
+|----------|------|-------|
+| `GET /api/users/residents/search` | users.py | ✅ |
+| `POST /api/users/residents` (create) | users.py | ✅ |
+| `POST /api/auth/line/link-account` | line_auth.py | ✅ + duplicate warning log |
+
+Dashboard + PayIn state machine ใช้ JWT `house_id`:
+
+| Endpoint | ไฟล์ | เดิม | แก้เป็น |
+|----------|------|------|---------|
+| `GET /api/dashboard/summary` | dashboard.py | `HouseMember.first()` | JWT `house_id` ✅ |
+| `POST /api/payins/{id}/submit` | payin_state.py | `get_user_house_id()` | JWT `house_id` ✅ |
+| `POST /api/payins/{id}/save-draft` | payin_state.py | `get_user_house_id()` | JWT `house_id` ✅ |

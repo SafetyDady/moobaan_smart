@@ -1,6 +1,6 @@
 # 📋 สรุปการอัปเดตระบบ Moobaan Smart
 
-> **อัปเดตล่าสุด:** 14 กุมภาพันธ์ 2569 | **Latest Commit:** `e5d0143`
+> **อัปเดตล่าสุด:** 22 กุมภาพันธ์ 2569 | **Latest Commit:** `2a313b6`
 
 ## 🏗️ Stack
 | Component | Technology | Host |
@@ -95,6 +95,73 @@
 | 35 | `4d91a07` | **Invoice Table View** — เปลี่ยนจาก card → table format, compact hero, ลบ Quick Stats | ✅ |
 | 36 | `e5d0143` | **Remove Payment History** — ลบ section ประวัติส่งสลิปออกจาก Dashboard (ย้ายไป `/resident/payments`) | ✅ |
 
+### 🌏 Session 9 — Custom Domain + Admin UI + Pay-in Lifecycle (14-17 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 37 | `ea26934` | docs: update status summary | ✅ |
+| 38 | `b05a4d5` | **LINE redirect fix** — trim `VITE_APP_URL` ป้องกัน CRLF ใน redirect_uri | ✅ |
+| 39 | `7907167` | **Custom domain support** — ใช้ `VITE_APP_URL` สำหรับ LINE redirect_uri (app.moobaan.app) | ✅ |
+| 40 | `58746dc` | **Slip upload UX** — เปลี่ยนจาก camera capture เป็น file picker | ✅ |
+| 41 | `c5ad87f` | **Admin sidebar redesign** — grouped sections + Lucide icons, dashboard stat cards | ✅ |
+| 42 | `cda0d85` | **Slip → R2** — fix upload to Cloudflare R2 + proper slip viewing | ✅ |
+| 43 | `ccfa705` | **Resident delete pay-in** — อนุญาตลบ pay-in ที่ยังไม่ match (PENDING/SUBMITTED) | ✅ |
+| 44 | `722bbaa` | **Pay-in duplicate message** — ข้อความ Thai เมื่อส่งสลิปซ้ำ | ✅ |
+| 45 | `ca79613` | **Error dismiss UX** — เพิ่มปุ่ม dismiss บน error alert ใน MobileSubmitPayment | ✅ |
+| 46 | `d46de83` | **Log noise** — RoleContext ลด console.log → console.debug | ✅ |
+
+### 💰 Session 10 — Pay-in State Machine + Statement-Driven Matching (17-18 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 47 | `57d0a4c` | **Pay-in Lifecycle Contract** — 4 actions only: Delete / Reject / Confirm&Post / Reverse | ✅ |
+| 48 | `27e8e6c` | **Phase P1: Statement-Driven Confirm & Post** — match bank txn → accept pay-in | ✅ |
+| 49 | `68c042f` | **Cancel fix** — อนุญาต cancel SUBMITTED, clear match before delete | ✅ |
+
+### 🕐 Session 11 — Timezone Hardening & Reconciliation Fix (18-19 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 50 | `cf091bf` | temp: timezone diagnostic endpoint | ✅ |
+| 51 | `2e8a337` | **Timezone normalization** — all datetime to UTC, fix pay-in matching | ✅ |
+| 52 | `039b654` | chore: run alembic upgrade on deploy | ✅ |
+| 53 | `e77eb72` | **transfer_datetime** → return transfer_date directly (UTC) | ✅ |
+| 54 | `711a03c` → `1b1b8df` | Audit endpoint for tz migration safety check → fix to use period_snapshots | ✅ |
+| 55 | `9877cde` | **assert_utc guards** — runtime guards on datetime, cleanup temp endpoints | ✅ |
+| 56 | `fbd95a6` | **Balance formula fix** — ใช้ total_billed ไม่ใช่ outstanding | ✅ |
+
+### 🏗️ Session 12 — Bank Statement Delete + Pay-in Timezone (19-20 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 57 | `10024d0` | **Delete batch FK fix** — handle income_transaction RESTRICT, timezone display Asia/Bangkok | ✅ |
+| 58 | `6b7c996` | **Matching diagnostics** — debug info ใน pay-in matching endpoint | ✅ |
+| 59 | `7195673` | **Pay-in timezone** — create: strip tz, update: parse date+time correctly | ✅ |
+
+### 🏠 Session 13 — Multi-House Architecture + Phone-First Resident (20-21 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 60 | `d4de1a6` | **House switching** — ปุ่มเปลี่ยนบ้านใน Profile.jsx สำหรับ multi-house residents | ✅ |
+| 61 | `3b08d0b` | **Phone-based create_resident** — เช็คเบอร์ก่อน, ถ้ามี User อยู่แล้ว → สร้าง membership เพิ่ม | ✅ |
+| 62 | `ee1ddbb` | cleanup: ลบ temp debug endpoints (phone check) | ✅ |
+
+### 📱 Session 14 — Phone-First UI + Identity Hardening (21-22 ก.พ.)
+
+| # | Commit | สิ่งที่ทำ | สถานะ |
+|---|--------|----------|-------|
+| 63 | `680fe81` | **Phone-First Resident Management** — ทั้งระบบ: | ✅ |
+|    |          | • `GET /api/users/residents/search?phone=` — ค้นหา user ด้วยเบอร์ | |
+|    |          | • `POST /api/users/residents/{id}/remove-house/{id}` — ถอดลูกบ้านจากบ้าน | |
+|    |          | • **AddResident.jsx** rewrite — 2-step UI: ใส่เบอร์ → ดูข้อมูล → เพิ่มบ้าน | |
+|    |          | • **Members.jsx** — ปุ่ม "ถอดบ้าน" + confirmation modal | |
+|    |          | • **client.js** — searchByPhone + removeFromHouse API | |
+| 64 | `639d739` → `0f43558` | **Production data fix** — merge user_id=17 เข้า user_id=6 (duplicate phone 0635162459) → user_id=6 มีบ้าน 28/73 + 28/72 | ✅ |
+| 65 | `89f6e14` → `6a0986d` | **Sidebar consolidation** — ย้าย "เพิ่มลูกบ้าน" จาก sidebar → ปุ่ม "+" ใน Members header | ✅ |
+| 66 | `05bfb29` | **Phone search ordering** — search + create_resident ใช้ `ORDER BY is_active DESC, line_user_id IS NOT NULL DESC, id ASC` | ✅ |
+| 67 | `62bcbd3` | **Link-account ordering** — link-account endpoint ใช้ deterministic ordering + duplicate phone warning log | ✅ |
+| 68 | `2a313b6` | **Dashboard house_id fix** — ใช้ JWT `house_id` แทน `HouseMember.first()` สำหรับ multi-house | ✅ |
+
 ---
 
 ## 🔑 Credentials
@@ -112,9 +179,11 @@
 ### สำหรับ Admin (`/admin/*`)
 - 🔑 Admin Login ผ่าน Email/Password (modal)
 - 🏠 Houses Management — ดู / เพิ่ม / **แก้ไข** / ลบ บ้าน (157 หลัง)
-- 👤 Add Resident — เพิ่มลูกบ้านและผูกกับบ้าน
+- 👤 **Phone-First Add Resident** — ค้นหาเบอร์ก่อน → ดูข้อมูล user/LINE/บ้าน → assign บ้านเพิ่ม
+- 👥 Members — ดูลูกบ้านทั้งหมด + ปุ่ม "ถอดบ้าน" + ปุ่ม "เพิ่มลูกบ้าน" ใน header
 - 📊 Dashboard — สรุปภาพรวมหมู่บ้าน
 - 💰 Invoice / Pay-in / Ledger — ระบบบัญชี
+- 💸 **Statement-Driven Confirm & Post** — match bank txn → accept pay-in → auto ledger
 - 📄 Financial Reports — Invoice Aging, Cash Flow
 - 🔒 Period Closing — ปิดงวดบัญชี
 - 🏢 Vendors & Categories — จัดการ vendor master + หมวดหมู่ค่าใช้จ่าย (ELECTRICITY/WATER แยกจาก UTILITIES)
@@ -123,12 +192,13 @@
 - 📎 Expense Attachments — แนบไฟล์ Invoice/Receipt ผ่าน Cloudflare R2
 
 ### สำหรับ Resident (ลูกบ้าน)
-- 📱 LINE Login — เข้าสู่ระบบผ่าน LINE
-- 🏡 เลือกบ้าน (Select House)
-- 💳 ส่งหลักฐานการชำระเงิน (Pay-in Submit)
+- 📱 LINE Login — เข้าสู่ระบบผ่าน LINE (domain: app.moobaan.app)
+- 🔗 Link Account — ผูก LINE กับ user ที่ admin สร้างไว้ (phone + house_code)
+- 🏡 **Multi-House Support** — เลือกบ้านตอน login + เปลี่ยนบ้านใน Profile
+- 💳 ส่งหลักฐานการชำระเงิน (Pay-in Submit) — slip upload → R2
 - 📋 ดูประวัติการชำระเงิน (`/resident/payments`)
 - 📊 Village Dashboard — ยอดเงิน, รายรับ/จ่าย, ลูกหนี้ + chart + expense breakdown
-- 🧾 Resident Dashboard — Compact hero (ยอดค้าง/เกิน) + Invoice Table (status สี: เขียว=ชำระแล้ว, แดง=เกินกำหนด, เหลือง=รอชำระ)
+- 🧾 Resident Dashboard — Compact hero (ยอดค้าง/เกิน) + Invoice Table + **Balance ถูกต้องตามบ้านที่เลือก**
 - 🏠 Login Page — Lucide Home icon + gradient badge + "Moobaan Smart"
 
 ---
@@ -150,10 +220,12 @@
 
 | รายการ | ความสำคัญ | สถานะ |
 |--------|----------|-------|
+| Deprecate `HouseMember` table → ใช้ `ResidentMembership` เท่านั้น | 🔴 สูง | ❌ ยังไม่ทำ |
+| ลบ duplicate user (user_id=17, deactivated) ออกจาก DB | 🟡 กลาง | ❌ ยังไม่ทำ (เก็บเป็น audit trail) |
 | ตั้ง R2_PUBLIC_URL บน Railway | 🟡 กลาง | ❌ ยังไม่ทำ |
-| ~~ทดสอบ Resident LINE Login flow จริง~~ | 🟡 กลาง | ✅ เสร็จแล้ว |
-| ตั้ง Vercel Git Integration ให้ auto-deploy เมื่อ push | 🟢 ต่ำ | ❌ ยังไม่ทำ |
+| Token refresh ตรวจสอบ membership ยัง ACTIVE | 🟡 กลาง | ❌ ยังไม่ทำ |
 | เปิด CSRF enforcement (เปลี่ยนจาก warn → block) | 🟢 ต่ำ | ❌ ยังไม่ทำ |
+| ตั้ง Vercel Git Integration ให้ auto-deploy เมื่อ push | 🟢 ต่ำ | ❌ ยังไม่ทำ |
 
 ---
 
