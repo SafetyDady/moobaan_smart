@@ -39,6 +39,18 @@ export default async function compressImage(file, opts = {}) {
       `[compressImage] ${file.name}: ${originalMB}MB → ${compressedMB}MB (−${ratio}%)`
     );
 
+    // Ensure the result is a File with a proper filename.
+    // browser-image-compression may return a Blob (especially via web workers)
+    // without a name, causing backend file-type validation to fail.
+    if (!compressed.name || compressed.name === 'blob') {
+      const ext = options.fileType === 'image/jpeg' ? '.jpg'
+        : options.fileType === 'image/png' ? '.png'
+        : options.fileType === 'image/webp' ? '.webp'
+        : '.jpg';
+      const safeName = (file.name || 'image').replace(/\.[^.]+$/, '') + ext;
+      return new File([compressed], safeName, { type: compressed.type || options.fileType });
+    }
+
     return compressed;
   } catch (err) {
     // If compression fails, return the original file so upload still works
