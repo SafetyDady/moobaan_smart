@@ -123,21 +123,21 @@ export default function Expenses() {
   // Load houses for dropdown
   useEffect(() => {
     housesAPI.list()
-      .then(res => setHouses(res.data || []))
+      .then(res => setHouses(Array.isArray(res.data) ? res.data : (res.data?.items || [])))
       .catch(err => console.error('Failed to load houses:', err));
   }, []);
 
   // Load expense accounts (EXPENSE type only)
   useEffect(() => {
     accountsAPI.list({ account_type: 'EXPENSE', active: true })
-      .then(res => setExpenseAccounts(res.data.accounts || []))
+      .then(res => setExpenseAccounts(Array.isArray(res.data?.accounts) ? res.data.accounts : []))
       .catch(err => console.error('Failed to load expense accounts:', err));
   }, []);
 
   // Phase H.1.1: Load vendors (active only) for dropdown
   useEffect(() => {
     vendorsAPI.list({ active_only: true })
-      .then(res => setVendors(res.data.vendors || []))
+      .then(res => setVendors(Array.isArray(res.data?.vendors) ? res.data.vendors : []))
       .catch(err => console.error('Failed to load vendors:', err));
   }, []);
 
@@ -145,7 +145,7 @@ export default function Expenses() {
   useEffect(() => {
     vendorsAPI.listExpenseCategories({ active_only: true })
       .then(res => {
-        const cats = res.data.categories || [];
+        const cats = Array.isArray(res.data?.categories) ? res.data.categories : [];
         if (cats.length > 0) {
           setExpenseCategories(cats.map(c => ({ value: c.name, label: c.name })));
         } else {
@@ -175,8 +175,8 @@ export default function Expenses() {
       if (houseFilter) params.house_id = houseFilter;
 
       const response = await expensesAPI.list(params);
-      setExpenses(response.data.expenses || []);
-      setSummary(response.data.summary || {
+      setExpenses(Array.isArray(response.data?.expenses) ? response.data.expenses : []);
+      setSummary(response.data?.summary || {
         total_paid: 0,
         total_pending: 0,
         count_paid: 0,
@@ -298,7 +298,7 @@ export default function Expenses() {
     setAttachError('');
     try {
       const res = await attachmentsAPI.list({ entity_type: 'EXPENSE', entity_id: expenseId });
-      setAttachments(res.data || []);
+      setAttachments(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Failed to load attachments:', err);
       setAttachError('Failed to load attachments');
