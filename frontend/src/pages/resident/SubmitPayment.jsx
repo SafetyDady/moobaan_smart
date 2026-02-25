@@ -19,7 +19,7 @@ import { useRole } from '../../contexts/RoleContext';
 export default function SubmitPayment() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentHouseId } = useRole();
+  const { currentHouseId, currentHouseCode } = useRole();
   const toast = useToast();
   const editPayin = location.state?.editPayin;
 
@@ -216,7 +216,7 @@ export default function SubmitPayment() {
           {editPayin ? 'แก้ไขข้อมูลการชำระเงิน' : 'ส่งสลิปการชำระเงิน'}
         </h1>
         <p className="text-gray-400">
-          บ้านเลขที่ #{currentHouseId} - อัพโหลดข้อมูลการชำระเงิน
+          บ้านเลขที่ {currentHouseCode || `#${currentHouseId}`} - อัพโหลดข้อมูลการชำระเงิน
         </p>
         {editPayin && editPayin.status === 'REJECTED' && (
           <div className="mt-4 p-4 bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg">

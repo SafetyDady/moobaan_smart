@@ -15,7 +15,7 @@ import { t } from '../../../hooks/useLocale';
 export default function MobileSubmitPayment() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentHouseId } = useRole();
+  const { currentHouseId, currentHouseCode } = useRole();
   const editPayin = location.state?.editPayin;
 
   const [formData, setFormData] = useState({
@@ -260,7 +260,7 @@ export default function MobileSubmitPayment() {
             {editPayin ? (<><Edit3 size={18} className="inline mr-1" /> {t('mobileSubmitPayment.editTitle')}</>) : (<><CreditCard size={18} className="inline mr-1" /> {t('mobileSubmitPayment.createTitle')}</>)}
           </h1>
           <p className="text-sm text-gray-400">
-            {t('mobileSubmitPayment.houseNo')} #{currentHouseId}
+            {t('mobileSubmitPayment.houseNo')} {currentHouseCode || `#${currentHouseId}`}
           </p>
         </div>
 
