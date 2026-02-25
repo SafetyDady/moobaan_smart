@@ -20,6 +20,7 @@ const th = {
     filter: 'กรอง',
     refresh: 'รีเฟรช',
     export: 'ส่งออก',
+    exportFailed: 'ส่งออกไม่สำเร็จ',
     import: 'นำเข้า',
     upload: 'อัปโหลด',
     download: 'ดาวน์โหลด',

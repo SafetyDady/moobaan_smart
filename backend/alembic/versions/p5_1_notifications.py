@@ -1,7 +1,7 @@
 """Phase 5.1: Create notifications table
 
 Revision ID: p5_1_notifications
-Revises: (auto)
+Revises: tz_fix_payin_utc
 Create Date: 2026-02-25
 """
 from alembic import op
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = 'p5_1_notifications'
-down_revision = None  # Will be set during migration chain
+down_revision = 'tz_fix_payin_utc'
 branch_labels = None
 depends_on = None
 
