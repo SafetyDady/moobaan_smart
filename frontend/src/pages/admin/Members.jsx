@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { usersAPI, housesAPI } from '../../api/client';
 import { Link } from 'react-router-dom';
+import ConfirmModal from '../../components/ConfirmModal';
+import { useToast } from '../../components/Toast';
 
 export default function Members() {
   const [residents, setResidents] = useState([]);
   const [houses, setHouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [houseFilter, setHouseFilter] = useState('');
+  const [confirmDeactivate, setConfirmDeactivate] = useState({ open: false, resident: null });
+  const toast = useToast();
   // NOTE: Reset Password removed - Residents are OTP-only
   
   // Error/Warning modal state
@@ -108,7 +112,7 @@ export default function Members() {
       loadData(); // Refresh list
       
       if (response.data.success) {
-        alert('Resident updated successfully');
+        toast.success('อัปเดตข้อมูลสมาชิกสำเร็จ');
       }
     } catch (error) {
       console.error('Failed to update resident:', error);
@@ -117,12 +121,12 @@ export default function Members() {
       if (error.response?.data?.detail) {
         const detail = error.response.data.detail;
         if (typeof detail === 'object') {
-          alert(detail.error_en || detail.error_th || 'Failed to update resident');
+          toast.error(detail.error_en || detail.error_th || 'Failed to update resident');
         } else {
-          alert(detail);
+          toast.error(detail);
         }
       } else {
-        alert('Failed to update resident');
+        toast.error('Failed to update resident');
       }
     }
   };
@@ -133,11 +137,11 @@ export default function Members() {
     
     // Basic validation
     if (!formData.full_name.trim()) {
-      alert('Full name is required');
+      toast.warning('กรุณาระบุชื่อ-นามสกุล');
       return;
     }
     if (!formData.email.trim()) {
-      alert('Email is required');
+      toast.warning('กรุณาระบุอีเมล');
       return;
     }
 
@@ -151,7 +155,7 @@ export default function Members() {
     const action = resident.is_active ? 'deactivate' : 'reactivate';
     const actionText = resident.is_active ? 'deactivate (soft delete)' : 'reactivate';
     
-    if (!confirm(`Are you sure you want to ${actionText} ${resident.full_name}?`)) return;
+    // Confirm is handled by ConfirmModal before calling this function
     
     try {
       if (resident.is_active) {
@@ -200,18 +204,17 @@ export default function Members() {
         
         // Handle other 409 cases
         if (detail?.error_th || detail?.error_en) {
-          const message = `${detail.error_th || detail.error_en}\n\n${detail.error_en || detail.error_th}`;
-          alert(message);
+          toast.error(`${detail.error_th || detail.error_en}\n${detail.error_en || detail.error_th}`);
           return;
         }
         
         if (typeof detail === 'string') {
-          alert(detail);
+          toast.error(detail);
           return;
         }
         
         // Fallback for unhandled 409
-        alert('Operation cannot be completed due to current state');
+        toast.error('Operation cannot be completed due to current state');
         return;
       }
       
@@ -225,27 +228,26 @@ export default function Members() {
         // Handle other structured error responses
         if (typeof detail === 'object' && detail.code && detail.code !== 'HOUSE_MEMBER_LIMIT_REACHED') {
           if (detail.message_th && detail.message_en) {
-            const message = `${detail.message_th}\n\n${detail.message_en}`;
-            alert(message);
+            toast.error(`${detail.message_th}\n${detail.message_en}`);
             return;
           }
         }
         
         // Legacy error format handling
         if (detail.error_en || detail.error_th) {
-          alert(`${detail.error_th || detail.error_en}\n\n${detail.error_en || detail.error_th}`);
+          toast.error(`${detail.error_th || detail.error_en}\n${detail.error_en || detail.error_th}`);
           return;
         }
         
         // String error message
         if (typeof detail === 'string') {
-          alert(detail);
+          toast.error(detail);
           return;
         }
       }
       
       // Generic error message for unexpected errors
-      alert(`Failed to ${action} resident. Please try again.`);
+      toast.error(`Failed to ${action} resident. Please try again.`);
     }
   };
 
@@ -469,7 +471,7 @@ export default function Members() {
                         {/* NOTE: Reset Password button removed - Residents are OTP-only */}
                         {resident.is_active ? (
                           <button
-                            onClick={() => handleDeactivate(resident)}
+                            onClick={() => setConfirmDeactivate({ open: true, resident })}
                             className="text-orange-400 hover:text-orange-300 text-sm"
                           >
                             Deactivate
@@ -477,7 +479,7 @@ export default function Members() {
                         ) : (
                           <div className="relative group">
                             <button
-                              onClick={() => canReactivateResident(resident) && handleDeactivate(resident)}
+                              onClick={() => canReactivateResident(resident) && setConfirmDeactivate({ open: true, resident })}
                               disabled={!canReactivateResident(resident)}
                               className={`text-sm ${
                                 canReactivateResident(resident)
@@ -759,6 +761,17 @@ export default function Members() {
           </div>
         </div>
       )}
+
+      {/* Deactivate/Reactivate Confirm Modal */}
+      <ConfirmModal
+        open={confirmDeactivate.open}
+        title={confirmDeactivate.resident?.is_active ? 'ยืนยันการปิดใช้งาน' : 'ยืนยันการเปิดใช้งาน'}
+        message={confirmDeactivate.resident ? `ต้องการ${confirmDeactivate.resident.is_active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'} ${confirmDeactivate.resident.full_name} ใช่หรือไม่?` : ''}
+        variant={confirmDeactivate.resident?.is_active ? 'warning' : 'info'}
+        confirmText={confirmDeactivate.resident?.is_active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+        onConfirm={() => { if (confirmDeactivate.resident) handleDeactivate(confirmDeactivate.resident); }}
+        onCancel={() => setConfirmDeactivate({ open: false, resident: null })}
+      />
     </div>
   );
 }
