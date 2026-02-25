@@ -408,6 +408,15 @@ export default function ExpenseReconciliation() {
         /* History view — all allocations */
         <AllocationHistory />
       )}
+      <ConfirmModal
+        open={confirmRemove.open}
+        title="ยกเลิกการจัดสรร"
+        message="ต้องการยกเลิกการจัดสรรนี้ใช่หรือไม่?"
+        variant="danger"
+        confirmText="Remove"
+        onConfirm={() => handleRemoveAllocation(confirmRemove.allocId)}
+        onCancel={() => setConfirmRemove({ open: false, allocId: null })}
+      />
     </div>
   );
 }
@@ -487,15 +496,6 @@ function AllocationHistory() {
           </table>
         </div>
       )}
-      <ConfirmModal
-        open={confirmRemove.open}
-        title="ยกเลิกการจัดสรร"
-        message="ต้องการยกเลิกการจัดสรรนี้ใช่หรือไม่?"
-        variant="danger"
-        confirmText="Remove"
-        onConfirm={() => handleRemoveAllocation(confirmRemove.allocId)}
-        onCancel={() => setConfirmRemove({ open: false, allocId: null })}
-      />
     </div>
   );
 }
