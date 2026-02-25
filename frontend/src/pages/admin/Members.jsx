@@ -6,6 +6,8 @@ import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
 
 
@@ -17,8 +19,9 @@ export default function Members() {
   const [confirmDeactivate, setConfirmDeactivate] = useState({ open: false, resident: null });
   const toast = useToast();
 
-  // Pagination
-  const paged = usePagination(residents);
+  // Sorting & Pagination
+  const { sortConfig, requestSort, sortedData } = useSort(residents);
+  const paged = usePagination(sortedData);
   
   // Error/Warning modal state
   const [messageModal, setMessageModal] = useState({
@@ -380,13 +383,13 @@ export default function Members() {
           <table className="table">
             <thead>
               <tr>
-                <th>{t('common.name')}</th>
-                <th>{t('members.house')}</th>
-                <th>{t('common.phone')}</th>
-                <th>{t('common.email')}</th>
+                <SortableHeader label={t('common.name')} sortKey="full_name" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('members.house')} sortKey="house.house_code" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('common.phone')} sortKey="phone" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('common.email')} sortKey="email" sortConfig={sortConfig} onSort={requestSort} />
                 <th>{t('common.role')}</th>
-                <th>{t('common.status')}</th>
-                <th>{t('common.createdAt')}</th>
+                <SortableHeader label={t('common.status')} sortKey="is_active" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('common.createdAt')} sortKey="created_at" sortConfig={sortConfig} onSort={requestSort} />
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
@@ -394,11 +397,12 @@ export default function Members() {
               {loading ? (
                 <SkeletonTable rows={5} cols={8} />
               ) : residents.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="text-center py-8 text-gray-400">
-                    {t('members.noResidentsFound')}
-                  </td>
-                </tr>
+                <EmptyState
+                  icon="👥"
+                  colSpan={8}
+                  isFiltered={!!houseFilter}
+                  onClearFilters={() => setHouseFilter('')}
+                />
               ) : (
                 paged.currentItems.map((resident) => (
                   <tr key={resident.id} className={!resident.is_active ? "opacity-60" : ""}>

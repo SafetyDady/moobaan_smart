@@ -7,6 +7,8 @@ import { useToast } from '../../components/Toast';
 import { SkeletonTable, SkeletonBlock } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
 
 
@@ -40,7 +42,8 @@ export default function Invoices() {
   const toast = useToast();
 
   // Pagination
-  const paged = usePagination(invoices);
+  const { sortConfig, requestSort, sortedData: sortedInvoices } = useSort(invoices);
+  const paged = usePagination(sortedInvoices);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
 
   useEffect(() => {
@@ -278,13 +281,13 @@ export default function Invoices() {
           <table className="table">
             <thead>
               <tr>
-                <th>{t('invoices.house')}</th>
-                <th>{t('invoices.cycle')}</th>
-                <th>{t('invoices.total')}</th>
-                <th>{t('invoices.paid')}</th>
-                <th>{t('invoices.outstanding')}</th>
-                <th>{t('common.status')}</th>
-                <th>{t('invoices.dueDate')}</th>
+                <SortableHeader label={t('invoices.house')} sortKey="house_code" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.cycle')} sortKey="billing_month" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.total')} sortKey="total" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.paid')} sortKey="paid" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.outstanding')} sortKey="outstanding" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('common.status')} sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.dueDate')} sortKey="due_date" sortConfig={sortConfig} onSort={requestSort} />
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
@@ -292,7 +295,7 @@ export default function Invoices() {
               {loading ? (
                 <SkeletonTable rows={5} cols={8} />
               ) : invoices.length === 0 ? (
-                <tr><td colSpan="8" className="text-center py-8 text-gray-400">{t('invoices.noInvoicesFound')}</td></tr>
+                <EmptyState icon="📄" colSpan={8} />
               ) : (
                 paged.currentItems.map((inv) => {
                   const paid = inv.paid || 0;

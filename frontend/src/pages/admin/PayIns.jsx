@@ -6,6 +6,8 @@ import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
 
 
@@ -35,7 +37,8 @@ export default function PayIns() {
   const toast = useToast();
 
   // Pagination
-  const paged = usePagination(payins);
+  const { sortConfig, requestSort, sortedData: sortedPayins } = useSort(payins);
+  const paged = usePagination(sortedPayins);
 
   useEffect(() => {
     if (!roleLoading) {
@@ -236,13 +239,13 @@ export default function PayIns() {
           <table className="table">
             <thead>
               <tr>
-                <th>{t('payins.house')}</th>
-                <th>{t('payins.amount')}</th>
-                <th>{t('payins.transferDate')}</th>
+                <SortableHeader label={t('payins.house')} sortKey="house_number" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('payins.amount')} sortKey="amount" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('payins.transferDate')} sortKey="transfer_date" sortConfig={sortConfig} onSort={requestSort} />
                 <th>{t('payins.slip')}</th>
                 <th>{t('payins.matchBank')}</th>
-                <th>{t('common.status')}</th>
-                <th>{t('common.createdAt')}</th>
+                <SortableHeader label={t('common.status')} sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('common.createdAt')} sortKey="created_at" sortConfig={sortConfig} onSort={requestSort} />
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
@@ -250,9 +253,12 @@ export default function PayIns() {
               {loading ? (
                 <SkeletonTable rows={5} cols={8} />
               ) : payins.length === 0 ? (
-                <tr><td colSpan="8" className="text-center py-8 text-gray-400">
-                  {(statusFilter === 'PENDING' || statusFilter === 'SUBMITTED') ? 'No pay-ins pending review' : 'No pay-ins found'}
-                </td></tr>
+                <EmptyState
+                  icon="💳"
+                  colSpan={8}
+                  isFiltered={!!statusFilter}
+                  onClearFilters={() => setStatusFilter('')}
+                />
               ) : (
                 paged.currentItems.map((payin) => (
                   <tr key={payin.id}>

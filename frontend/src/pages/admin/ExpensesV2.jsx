@@ -4,6 +4,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
 
 
@@ -57,7 +59,8 @@ export default function Expenses() {
   const [error, setError] = useState('');
 
   // Pagination
-  const paged = usePagination(expenses);
+  const { sortConfig, requestSort, sortedData: sortedExpenses } = useSort(expenses);
+  const paged = usePagination(sortedExpenses);
 
   // Filters
   const [fromDate, setFromDate] = useState('');
@@ -574,13 +577,13 @@ export default function Expenses() {
           <table className="w-full">
             <thead className="bg-slate-700">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.date')}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.category')}</th>
+                <SortableHeader label={t('common.date')} sortKey="expense_date" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                <SortableHeader label={t('common.category')} sortKey="category" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.description')}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('expenses.vendor')}</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-300">{t('common.amount')}</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('expenses.paidDate')}</th>
+                <SortableHeader label={t('expenses.vendor')} sortKey="vendor_name" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                <SortableHeader label={t('common.amount')} sortKey="amount" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-right text-sm font-medium text-gray-300" />
+                <SortableHeader label={t('common.status')} sortKey="status" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-center text-sm font-medium text-gray-300" />
+                <SortableHeader label={t('expenses.paidDate')} sortKey="paid_date" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('members.house')}</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
               </tr>
@@ -589,11 +592,12 @@ export default function Expenses() {
               {loading ? (
                 <SkeletonTable rows={5} cols={9} />
               ) : expenses.length === 0 ? (
-                <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center text-gray-400">
-                    No expenses found for the selected period
-                  </td>
-                </tr>
+                <EmptyState
+                  icon="💸"
+                  colSpan={9}
+                  isFiltered={!!(statusFilter || categoryFilter || houseFilter || fromDate || toDate)}
+                  onClearFilters={() => { setStatusFilter(''); setCategoryFilter(''); setHouseFilter(''); setFromDate(''); setToDate(''); }}
+                />
               ) : (
                 paged.currentItems.map((expense) => (
                   <tr key={expense.id} className="hover:bg-slate-700/50">

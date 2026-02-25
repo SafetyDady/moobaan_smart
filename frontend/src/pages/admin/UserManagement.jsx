@@ -4,6 +4,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
 
 
@@ -37,8 +39,10 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination for staff and residents
-  const staffPaged = usePagination(staff);
-  const residentsPaged = usePagination(residents);
+  const { sortConfig: staffSortConfig, requestSort: staffRequestSort, sortedData: sortedStaff } = useSort(staff);
+  const staffPaged = usePagination(sortedStaff);
+  const { sortConfig: resSortConfig, requestSort: resRequestSort, sortedData: sortedResidents } = useSort(residents);
+  const residentsPaged = usePagination(sortedResidents);
 
   useEffect(() => {
     if (activeTab === 'staff') loadStaff();
@@ -290,11 +294,11 @@ export default function UserManagement() {
               <table className="w-full">
                 <thead className="bg-slate-700">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.email')}</th>
+                    <SortableHeader label={t('common.name')} sortKey="full_name" sortConfig={staffSortConfig} onSort={staffRequestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                    <SortableHeader label={t('common.email')} sortKey="email" sortConfig={staffSortConfig} onSort={staffRequestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.role')}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.createdAt')}</th>
+                    <SortableHeader label={t('common.status')} sortKey="is_active" sortConfig={staffSortConfig} onSort={staffRequestSort} className="px-4 py-3 text-center text-sm font-medium text-gray-300" />
+                    <SortableHeader label={t('common.createdAt')} sortKey="created_at" sortConfig={staffSortConfig} onSort={staffRequestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
                   </tr>
                 </thead>
@@ -302,7 +306,7 @@ export default function UserManagement() {
                   {loading ? (
                     <SkeletonTable rows={5} cols={6} />
                   ) : staff.length === 0 ? (
-                    <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">{t('userManagement.noStaffFound')}</td></tr>
+                    <EmptyState icon="👤" colSpan={6} />
                   ) : (
                     staffPaged.currentItems.map(u => (
                       <tr key={u.id} className="hover:bg-slate-700/50">
@@ -401,19 +405,19 @@ export default function UserManagement() {
               <table className="w-full">
                 <thead className="bg-slate-700">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.email')}</th>
+                    <SortableHeader label={t('common.name')} sortKey="full_name" sortConfig={resSortConfig} onSort={resRequestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                    <SortableHeader label={t('common.email')} sortKey="email" sortConfig={resSortConfig} onSort={resRequestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.phone')}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('members.house')}</th>
+                    <SortableHeader label={t('members.house')} sortKey="house_code" sortConfig={resSortConfig} onSort={resRequestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.role')}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                    <SortableHeader label={t('common.status')} sortKey="is_active" sortConfig={resSortConfig} onSort={resRequestSort} className="px-4 py-3 text-center text-sm font-medium text-gray-300" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
                   {residentsLoading ? (
                     <SkeletonTable rows={5} cols={6} />
                   ) : residents.length === 0 ? (
-                    <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">{t('userManagement.noResidentsFound')}</td></tr>
+                    <EmptyState icon="👥" colSpan={6} isFiltered={!!searchQuery} onClearFilters={() => setSearchQuery('')} />
                   ) : (
                     residentsPaged.currentItems.map(r => (
                       <tr key={r.user_id || r.id} className="hover:bg-slate-700/50">

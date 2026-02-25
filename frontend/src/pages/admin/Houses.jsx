@@ -6,6 +6,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
 
 
@@ -25,8 +27,9 @@ export default function Houses() {
   const [downloadingStatements, setDownloadingStatements] = useState(new Set());
   const toast = useToast();
 
-  // Pagination
-  const paged = usePagination(houses);
+  // Sorting & Pagination
+  const { sortConfig, requestSort, sortedData } = useSort(houses);
+  const paged = usePagination(sortedData);
 
   // Edit modal state
   const [editingHouse, setEditingHouse] = useState(null);
@@ -208,11 +211,11 @@ export default function Houses() {
           <table className="table">
             <thead>
               <tr>
-                <th>{t('houses.houseCode')}</th>
-                <th>{t('houses.ownerName')}</th>
-                <th>{t('common.status')}</th>
-                <th>{t('houses.zone')}</th>
-                <th>{t('common.createdAt')}</th>
+                <SortableHeader label={t('houses.houseCode')} sortKey="house_code" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('houses.ownerName')} sortKey="owner_name" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('common.status')} sortKey="house_status" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('houses.zone')} sortKey="zone" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('common.createdAt')} sortKey="created_at" sortConfig={sortConfig} onSort={requestSort} />
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
@@ -220,11 +223,12 @@ export default function Houses() {
               {loading ? (
                 <SkeletonTable rows={5} cols={6} />
               ) : houses.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="text-center py-8 text-gray-400">
-                    {t('houses.noHousesFound')}
-                  </td>
-                </tr>
+                <EmptyState
+                  icon="🏠"
+                  colSpan={6}
+                  isFiltered={!!(search || statusFilter)}
+                  onClearFilters={() => { setSearch(''); setStatusFilter(''); }}
+                />
               ) : (
                 paged.currentItems.map((house) => (
                   <tr key={house.id}>
