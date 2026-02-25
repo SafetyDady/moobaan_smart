@@ -9,6 +9,7 @@ import Pagination, { usePagination } from '../../components/Pagination';
 import SortableHeader, { useSort } from '../../components/SortableHeader';
 import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
+import ExportButton from '../../components/ExportButton';
 
 
 /**
@@ -462,12 +463,15 @@ export default function Expenses() {
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2"><DollarSign size={24} className="inline mr-1" />Expenses Management</h1>
           <p className="text-gray-400">{t('expenses.subtitle')}</p>
         </div>
-        <button
-          onClick={() => { resetForm(); setShowCreateModal(true); }}
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center gap-2"
-        >
-          <Plus size={16} className="inline" /> Create Expense
-        </button>
+        <div className="flex gap-3 flex-wrap">
+          <ExportButton reportType="expenses" />
+          <button
+            onClick={() => { resetForm(); setShowCreateModal(true); }}
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center gap-2"
+          >
+            <Plus size={16} className="inline" /> Create Expense
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}

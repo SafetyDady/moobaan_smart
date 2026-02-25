@@ -10,6 +10,7 @@ import Pagination, { usePagination } from '../../components/Pagination';
 import SortableHeader, { useSort } from '../../components/SortableHeader';
 import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
+import ExportButton from '../../components/ExportButton';
 
 
 const HOUSE_STATUSES = [
@@ -162,6 +163,7 @@ export default function Houses() {
             <p className="text-gray-400">{t('houses.subtitle')}</p>
           </div>
           <div className="flex gap-3 flex-wrap">
+            <ExportButton reportType="houses" />
             <Link to="/admin/add-house" className="btn-primary whitespace-nowrap">
               <Home size={16} className="inline mr-1" />{t('houses.addHouse')}
             </Link>

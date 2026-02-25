@@ -10,6 +10,7 @@ import Pagination, { usePagination } from '../../components/Pagination';
 import SortableHeader, { useSort } from '../../components/SortableHeader';
 import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
+import ExportButton from '../../components/ExportButton';
 
 
 export default function Members() {
@@ -349,12 +350,15 @@ export default function Members() {
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('members.title')}</h1>
           <p className="text-gray-400">{t('members.subtitle')}</p>
         </div>
-        <Link
-          to="/admin/add-resident"
-          className="btn-primary flex items-center gap-2 whitespace-nowrap self-start"
-        >
-          <span className="text-lg">+</span> {t('members.addResident')}
-        </Link>
+        <div className="flex gap-3 flex-wrap self-start">
+          <ExportButton reportType="members" />
+          <Link
+            to="/admin/add-resident"
+            className="btn-primary flex items-center gap-2 whitespace-nowrap"
+          >
+            <span className="text-lg">+</span> {t('members.addResident')}
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

@@ -11,6 +11,7 @@ import Pagination, { usePagination } from '../../components/Pagination';
 import SortableHeader, { useSort } from '../../components/SortableHeader';
 import EmptyState from '../../components/EmptyState';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
+import ExportButton from '../../components/ExportButton';
 
 
 export default function Invoices() {
@@ -234,9 +235,12 @@ export default function Invoices() {
   return (
     <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('invoices.title')}</h1>
-        <p className="text-gray-400">{t('invoices.subtitle')}</p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('invoices.title')}</h1>
+          <p className="text-gray-400">{t('invoices.subtitle')}</p>
+        </div>
+        <ExportButton reportType="invoices" />
       </div>
 
       {/* Tabs */}
