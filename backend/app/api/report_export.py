@@ -12,7 +12,7 @@ Endpoints:
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc
+from sqlalchemy import and_, desc, extract
 from typing import Optional
 from datetime import datetime
 import io
@@ -148,7 +148,15 @@ def fetch_expenses(db: Session, period: Optional[str] = None):
     """Fetch expense data for export"""
     query = db.query(Expense)
     if period:
-        query = query.filter(Expense.period == period)
+        # period format: "YYYY-MM" — filter by expense_date year/month
+        try:
+            year, month = period.split("-")
+            query = query.filter(
+                extract('year', Expense.expense_date) == int(year),
+                extract('month', Expense.expense_date) == int(month),
+            )
+        except (ValueError, AttributeError):
+            pass  # Invalid period format, skip filter
     query = query.order_by(desc(Expense.created_at))
     expenses = query.all()
 
@@ -158,10 +166,10 @@ def fetch_expenses(db: Session, period: Optional[str] = None):
         rows.append([
             str(e.id),
             e.description or "-",
-            e.category.value if hasattr(e, 'category') and e.category else "-",
+            e.category or "-",
             fmt_baht(e.amount),
             e.status.value if e.status else "-",
-            fmt_date(e.expense_date if hasattr(e, 'expense_date') else e.created_at),
+            fmt_date(e.expense_date if e.expense_date else e.created_at),
         ])
     return headers, rows, f"expenses_{period or 'all'}"
 
