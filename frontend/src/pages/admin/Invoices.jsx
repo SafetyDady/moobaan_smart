@@ -6,6 +6,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { SkeletonTable, SkeletonBlock } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
+import Pagination, { usePagination } from '../../components/Pagination';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -35,6 +36,9 @@ export default function Invoices() {
   const [creditNoteInvoice, setCreditNoteInvoice] = useState(null);
 
   const toast = useToast();
+
+  // Pagination
+  const paged = usePagination(invoices);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
 
   useEffect(() => {
@@ -287,7 +291,7 @@ export default function Invoices() {
               ) : invoices.length === 0 ? (
                 <tr><td colSpan="8" className="text-center py-8 text-gray-400">{t('invoices.noInvoicesFound')}</td></tr>
               ) : (
-                invoices.map((inv) => {
+                paged.currentItems.map((inv) => {
                   const paid = inv.paid || 0;
                   const outstanding = inv.outstanding ?? (inv.total - paid);
                   const canApply = outstanding > 0;
@@ -353,6 +357,9 @@ export default function Invoices() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && invoices.length > 0 && <Pagination {...paged} />}
 
       {/* Apply Payment Modal */}
       <ApplyPaymentModal

@@ -5,6 +5,7 @@ import { SkeletonTable } from '../../components/Skeleton';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { t } from '../../hooks/useLocale';
+import Pagination, { usePagination } from '../../components/Pagination';
 
 const HOUSE_STATUSES = [
   { value: 'ACTIVE', label: t('houses.statusActive') },
@@ -21,6 +22,9 @@ export default function Houses() {
   const [statusFilter, setStatusFilter] = useState('');
   const [downloadingStatements, setDownloadingStatements] = useState(new Set());
   const toast = useToast();
+
+  // Pagination
+  const paged = usePagination(houses);
 
   // Edit modal state
   const [editingHouse, setEditingHouse] = useState(null);
@@ -219,7 +223,7 @@ export default function Houses() {
                   </td>
                 </tr>
               ) : (
-                houses.map((house) => (
+                paged.currentItems.map((house) => (
                   <tr key={house.id}>
                     <td className="font-medium text-white">{house.house_code}</td>
                     <td className="text-gray-300">{house.owner_name}</td>
@@ -276,6 +280,9 @@ export default function Houses() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && houses.length > 0 && <Pagination {...paged} />}
 
       {/* ── Edit House Modal ─────────────────────────────────── */}
       {editingHouse && (

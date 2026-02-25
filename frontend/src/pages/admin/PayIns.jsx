@@ -5,6 +5,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
+import Pagination, { usePagination } from '../../components/Pagination';
 
 export default function PayIns() {
   const { isAdmin, isAccounting, currentRole, loading: roleLoading } = useRole();
@@ -30,6 +31,9 @@ export default function PayIns() {
   const [confirmUnmatch, setConfirmUnmatch] = useState({ open: false, payin: null });
   const [confirmPost, setConfirmPost] = useState({ open: false, payin: null });
   const toast = useToast();
+
+  // Pagination
+  const paged = usePagination(payins);
 
   useEffect(() => {
     if (!roleLoading) {
@@ -247,7 +251,7 @@ export default function PayIns() {
                   {(statusFilter === 'PENDING' || statusFilter === 'SUBMITTED') ? 'No pay-ins pending review' : 'No pay-ins found'}
                 </td></tr>
               ) : (
-                payins.map((payin) => (
+                paged.currentItems.map((payin) => (
                   <tr key={payin.id}>
                     <td className="font-medium text-white">{payin.house_number}</td>
                     <td className="text-primary-400 font-semibold">฿{payin.amount.toLocaleString('th-TH')}</td>
@@ -424,6 +428,9 @@ export default function PayIns() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && payins.length > 0 && <Pagination {...paged} />}
 
       {/* Reject Modal */}
       {showRejectModal && (

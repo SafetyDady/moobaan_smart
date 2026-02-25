@@ -3,6 +3,7 @@ import { usersAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
+import Pagination, { usePagination } from '../../components/Pagination';
 
 export default function UserManagement() {
   const [activeTab, setActiveTab] = useState('staff');
@@ -32,6 +33,10 @@ export default function UserManagement() {
   const [residents, setResidents] = useState([]);
   const [residentsLoading, setResidentsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Pagination for staff and residents
+  const staffPaged = usePagination(staff);
+  const residentsPaged = usePagination(residents);
 
   useEffect(() => {
     if (activeTab === 'staff') loadStaff();
@@ -296,7 +301,7 @@ export default function UserManagement() {
                   ) : staff.length === 0 ? (
                     <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">{t('userManagement.noStaffFound')}</td></tr>
                   ) : (
-                    staff.map(u => (
+                    staffPaged.currentItems.map(u => (
                       <tr key={u.id} className="hover:bg-slate-700/50">
                         <td className="px-4 py-3 text-white font-medium">{u.full_name}</td>
                         <td className="px-4 py-3 text-gray-300">{u.email}</td>
@@ -360,6 +365,8 @@ export default function UserManagement() {
               </table>
             </div>
           </div>
+          {/* Staff Pagination */}
+          {!loading && staff.length > 0 && <Pagination {...staffPaged} />}
         </div>
       )}
 
@@ -405,7 +412,7 @@ export default function UserManagement() {
                   ) : residents.length === 0 ? (
                     <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">{t('userManagement.noResidentsFound')}</td></tr>
                   ) : (
-                    residents.map(r => (
+                    residentsPaged.currentItems.map(r => (
                       <tr key={r.user_id || r.id} className="hover:bg-slate-700/50">
                         <td className="px-4 py-3 text-white">{r.full_name || r.user?.full_name || '-'}</td>
                         <td className="px-4 py-3 text-gray-300">{r.email || r.user?.email || '-'}</td>
@@ -432,6 +439,8 @@ export default function UserManagement() {
               </table>
             </div>
           </div>
+          {/* Residents Pagination */}
+          {!residentsLoading && residents.length > 0 && <Pagination {...residentsPaged} />}
           <p className="text-gray-500 text-xs mt-2">
             * {t('userManagement.residentReadOnly')}
           </p>

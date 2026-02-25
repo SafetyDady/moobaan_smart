@@ -3,6 +3,7 @@ import { expensesAPI, housesAPI, accountsAPI, vendorsAPI, attachmentsAPI } from 
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
+import Pagination, { usePagination } from '../../components/Pagination';
 
 /**
  * Phase F.1: Expense Core (Cash Out)
@@ -52,6 +53,9 @@ export default function Expenses() {
   const [expenseCategories, setExpenseCategories] = useState([]);  // Phase H.1.1: DB categories
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Pagination
+  const paged = usePagination(expenses);
 
   // Filters
   const [fromDate, setFromDate] = useState('');
@@ -588,7 +592,7 @@ export default function Expenses() {
                   </td>
                 </tr>
               ) : (
-                expenses.map((expense) => (
+                paged.currentItems.map((expense) => (
                   <tr key={expense.id} className="hover:bg-slate-700/50">
                     <td className="px-4 py-3 text-gray-300">
                       {expense.expense_date}
@@ -671,6 +675,9 @@ export default function Expenses() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && expenses.length > 0 && <Pagination {...paged} />}
 
       {/* Create Modal */}
       {showCreateModal && (

@@ -5,6 +5,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
+import Pagination, { usePagination } from '../../components/Pagination';
 
 export default function Members() {
   const [residents, setResidents] = useState([]);
@@ -13,6 +14,9 @@ export default function Members() {
   const [houseFilter, setHouseFilter] = useState('');
   const [confirmDeactivate, setConfirmDeactivate] = useState({ open: false, resident: null });
   const toast = useToast();
+
+  // Pagination
+  const paged = usePagination(residents);
   
   // Error/Warning modal state
   const [messageModal, setMessageModal] = useState({
@@ -393,7 +397,7 @@ export default function Members() {
                   </td>
                 </tr>
               ) : (
-                residents.map((resident) => (
+                paged.currentItems.map((resident) => (
                   <tr key={resident.id} className={!resident.is_active ? "opacity-60" : ""}>
                     <td className="font-medium text-white">{resident.full_name}</td>
                     <td className="text-gray-300">{resident.house?.house_code || '-'}</td>
@@ -474,6 +478,9 @@ export default function Members() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && residents.length > 0 && <Pagination {...paged} />}
 
       {/* Remove from House Confirmation Modal */}
       {removeHouseModal.show && removeHouseModal.resident && (
