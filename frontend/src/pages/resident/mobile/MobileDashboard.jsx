@@ -7,6 +7,7 @@ import InvoiceTable from './InvoiceTable';
 import { Home, Loader2, CreditCard } from 'lucide-react';
 import { SkeletonMobileList } from '../../../components/Skeleton';
 import { isBlockingPayin } from '../../../utils/payinStatus';
+import PullToRefresh from '../../../components/PullToRefresh';
 
 export default function MobileDashboard() {
   const { currentHouseId } = useRole();
@@ -76,8 +77,13 @@ export default function MobileDashboard() {
     );
   }
 
+  const handleRefresh = async () => {
+    await loadData();
+  };
+
   return (
     <MobileLayout>
+      <PullToRefresh onRefresh={handleRefresh}>
       {/* Compact Hero Card (Balance Card) */}
       <div className="sticky top-0 z-10 bg-gray-900 p-4">
         <div className={`rounded-2xl p-5 shadow-xl ${
@@ -143,7 +149,7 @@ export default function MobileDashboard() {
         <h2 className="text-xl font-bold text-white mb-4">ใบแจ้งหนี้</h2>
         <InvoiceTable invoices={invoices} />
       </div>
-
+      </PullToRefresh>
     </MobileLayout>
   );
 }
