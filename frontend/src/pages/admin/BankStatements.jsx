@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { bankStatementsAPI, bankAccountsAPI } from '../../api/client';
+import ConfirmModal from '../../components/ConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
 
 const BankStatements = () => {
@@ -13,6 +14,8 @@ const BankStatements = () => {
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [confirmImport, setConfirmImport] = useState(false);
+  const [confirmDeleteBatch, setConfirmDeleteBatch] = useState({ open: false, batchId: null, filename: '' });
   const [success, setSuccess] = useState(null);
   
   // Transactions view state
@@ -208,10 +211,7 @@ const BankStatements = () => {
       return;
     }
 
-    if (!window.confirm('Are you sure you want to import this bank statement?')) {
-      return;
-    }
-
+    setConfirmImport(false);
     setLoading(true);
     setError(null);
 
@@ -295,9 +295,7 @@ const BankStatements = () => {
   };
 
   const handleDeleteBatch = async (batchId, filename) => {
-    if (!window.confirm(`ลบ batch "${filename}"?\nจะลบ transactions ทั้งหมดใน batch นี้อย่างถาวร`)) {
-      return;
-    }
+    setConfirmDeleteBatch({ open: false, batchId: null, filename: '' });
     try {
       setLoading(true);
       setError(null);
@@ -470,7 +468,7 @@ const BankStatements = () => {
           disabled={loading || !file || !selectedAccount}
           className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
         >
-          {loading ? 'Loading...' : 'Preview CSV'}
+          {loading ? '⏳ Processing...' : 'Preview CSV'}
         </button>
       </div>
 
@@ -563,7 +561,7 @@ const BankStatements = () => {
           {/* Confirm Button */}
           {preview.validation?.errors?.length === 0 && (
             <button
-              onClick={handleConfirmImport}
+              onClick={() => setConfirmImport(true)}
               disabled={loading}
               className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
             >
@@ -624,7 +622,7 @@ const BankStatements = () => {
                           View
                         </button>
                         <button
-                          onClick={() => handleDeleteBatch(batch.id, batch.original_filename)}
+                          onClick={() => setConfirmDeleteBatch({ open: true, batchId: batch.id, filename: batch.original_filename })}
                           className="text-red-500 hover:text-red-700 font-medium"
                         >
                           Delete
@@ -730,6 +728,24 @@ const BankStatements = () => {
           )}
         </div>
       )}
+      <ConfirmModal
+        open={confirmImport}
+        title="ยืนยันการนำเข้า"
+        message="ต้องการนำเข้า Bank Statement นี้ใช่หรือไม่?"
+        variant="info"
+        confirmText="นำเข้า"
+        onConfirm={handleConfirmImport}
+        onCancel={() => setConfirmImport(false)}
+      />
+      <ConfirmModal
+        open={confirmDeleteBatch.open}
+        title="ลบ Batch"
+        message={`ลบ batch "${confirmDeleteBatch.filename}"? จะลบ transactions ทั้งหมดใน batch นี้อย่างถาวร`}
+        variant="danger"
+        confirmText="ลบ"
+        onConfirm={() => handleDeleteBatch(confirmDeleteBatch.batchId, confirmDeleteBatch.filename)}
+        onCancel={() => setConfirmDeleteBatch({ open: false, batchId: null, filename: '' })}
+      />
     </div>
   );
 };

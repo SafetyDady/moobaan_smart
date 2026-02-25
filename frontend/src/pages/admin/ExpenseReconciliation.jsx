@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { expenseReconciliationAPI } from '../../api/client';
+import ConfirmModal from '../../components/ConfirmModal';
+import { SkeletonPage, SkeletonBlock } from '../../components/Skeleton';
 
 export default function ExpenseReconciliation() {
   // State
@@ -8,6 +10,7 @@ export default function ExpenseReconciliation() {
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [confirmRemove, setConfirmRemove] = useState({ open: false, allocId: null });
   const [success, setSuccess] = useState('');
 
   // Selection state
@@ -126,7 +129,7 @@ export default function ExpenseReconciliation() {
 
   // Handle remove allocation
   const handleRemoveAllocation = async (allocId) => {
-    if (!confirm('Remove this allocation?')) return;
+    setConfirmRemove({ open: false, allocId: null });
     setError('');
     setSuccess('');
     try {
@@ -188,7 +191,7 @@ export default function ExpenseReconciliation() {
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading...</div>
+        <SkeletonPage />
       ) : viewMode === 'match' ? (
         <>
           {/* Allocation Panel (shown when both selected) */}
@@ -387,7 +390,7 @@ export default function ExpenseReconciliation() {
                         <td className="px-4 py-2 text-sm text-right text-gray-500">{formatDate(a.created_at)}</td>
                         <td className="px-4 py-2 text-center">
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleRemoveAllocation(a.id); }}
+                            onClick={(e) => { e.stopPropagation(); setConfirmRemove({ open: true, allocId: a.id }); }}
                             className="text-red-600 hover:text-red-800 text-sm font-medium"
                           >
                             Remove
@@ -437,7 +440,7 @@ function AllocationHistory() {
     return new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
+  if (loading) return <SkeletonPage />;
 
   return (
     <div className="bg-white rounded-lg shadow">
@@ -484,6 +487,15 @@ function AllocationHistory() {
           </table>
         </div>
       )}
+      <ConfirmModal
+        open={confirmRemove.open}
+        title="ยกเลิกการจัดสรร"
+        message="ต้องการยกเลิกการจัดสรรนี้ใช่หรือไม่?"
+        variant="danger"
+        confirmText="Remove"
+        onConfirm={() => handleRemoveAllocation(confirmRemove.allocId)}
+        onCancel={() => setConfirmRemove({ open: false, allocId: null })}
+      />
     </div>
   );
 }

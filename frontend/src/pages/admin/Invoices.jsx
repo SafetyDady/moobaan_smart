@@ -4,6 +4,7 @@ import ApplyPaymentModal from '../../components/ApplyPaymentModal';
 import CreditNoteModal from '../../components/CreditNoteModal';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
+import { SkeletonTable, SkeletonBlock } from '../../components/Skeleton';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -299,7 +300,7 @@ export default function Invoices() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="8" className="text-center py-8">Loading...</td></tr>
+                <SkeletonTable rows={5} cols={8} />
               ) : invoices.length === 0 ? (
                 <tr><td colSpan="8" className="text-center py-8 text-gray-400">No invoices found</td></tr>
               ) : (
@@ -403,7 +404,7 @@ export default function Invoices() {
             {/* Content */}
             <div className="p-6 overflow-y-auto max-h-[70vh]">
               {detailLoading ? (
-                <div className="text-center py-8 text-gray-400">Loading...</div>
+                <div className="py-8 space-y-3">{Array.from({length:4}).map((_,i)=><SkeletonBlock key={i} className="h-4 w-full" />)}</div>
               ) : invoiceDetail ? (
                 <>
                   {/* Summary */}

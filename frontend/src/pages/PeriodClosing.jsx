@@ -11,6 +11,8 @@
  */
 import React, { useState, useEffect } from 'react';
 import { periodsAPI, exportAPI } from '../api/client';
+import { useToast } from '../components/Toast';
+import { SkeletonCard } from '../components/Skeleton';
 import { useAuth } from '../contexts/AuthContext';
 
 // Month names in Thai
@@ -27,6 +29,7 @@ const MONTH_NAMES_EN = [
 
 function PeriodClosing() {
   const { user } = useAuth();
+  const toast = useToast();
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   
@@ -129,7 +132,7 @@ function PeriodClosing() {
       fetchPeriodDetail(selectedPeriod.year, selectedPeriod.month);
     } catch (err) {
       console.error('Error locking period:', err);
-      alert(err.response?.data?.detail || 'ไม่สามารถล็อครอบบัญชีได้');
+      toast.error(err.response?.data?.detail || 'ไม่สามารถล็อครอบบัญชีได้');
     } finally {
       setActionLoading(false);
     }
@@ -139,7 +142,7 @@ function PeriodClosing() {
     if (!selectedPeriod || !unlockReason.trim()) return;
     
     if (unlockReason.trim().length < 10) {
-      alert('กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร');
+      toast.warning('กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร');
       return;
     }
     
@@ -152,7 +155,7 @@ function PeriodClosing() {
       fetchPeriodDetail(selectedPeriod.year, selectedPeriod.month);
     } catch (err) {
       console.error('Error unlocking period:', err);
-      alert(err.response?.data?.detail || 'ไม่สามารถปลดล็อครอบบัญชีได้');
+      toast.error(err.response?.data?.detail || 'ไม่สามารถปลดล็อครอบบัญชีได้');
     } finally {
       setActionLoading(false);
     }
@@ -185,7 +188,7 @@ function PeriodClosing() {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Export failed');
+      toast.error('Export ไม่สำเร็จ');
     } finally {
       setExporting(false);
     }
@@ -279,9 +282,8 @@ function PeriodClosing() {
           </div>
           
           {detailLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-500">กำลังโหลด...</p>
+            <div className="py-8">
+              <SkeletonCard />
             </div>
           ) : periodDetail ? (
             <div>

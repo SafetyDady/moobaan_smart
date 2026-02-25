@@ -12,12 +12,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { payinsAPI, api } from '../../api/client';
+import { useToast } from '../../components/Toast';
 import { useRole } from '../../contexts/RoleContext';
 
 export default function SubmitPayment() {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentHouseId } = useRole();
+  const toast = useToast();
   const editPayin = location.state?.editPayin;
 
   const [formData, setFormData] = useState({
@@ -46,21 +48,21 @@ export default function SubmitPayment() {
       // Validate slip is attached FIRST (most common error)
       if (!slipFile && !editPayin?.slip_url) {
         console.log('❌ VALIDATION FAILED: No slip attached');
-        alert('❌ กรุณาแนบสลิปการโอนเงิน / Please attach transfer slip');
+        toast.warning('กรุณาแนบสลิปการโอนเงิน');
         return;
       }
       
       // Validate all required fields
       if (!formData.amount || !formData.transfer_date || formData.transfer_hour === '' || formData.transfer_minute === '') {
         console.log('❌ VALIDATION FAILED: Missing required fields');
-        alert('❌ กรุณากรอกข้อมูลให้ครบถ้วน / Please fill in all required fields');
+        toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน');
         return;
       }
       
       console.log('✅ VALIDATION PASSED');
     } catch (validationError) {
       console.error('Validation error:', validationError);
-      alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล');
+      toast.error('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล');
       return;
     }
     
@@ -75,12 +77,12 @@ export default function SubmitPayment() {
         console.log('🔍 Direct API check - userData:', userData);
         
         if (!userData.house_id) {
-          alert('ไม่พบข้อมูลบ้าน: บัญชีของคุณยังไม่ได้เชื่อมโยงกับบ้าน\n\nกรุณาติดต่อแอดมินเพื่อเพิ่มข้อมูลของคุณในระบบ HouseMember');
+          toast.error('ไม่พบข้อมูลบ้าน: บัญชีของคุณยังไม่ได้เชื่อมโยงกับบ้าน กรุณาติดต่อแอดมิน');
           return;
         }
       } catch (error) {
         console.error('❌ Failed to fetch user data:', error);
-        alert('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        toast.error('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
         navigate('/auth/login');
         return;
       }
@@ -90,7 +92,7 @@ export default function SubmitPayment() {
     const hour = parseInt(formData.transfer_hour);
     const minute = parseInt(formData.transfer_minute);
     if (isNaN(hour) || isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-      alert('เวลาไม่ถูกต้อง (ชั่วโมง: 0-23, นาที: 0-59)');
+      toast.warning('เวลาไม่ถูกต้อง (ชั่วโมง: 0-23, นาที: 0-59)');
       return;
     }
     
@@ -144,12 +146,12 @@ export default function SubmitPayment() {
           jsonData.slip_image_url = slipUrl;
         }
         await payinsAPI.update(editPayin.id, jsonData);
-        alert('✅ แก้ไขและส่งรายงานการชำระเงินเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
+        toast.success('แก้ไขและส่งรายงานการชำระเงินเรียบร้อยแล้ว');
       } else {
         // For create, use FormData
         const response = await payinsAPI.createFormData(submitFormData);
         console.log('✅ Success response:', response);
-        alert('✅ ส่งรายงานการชำระเงินเรียบร้อยแล้ว กำลังกลับหน้าหลัก...');
+        toast.success('ส่งรายงานการชำระเงินเรียบร้อยแล้ว');
       }
       
       // Use navigate to avoid losing auth state
@@ -166,7 +168,7 @@ export default function SubmitPayment() {
         const errorData = error.response?.data;
         if (errorData?.detail?.code === 'PAYIN_PENDING_EXISTS') {
           const msg = errorData.detail.message || 'มีรายการรอตรวจสอบอยู่แล้ว กรุณารอสักครู่ก่อนส่งใหม่';
-          alert('⚠️ ' + msg);
+          toast.warning(msg);
           setSubmitting(false);
           return;
         }
@@ -200,7 +202,7 @@ export default function SubmitPayment() {
         errorMsg = `Error: ${error.message}`;
       }
       
-      alert(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setSubmitting(false);
     }

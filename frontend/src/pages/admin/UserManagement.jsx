@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usersAPI } from '../../api/client';
+import ConfirmModal from '../../components/ConfirmModal';
+import { SkeletonTable } from '../../components/Skeleton';
 
 /**
  * User Management Dashboard — Super Admin Only
@@ -17,6 +19,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [confirmDeactivate, setConfirmDeactivate] = useState({ open: false, user: null });
 
   // Create staff form
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -98,7 +101,7 @@ export default function UserManagement() {
   };
 
   const handleDeactivateStaff = async (user) => {
-    if (!confirm(`Deactivate "${user.email}"? They will not be able to login.`)) return;
+    setConfirmDeactivate({ open: false, user: null });
     try {
       await usersAPI.deactivateStaff(user.id);
       showMsg(`${user.email} deactivated`);
@@ -298,7 +301,7 @@ export default function UserManagement() {
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {loading ? (
-                  <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                  <SkeletonTable rows={5} cols={6} />
                 ) : staff.length === 0 ? (
                   <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">No staff users found</td></tr>
                 ) : (
@@ -341,7 +344,7 @@ export default function UserManagement() {
                           {u.role !== 'super_admin' && (
                             u.is_active ? (
                               <button
-                                onClick={() => handleDeactivateStaff(u)}
+                                onClick={() => setConfirmDeactivate({ open: true, user: u })}
                                 className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
                                 title="Deactivate"
                               >
@@ -405,7 +408,7 @@ export default function UserManagement() {
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {residentsLoading ? (
-                  <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                  <SkeletonTable rows={5} cols={6} />
                 ) : residents.length === 0 ? (
                   <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">No residents found</td></tr>
                 ) : (
@@ -485,6 +488,15 @@ export default function UserManagement() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmDeactivate.open}
+        title="ระงับบัญชีผู้ใช้"
+        message={`ต้องการระงับบัญชี "${confirmDeactivate.user?.email || ''}" ใช่หรือไม่? ผู้ใช้จะไม่สามารถเข้าสู่ระบบได้`}
+        variant="danger"
+        confirmText="ระงับ"
+        onConfirm={() => handleDeactivateStaff(confirmDeactivate.user)}
+        onCancel={() => setConfirmDeactivate({ open: false, user: null })}
+      />
     </div>
   );
 }

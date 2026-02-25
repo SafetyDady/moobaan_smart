@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoicesAPI, payinsAPI } from '../../../api/client';
+import { useToast } from '../../../components/Toast';
+import { SkeletonMobileList } from '../../../components/Skeleton';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import PayinDetailModal from './PayinDetailModal';
@@ -27,6 +29,7 @@ export default function PaymentHistory() {
   const [invoices, setInvoices] = useState([]);
   const [invoiceFilter, setInvoiceFilter] = useState('all');
   
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function PaymentHistory() {
     return (
       <MobileLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-400">กำลังโหลด...</div>
+          <SkeletonMobileList />
         </div>
       </MobileLayout>
     );
@@ -340,7 +343,7 @@ export default function PaymentHistory() {
               loadData();
             } catch (err) {
               const msg = err.response?.data?.detail?.message || 'ลบไม่สำเร็จ';
-              alert(msg);
+              toast.error(msg);
             }
           }}
           onUpdate={loadData}
