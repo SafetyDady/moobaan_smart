@@ -177,9 +177,9 @@ export default function AuditLogs() {
         /* Export Logs Table */
         exportLogs.length === 0 ? (
           <EmptyState
-            icon={FileDown}
+            icon={<FileDown size={32} />}
             title={t('auditLog.noLogs')}
-            description={t('auditLog.noLogs')}
+            message={t('auditLog.noLogs')}
           />
         ) : (
           <div className="card overflow-x-auto">
@@ -217,9 +217,9 @@ export default function AuditLogs() {
         /* House Event Logs Table */
         houseLogs.length === 0 ? (
           <EmptyState
-            icon={Home}
+            icon={<Home size={32} />}
             title={t('auditLog.noLogs')}
-            description={t('auditLog.noLogs')}
+            message={t('auditLog.noLogs')}
           />
         ) : (
           <div className="card overflow-x-auto">
