@@ -3,6 +3,7 @@ import { ArrowUp, ArrowDown, Users, Coins, Landmark, RefreshCw, Zap, Droplets, S
 import MobileLayout from './MobileLayout';
 import { api } from '../../../api/client';
 import PullToRefresh from '../../../components/PullToRefresh';
+import { t } from '../../../hooks/useLocale';
 
 export default function VillageDashboard() {
   const [data, setData] = useState(null);
@@ -21,7 +22,7 @@ export default function VillageDashboard() {
       setData(response.data);
     } catch (err) {
       console.error('Failed to load village summary:', err);
-      setError('ไม่สามารถโหลดข้อมูลได้');
+      setError(t('villageDashboard.loadError'));
     } finally {
       setLoading(false);
     }
@@ -42,7 +43,7 @@ export default function VillageDashboard() {
       <MobileLayout>
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <div className="text-red-400">{error}</div>
-          <button onClick={loadData} className="px-4 py-2 bg-primary-500 text-white rounded-lg">ลองอีกครั้ง</button>
+          <button onClick={loadData} className="px-4 py-2 bg-primary-500 text-white rounded-lg">{t('villageDashboard.retry')}</button>
         </div>
       </MobileLayout>
     );
@@ -52,7 +53,7 @@ export default function VillageDashboard() {
     return (
       <MobileLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-400">ไม่มีข้อมูล</div>
+          <div className="text-gray-400">{t('villageDashboard.noData')}</div>
         </div>
       </MobileLayout>
     );
@@ -68,12 +69,12 @@ export default function VillageDashboard() {
 
   // Time ago for balance
   const getTimeAgo = () => {
-    if (!data.balance_as_of) return 'ยังไม่มีข้อมูล';
+    if (!data.balance_as_of) return t('villageDashboard.noData');
     const diff = Math.floor((Date.now() - new Date(data.balance_as_of).getTime()) / 60000);
-    if (diff < 1) return 'อัปเดตเมื่อสักครู่';
-    if (diff < 60) return `อัปเดตเมื่อ ${diff} นาทีที่แล้ว`;
-    if (diff < 1440) return `อัปเดตเมื่อ ${Math.floor(diff / 60)} ชม.ที่แล้ว`;
-    return `อัปเดตเมื่อ ${Math.floor(diff / 1440)} วันที่แล้ว`;
+    if (diff < 1) return t('villageDashboard.updatedJustNow');
+    if (diff < 60) return `${t('villageDashboard.updatedAgo')} ${diff} ${t('villageDashboard.minutesAgo')}`;
+    if (diff < 1440) return `${t('villageDashboard.updatedAgo')} ${Math.floor(diff / 60)} ${t('villageDashboard.hoursAgo')}`;
+    return `${t('villageDashboard.updatedAgo')} ${Math.floor(diff / 1440)} ${t('villageDashboard.daysAgo')}`;
   };
 
   // Format compact amounts
@@ -105,15 +106,15 @@ export default function VillageDashboard() {
         <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-gray-700 rounded-2xl p-5 border border-gray-600/50 shadow-lg">
           {/* Title row */}
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-300 font-medium">ภาพรวมหมู่บ้าน (Village Dashboard)</p>
-            <button onClick={loadData} className="text-gray-400 hover:text-white transition-colors" title="รีเฟรช">
+            <p className="text-sm text-gray-300 font-medium">{t('villageDashboard.title')}</p>
+            <button onClick={loadData} className="text-gray-400 hover:text-white transition-colors" title={t('villageDashboard.refresh')}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
           <p className="text-xl font-bold text-white mb-4">{headerDate}</p>
 
           {/* Balance */}
-          <p className="text-sm text-gray-400 mb-1">ยอดเงินในบัญชีล่าสุด</p>
+          <p className="text-sm text-gray-400 mb-1">{t('villageDashboard.latestBalance')}</p>
           <div className="flex items-center gap-3 mb-1">
             <span className="text-3xl font-bold text-emerald-400">
               ฿{(data.total_balance || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -131,12 +132,12 @@ export default function VillageDashboard() {
               <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
                 <ArrowUp size={16} className="text-emerald-400" />
               </div>
-              <span className="text-sm text-gray-400">รายรับ</span>
+              <span className="text-sm text-gray-400">{t('villageDashboard.income')}</span>
             </div>
             <p className="text-xl font-bold text-white mb-1">
               {fmtAmount(data.total_income)}
             </p>
-            <p className="text-xs text-gray-500">จากเดือนที่แล้ว</p>
+            <p className="text-xs text-gray-500">{t('villageDashboard.fromLastMonth')}</p>
           </div>
 
           {/* Expense */}
@@ -145,12 +146,12 @@ export default function VillageDashboard() {
               <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
                 <ArrowDown size={16} className="text-orange-400" />
               </div>
-              <span className="text-sm text-gray-400">รายจ่าย</span>
+              <span className="text-sm text-gray-400">{t('villageDashboard.expense')}</span>
             </div>
             <p className="text-xl font-bold text-white mb-1">
               {fmtAmount(data.total_expense)}
             </p>
-            <p className="text-xs text-gray-500">จากเดือนที่แล้ว</p>
+            <p className="text-xs text-gray-500">{t('villageDashboard.fromLastMonth')}</p>
           </div>
         </div>
 
@@ -162,10 +163,10 @@ export default function VillageDashboard() {
               <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <Users size={16} className="text-blue-400" />
               </div>
-              <span className="text-sm text-gray-400">ลูกหนี้</span>
+              <span className="text-sm text-gray-400">{t('villageDashboard.debtors')}</span>
             </div>
             <p className="text-xl font-bold text-white">
-              {data.debtor_count} <span className="text-sm font-normal text-gray-400">ครัวเรือน</span>
+              {data.debtor_count} <span className="text-sm font-normal text-gray-400">{t('villageDashboard.households')}</span>
             </p>
           </div>
 
@@ -175,7 +176,7 @@ export default function VillageDashboard() {
               <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
                 <Coins size={16} className="text-red-400" />
               </div>
-              <span className="text-sm text-gray-400">มูลค่าหนี้</span>
+              <span className="text-sm text-gray-400">{t('villageDashboard.totalDebt')}</span>
             </div>
             <p className="text-xl font-bold text-white">
               ฿{(data.total_debt || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
@@ -185,12 +186,12 @@ export default function VillageDashboard() {
 
         {/* ── Monthly Chart — Vertical Stacked Bars ── */}
         <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-          <h3 className="text-base font-semibold text-white mb-3">ภาพรวมรายเดือน <span className="text-xs font-normal text-gray-500">จาก Statement</span></h3>
+          <h3 className="text-base font-semibold text-white mb-3">{t('villageDashboard.monthlyOverview')} <span className="text-xs font-normal text-gray-500">{t('villageDashboard.fromStatement')}</span></h3>
 
           {months.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
               <div className="mb-2"><BarChart3 size={32} className="text-gray-500 mx-auto" /></div>
-              <div className="text-sm">ยังไม่มีข้อมูล Statement</div>
+              <div className="text-sm">{t('villageDashboard.noStatementData')}</div>
             </div>
           ) : (
             <div>
@@ -259,8 +260,8 @@ export default function VillageDashboard() {
 
               {/* Legend */}
               <div className="flex items-center justify-center gap-6 mt-3 text-xs">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span> รายรับ (Income)</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-orange-500 inline-block"></span> รายจ่าย (Expense)</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span> {t('villageDashboard.income')}</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-orange-500 inline-block"></span> {t('villageDashboard.expense')}</span>
               </div>
             </div>
           )}
@@ -275,14 +276,14 @@ export default function VillageDashboard() {
 
           // Semantic color + icon per category
           const catMeta = {
-            'ELECTRICITY': { icon: <Zap size={16} />, label: 'ค่าไฟฟ้า',       bar: 'bg-amber-500',   text: 'text-amber-400'   },
-            'WATER':       { icon: <Droplets size={16} />, label: 'ค่าน้ำประปา',    bar: 'bg-cyan-500',    text: 'text-cyan-400'    },
-            'SECURITY':    { icon: <Shield size={16} />, label: 'รปภ.',           bar: 'bg-blue-500',    text: 'text-blue-400'    },
-            'CLEANING':    { icon: <Sparkles size={16} />, label: 'ทำความสะอาด',   bar: 'bg-emerald-500', text: 'text-emerald-400' },
-            'MAINTENANCE': { icon: <Wrench size={16} />, label: 'ซ่อมบำรุง',      bar: 'bg-orange-500',  text: 'text-orange-400'  },
-            'ADMIN':       { icon: <ClipboardList size={16} />, label: 'บริหาร',         bar: 'bg-purple-500',  text: 'text-purple-400'  },
-            'UTILITIES':   { icon: <Home size={16} />, label: 'สาธารณูปโภค',    bar: 'bg-teal-500',    text: 'text-teal-400'    },
-            'OTHER':       { icon: <Package size={16} />, label: 'อื่นๆ',          bar: 'bg-gray-500',    text: 'text-gray-400'    },
+            'ELECTRICITY': { icon: <Zap size={16} />, label: t('villageDashboard.catElectricity'), bar: 'bg-amber-500',   text: 'text-amber-400'   },
+            'WATER':       { icon: <Droplets size={16} />, label: t('villageDashboard.catWater'),       bar: 'bg-cyan-500',    text: 'text-cyan-400'    },
+            'SECURITY':    { icon: <Shield size={16} />, label: t('villageDashboard.catSecurity'),    bar: 'bg-blue-500',    text: 'text-blue-400'    },
+            'CLEANING':    { icon: <Sparkles size={16} />, label: t('villageDashboard.catCleaning'),   bar: 'bg-emerald-500', text: 'text-emerald-400' },
+            'MAINTENANCE': { icon: <Wrench size={16} />, label: t('villageDashboard.catMaintenance'), bar: 'bg-orange-500',  text: 'text-orange-400'  },
+            'ADMIN':       { icon: <ClipboardList size={16} />, label: t('villageDashboard.catAdmin'),      bar: 'bg-purple-500',  text: 'text-purple-400'  },
+            'UTILITIES':   { icon: <Home size={16} />, label: t('villageDashboard.catUtilities'),  bar: 'bg-teal-500',    text: 'text-teal-400'    },
+            'OTHER':       { icon: <Package size={16} />, label: t('villageDashboard.catOther'),      bar: 'bg-gray-500',    text: 'text-gray-400'    },
           };
           const defaultMeta = { icon: <Pin size={16} />, label: '', bar: 'bg-gray-500', text: 'text-gray-400' };
           const grandTotal = cats.reduce((s, c) => s + c.grand_total, 0);
@@ -291,7 +292,7 @@ export default function VillageDashboard() {
             <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
               <div className="flex items-baseline justify-between mb-4">
                 <h3 className="text-base font-semibold text-white">
-                  ค่าใช้จ่ายแยกหมวด <span className="text-xs font-normal text-gray-500">3 เดือนล่าสุด</span>
+                  {t('villageDashboard.expenseByCategory')} <span className="text-xs font-normal text-gray-500">{t('villageDashboard.last3Months')}</span>
                 </h3>
               </div>
 
@@ -361,7 +362,7 @@ export default function VillageDashboard() {
 
               {/* Grand total footer */}
               <div className="mt-4 pt-3 border-t border-gray-700 flex items-center justify-between">
-                <span className="text-xs text-gray-400">รวมทั้งหมด 3 เดือน</span>
+                <span className="text-xs text-gray-400">{t('villageDashboard.grandTotal3Months')}</span>
                 <span className="text-sm font-bold text-white">฿{grandTotal.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>
               </div>
             </div>

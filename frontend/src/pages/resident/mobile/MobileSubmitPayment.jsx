@@ -10,6 +10,7 @@ import compressImage from '../../../utils/compressImage';
 import { useRole } from '../../../contexts/RoleContext';
 import { isIOS } from '../../../utils/deviceDetect';
 import MobileLayout from './MobileLayout';
+import { t } from '../../../hooks/useLocale';
 
 export default function MobileSubmitPayment() {
   const navigate = useNavigate();
@@ -46,13 +47,13 @@ export default function MobileSubmitPayment() {
     setError(null);
 
     if (!file.type.startsWith('image/')) {
-      setError('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      setError(t('mobileSubmitPayment.imageOnly'));
       return;
     }
 
     if (file.size > MAX_FILE_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      setError(`ไฟล์ใหญ่เกินไป (${sizeMB}MB) กรุณาเลือกไฟล์ที่เล็กกว่า 8MB`);
+      setError(`${t('mobileSubmitPayment.fileTooLarge')} (${sizeMB}MB) ${t('mobileSubmitPayment.fileTooLargeDetail')}`);
       return;
     }
 
@@ -88,21 +89,21 @@ export default function MobileSubmitPayment() {
     try {
       // Validate slip image FIRST for CREATE
       if (!editPayin && !formData.slip_image) {
-        setError('กรุณาแนบสลิปก่อนส่ง');
+        setError(t('mobileSubmitPayment.noSlip'));
         setSubmitting(false);
         return;
       }
 
       // Validate house ID
       if (!currentHouseId) {
-        setError('ไม่พบข้อมูลบ้าน กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        setError(t('mobileSubmitPayment.noHouse'));
         setSubmitting(false);
         return;
       }
 
       // Validate date
       if (!formData.transfer_date) {
-        setError('กรุณาเลือกวันที่โอน');
+        setError(t('mobileSubmitPayment.noDate'));
         setSubmitting(false);
         return;
       }
@@ -112,13 +113,13 @@ export default function MobileSubmitPayment() {
       const minute = parseInt(formData.transfer_minute);
 
       if (isNaN(hour) || hour < 0 || hour > 23) {
-        setError('กรุณากรอกชั่วโมงให้ถูกต้อง (00-23)');
+        setError(t('mobileSubmitPayment.invalidHour'));
         setSubmitting(false);
         return;
       }
 
       if (isNaN(minute) || minute < 0 || minute > 59) {
-        setError('กรุณากรอกนาทีให้ถูกต้อง (00-59)');
+        setError(t('mobileSubmitPayment.invalidMinute'));
         setSubmitting(false);
         return;
       }
@@ -153,7 +154,7 @@ export default function MobileSubmitPayment() {
           jsonData.slip_image_url = slipUrl;
         }
         await payinsAPI.update(editPayin.id, jsonData);
-        setSuccessMessage('แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
+        setSuccessMessage(t('mobileSubmitPayment.editSuccess'));
         setTimeout(() => navigate('/resident/dashboard'), 1500);
         return;
       } else {
@@ -167,7 +168,7 @@ export default function MobileSubmitPayment() {
         }
 
         const response = await payinsAPI.createFormData(submitFormData);
-        setSuccessMessage('ส่งสลิปเรียบร้อยแล้ว');
+        setSuccessMessage(t('mobileSubmitPayment.createSuccess'));
         setTimeout(() => navigate('/resident/dashboard'), 1500);
         return;
       }
@@ -186,20 +187,20 @@ export default function MobileSubmitPayment() {
           const existingStatus = detail.existing_status || '';
           let statusText = '';
           switch(existingStatus) {
-            case 'PENDING': statusText = '(รอตรวจสอบ)'; break;
-            case 'DRAFT': statusText = '(แบบร่าง)'; break;
-            case 'REJECTED_NEEDS_FIX': statusText = '(ถูกปฏิเสธ-รอแก้ไข)'; break;
-            case 'SUBMITTED': statusText = '(ส่งแล้ว)'; break;
+            case 'PENDING': statusText = `(${t('mobileSubmitPayment.statusPending')})`; break;
+            case 'DRAFT': statusText = `(${t('mobileSubmitPayment.statusDraft')})`; break;
+            case 'REJECTED_NEEDS_FIX': statusText = `(${t('mobileSubmitPayment.statusRejected')})`; break;
+            case 'SUBMITTED': statusText = `(${t('mobileSubmitPayment.statusSubmitted')})`; break;
             default: statusText = '';
           }
-          const msg = `คุณมีสลิปที่ส่งแล้ว (รอตรวจสอบ) ระบบป้องกันส่งซ้ำๆ\nกรุณารอให้ Admin กระทบยอดภายในวันที่ 10 ก่อน\nจึงบันทึกรายการใหม่ได้   ขออภัยในความไม่สะดวก`;
+          const msg = t('mobileSubmitPayment.duplicatePayin');
           setError(msg);
           setSubmitting(false);
           return;
         }
         
         // Generic 409 message
-        const msg = detail?.message || 'มีรายการค้างอยู่ กรุณาตรวจสอบ';
+        const msg = detail?.message || t('mobileSubmitPayment.genericConflict');
         setError(msg);
         setSubmitting(false);
         return;
@@ -207,13 +208,13 @@ export default function MobileSubmitPayment() {
       
       // Handle network error
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        setError('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+        setError(t('mobileSubmitPayment.networkError'));
         setSubmitting(false);
         return;
       }
       
       // Extract error message
-      let errorMsg = 'ส่งสลิปไม่สำเร็จ กรุณาลองใหม่';
+      let errorMsg = t('mobileSubmitPayment.submitFailed');
       const errorData = error.response?.data;
       
       if (errorData?.detail) {
@@ -223,7 +224,7 @@ export default function MobileSubmitPayment() {
             const msg = e.msg || String(e);
             return `• ${field}: ${msg}`;
           }).join('\n');
-          errorMsg = `ข้อมูลไม่ถูกต้อง:\n\n${errors}`;
+          errorMsg = `${t('mobileSubmitPayment.invalidData')}\n\n${errors}`;
         } else if (typeof errorData.detail === 'string') {
           errorMsg = errorData.detail;
         } else if (typeof errorData.detail === 'object') {
@@ -250,10 +251,10 @@ export default function MobileSubmitPayment() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white mb-1">
-            {editPayin ? (<><Edit3 size={18} className="inline mr-1" /> แก้ไขและส่งใหม่</>) : (<><CreditCard size={18} className="inline mr-1" /> ส่งสลิปการชำระเงิน</>)}
+            {editPayin ? (<><Edit3 size={18} className="inline mr-1" /> {t('mobileSubmitPayment.editTitle')}</>) : (<><CreditCard size={18} className="inline mr-1" /> {t('mobileSubmitPayment.createTitle')}</>)}
           </h1>
           <p className="text-sm text-gray-400">
-            บ้านเลขที่ #{currentHouseId}
+            {t('mobileSubmitPayment.houseNo')} #{currentHouseId}
           </p>
         </div>
 
@@ -265,7 +266,7 @@ export default function MobileSubmitPayment() {
               onClick={() => { setError(null); navigate('/resident/payments'); }}
               className="mt-3 w-full bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
             >
-              <XIcon size={14} className="inline mr-1" />ปิด / กลับหน้าประวัติ
+              <XIcon size={14} className="inline mr-1" />{t('mobileSubmitPayment.closeGoBack')}
             </button>
           </div>
         )}
@@ -281,7 +282,7 @@ export default function MobileSubmitPayment() {
         {editPayin && editPayin.status === 'REJECTED' && editPayin.reject_reason && (
           <div className="mb-4 bg-red-900/30 border border-red-600 rounded-lg p-3">
             <p className="text-xs text-red-300 mb-1">
-              <strong><AlertTriangle size={14} className="inline mr-1" />เหตุผลที่ถูกปฏิเสธ:</strong>
+              <strong><AlertTriangle size={14} className="inline mr-1" />{t('mobileSubmitPayment.rejectReason')}</strong>
             </p>
             <p className="text-sm text-red-200">{editPayin.reject_reason}</p>
           </div>
@@ -292,7 +293,7 @@ export default function MobileSubmitPayment() {
           {/* Amount */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              จำนวนเงิน (บาท) *
+              {t('mobileSubmitPayment.amountLabel')} *
             </label>
             <input
               type="number"
@@ -310,7 +311,7 @@ export default function MobileSubmitPayment() {
           {/* Transfer Date (Custom Calendar) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              วันที่โอน *
+              {t('mobileSubmitPayment.transferDate')} *
             </label>
             <DatePicker
               selected={formData.transfer_date}
@@ -319,21 +320,21 @@ export default function MobileSubmitPayment() {
               maxDate={maxDate}
               dateFormat="dd/MM/yyyy"
               locale={th}
-              placeholderText="เลือกวันที่"
+              placeholderText={t('mobileSubmitPayment.selectDate')}
               required
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-base focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               calendarClassName="custom-calendar"
               wrapperClassName="w-full"
             />
             <p className="text-xs text-gray-500 mt-2">
-              <Lightbulb size={12} className="inline mr-1" />เลือกได้ย้อนหลังไม่เกิน 90 วัน
+              <Lightbulb size={12} className="inline mr-1" />{t('mobileSubmitPayment.dateHint')}
             </p>
           </div>
 
           {/* Transfer Time (HH MM) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              เวลาที่โอน *
+              {t('mobileSubmitPayment.transferTime')} *
             </label>
             <div className="grid grid-cols-2 gap-3">
               {/* Hour Input */}
@@ -354,7 +355,7 @@ export default function MobileSubmitPayment() {
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-lg text-center focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="HH"
                 />
-                <p className="text-xs text-gray-500 mt-1 text-center">ชั่วโมง</p>
+                <p className="text-xs text-gray-500 mt-1 text-center">{t('mobileSubmitPayment.hour')}</p>
               </div>
 
               {/* Minute Input */}
@@ -375,18 +376,18 @@ export default function MobileSubmitPayment() {
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-lg text-center focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="MM"
                 />
-                <p className="text-xs text-gray-500 mt-1 text-center">นาที</p>
+                <p className="text-xs text-gray-500 mt-1 text-center">{t('mobileSubmitPayment.minute')}</p>
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              <Lightbulb size={12} className="inline mr-1" />กรอก 00-23 และ 00-59
+              <Lightbulb size={12} className="inline mr-1" />{t('mobileSubmitPayment.timeHint')}
             </p>
           </div>
 
           {/* Camera Capture */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              แนบสลิป *
+              {t('mobileSubmitPayment.attachSlip')} *
             </label>
             <div className="relative">
               <input
@@ -401,7 +402,7 @@ export default function MobileSubmitPayment() {
                 <div className="block w-full bg-gray-800 border-2 border-dashed border-primary-600 rounded-lg p-6 text-center">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-                    <span className="text-primary-400 font-medium text-sm">กำลังบีบอัดรูป...</span>
+                    <span className="text-primary-400 font-medium text-sm">{t('mobileSubmitPayment.compressing')}</span>
                   </div>
                 </div>
               ) : formData.slip_preview ? (
@@ -416,7 +417,7 @@ export default function MobileSubmitPayment() {
                     className="absolute bottom-3 right-3 bg-primary-600 text-white px-3 py-2 rounded-lg shadow-lg cursor-pointer active:bg-primary-700 flex items-center gap-2 text-sm"
                   >
                     <span>�</span>
-                    <span className="font-medium">เปลี่ยน Slip</span>
+                    <span className="font-medium">{t('mobileSubmitPayment.changeSlip')}</span>
                   </label>
                 </div>
               ) : (
@@ -426,13 +427,13 @@ export default function MobileSubmitPayment() {
                 >
                   <div className="flex items-center justify-center gap-3">
                     <span className="text-3xl">�</span>
-                    <span className="text-white font-medium">แตะเพื่อแนบ Slip</span>
+                    <span className="text-white font-medium">{t('mobileSubmitPayment.tapToAttach')}</span>
                   </div>
                 </label>
               )}
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              <Lightbulb size={12} className="inline mr-1" />ถ่ายให้เห็นรายละเอียดชัดเจน หรือเลือกรูป Slip จากแกลเลอรี
+              <Lightbulb size={12} className="inline mr-1" />{t('mobileSubmitPayment.slipHint')}
             </p>
           </div>
         </form>
@@ -447,13 +448,13 @@ export default function MobileSubmitPayment() {
           className="w-full bg-primary-600 active:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg text-lg transition-colors min-h-[56px] shadow-lg"
         >
           {compressing ? (
-            <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" />กำลังบีบอัดรูป...</span>
+            <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" />{t('mobileSubmitPayment.compressing')}</span>
           ) : submitting ? (
-            <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" />กำลังส่ง...</span>
+            <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" />{t('mobileSubmitPayment.submitting')}</span>
           ) : editPayin ? (
-            <span className="flex items-center justify-center gap-2"><CheckCircle size={18} />แก้ไขและส่งใหม่</span>
+            <span className="flex items-center justify-center gap-2"><CheckCircle size={18} />{t('mobileSubmitPayment.editAndResend')}</span>
           ) : (
-            <span className="flex items-center justify-center gap-2"><CheckCircle size={18} />ส่งสลิปเลย</span>
+            <span className="flex items-center justify-center gap-2"><CheckCircle size={18} />{t('mobileSubmitPayment.submitSlip')}</span>
           )}
         </button>
         
@@ -463,7 +464,7 @@ export default function MobileSubmitPayment() {
           disabled={submitting}
           className="w-full text-gray-400 text-sm mt-3 underline"
         >
-          ยกเลิก
+          {t('mobileSubmitPayment.cancel')}
         </button>
       </div>
 

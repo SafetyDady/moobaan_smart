@@ -22,6 +22,7 @@ import { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import ConfirmModal from '../../../components/ConfirmModal';
 import { useRole } from '../../../contexts/RoleContext';
+import { t } from '../../../hooks/useLocale';
 
 export default function MobileLayout({ children }) {
   const location = useLocation();
@@ -41,32 +42,32 @@ export default function MobileLayout({ children }) {
     { 
       path: '/resident/dashboard', 
       icon: Home, 
-      label: 'บ้าน',
+      label: t('mobileLayout.navHome'),
       size: 24
     },
     { 
       path: '/resident/village', 
       icon: BarChart3,
-      label: 'มบ.',
+      label: t('mobileLayout.navVillage'),
       size: 24
     },
     { 
       path: '/resident/submit', 
       icon: CreditCard,
-      label: 'แจ้งชำระ',
+      label: t('mobileLayout.navSubmit'),
       size: 24,
       isPrimary: true
     },
     { 
       path: '/resident/payments', 
       icon: History, 
-      label: 'ประวัติ',
+      label: t('mobileLayout.navHistory'),
       size: 24
     },
     { 
       path: '/resident/profile', 
       icon: User, 
-      label: 'โปรไฟล์',
+      label: t('mobileLayout.navProfile'),
       size: 24
     },
   ];
@@ -79,10 +80,10 @@ export default function MobileLayout({ children }) {
         <div>
           <h1 className="text-lg font-bold text-primary-400 flex items-center gap-2">
             <Home size={20} className="text-primary-500" />
-            Moobaan Smart
+            {t('mobileLayout.appName')}
           </h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            {currentHouseCode ? `บ้านเลขที่ ${currentHouseCode}` : (user?.name || 'ลูกบ้าน')}
+            {currentHouseCode ? `${t('mobileLayout.houseNo')} ${currentHouseCode}` : (user?.name || t('mobileLayout.resident'))}
           </p>
         </div>
         <button
@@ -92,7 +93,7 @@ export default function MobileLayout({ children }) {
                      transition-colors duration-200 min-h-[44px]"
         >
           <LogOut size={16} />
-          <span className="hidden sm:inline">ออกจากระบบ</span>
+          <span className="hidden sm:inline">{t('mobileLayout.logout')}</span>
         </button>
       </header>
 
@@ -166,10 +167,10 @@ export default function MobileLayout({ children }) {
       </nav>
       <ConfirmModal
         open={showLogoutConfirm}
-        title="ออกจากระบบ"
-        message="ต้องการออกจากระบบหรือไม่?"
+        title={t('mobileLayout.logoutConfirmTitle')}
+        message={t('mobileLayout.logoutConfirmMsg')}
         variant="warning"
-        confirmText="ออกจากระบบ"
+        confirmText={t('mobileLayout.logout')}
         onConfirm={handleLogout}
         onCancel={() => setShowLogoutConfirm(false)}
       />
