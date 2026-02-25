@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { expensesAPI, housesAPI, accountsAPI, vendorsAPI, attachmentsAPI } from '../../api/client';
+import compressImage from '../../utils/compressImage';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
@@ -319,21 +320,24 @@ export default function Expenses() {
     setUploading(true);
     setAttachError('');
     try {
+      // Compress image files before upload (skip PDF)
+      const uploadFile = await compressImage(file);
+
       // Step 1: Get presigned URL
       const presignRes = await attachmentsAPI.presign({
         entity_type: 'EXPENSE',
         entity_id: expenseId,
         file_type: fileType,
-        filename: file.name,
-        content_type: file.type,
+        filename: uploadFile.name,
+        content_type: uploadFile.type,
       });
       const { upload_url } = presignRes.data;
 
       // Step 2: PUT file directly to R2
       await fetch(upload_url, {
         method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
+        headers: { 'Content-Type': uploadFile.type },
+        body: uploadFile,
       });
 
       // Step 3: Refresh attachment list

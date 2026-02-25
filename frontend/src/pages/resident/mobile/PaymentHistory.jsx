@@ -7,6 +7,7 @@ import { SkeletonMobileList } from '../../../components/Skeleton';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import PayinDetailModal from './PayinDetailModal';
+import PullToRefresh from '../../../components/PullToRefresh';
 import {
   getStatusText as getPayinStatusText,
   getStatusBadgeColor,
@@ -102,8 +103,13 @@ export default function PaymentHistory() {
     );
   }
   
+  const handleRefresh = async () => {
+    await loadData();
+  };
+
   return (
     <MobileLayout>
+      <PullToRefresh onRefresh={handleRefresh}>
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="bg-gray-800 border-b border-gray-700 p-4 flex items-center gap-3">
@@ -330,6 +336,7 @@ export default function PaymentHistory() {
           )}
         </div>
       </div>
+      </PullToRefresh>
       
       {/* Payin Detail Modal */}
       {selectedPayin && (

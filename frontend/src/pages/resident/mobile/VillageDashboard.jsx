@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Users, Coins, Landmark, RefreshCw } from 'lucide-react';
 import MobileLayout from './MobileLayout';
 import { api } from '../../../api/client';
+import PullToRefresh from '../../../components/PullToRefresh';
 
 export default function VillageDashboard() {
   const [data, setData] = useState(null);
@@ -92,8 +93,13 @@ export default function VillageDashboard() {
   const ySteps = 5;
   const yLabels = Array.from({ length: ySteps + 1 }, (_, i) => (niceMax / ySteps) * (ySteps - i));
 
+  const handleRefresh = async () => {
+    await loadData();
+  };
+
   return (
     <MobileLayout>
+      <PullToRefresh onRefresh={handleRefresh}>
       <div className="p-4 space-y-4">
         {/* ── Header Card ── */}
         <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-gray-700 rounded-2xl p-5 border border-gray-600/50 shadow-lg">
@@ -362,6 +368,7 @@ export default function VillageDashboard() {
           );
         })()}
       </div>
+      </PullToRefresh>
     </MobileLayout>
   );
 }
