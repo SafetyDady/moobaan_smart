@@ -12,6 +12,9 @@ import logging
 import time
 import platform
 
+from app.core.deps import require_admin_or_accounting
+from app.db.models.user import User
+
 logger = logging.getLogger(__name__)
 
 # Track app start time for uptime calculation
@@ -76,9 +79,12 @@ async def readiness_check():
 
 
 @router.get("/api/system/status")
-async def system_status():
+async def system_status(
+    current_user: User = Depends(require_admin_or_accounting)
+):
     """
     Phase 4.2: Full system status for Admin Dashboard.
+    Requires admin or accounting role.
     
     Returns real-time status of:
     - Backend API (always ok if this responds)
@@ -125,7 +131,7 @@ async def system_status():
     except Exception as e:
         logger.warning(f"[SYSTEM_STATUS] Database check failed: {e}")
         result["database"]["status"] = "disconnected"
-        result["database"]["error"] = str(e)
+        result["database"]["error"] = "Connection failed"
     
     return result
 

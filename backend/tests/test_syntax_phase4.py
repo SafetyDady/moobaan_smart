@@ -29,7 +29,7 @@ def test_syntax():
             errors.append(f"❌ {filepath}: FILE NOT FOUND")
             continue
         try:
-            with open(full_path, 'r') as f:
+            with open(full_path, 'r', encoding='utf-8') as f:
                 source = f.read()
             ast.parse(source)
             print(f"✅ {filepath}: syntax OK")
@@ -56,7 +56,7 @@ def test_pagination_imports():
 def test_health_imports():
     """Verify health module structure"""
     full_path = os.path.join(BACKEND_DIR, 'app/api/health.py')
-    with open(full_path, 'r') as f:
+    with open(full_path, 'r', encoding='utf-8') as f:
         source = f.read()
     
     # Check key function definitions exist
@@ -70,7 +70,7 @@ def test_health_imports():
 def test_blocking_check_endpoint():
     """Verify blocking-check endpoint exists in payins.py"""
     full_path = os.path.join(BACKEND_DIR, 'app/api/payins.py')
-    with open(full_path, 'r') as f:
+    with open(full_path, 'r', encoding='utf-8') as f:
         source = f.read()
     
     assert '/blocking-check' in source
@@ -92,7 +92,7 @@ def test_pagination_params_in_endpoints():
     
     for filepath, func_name in endpoints.items():
         full_path = os.path.join(BACKEND_DIR, filepath)
-        with open(full_path, 'r') as f:
+        with open(full_path, 'r', encoding='utf-8') as f:
             source = f.read()
         
         assert f'def {func_name}' in source, f"{filepath}: missing {func_name}"
