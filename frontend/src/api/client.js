@@ -214,7 +214,11 @@ export const payinsAPI = {
   // Slip upload (for edit flow) — returns { slip_url }
   uploadSlip: (file, houseId) => {
     const fd = new FormData();
-    fd.append('slip', file);
+    // Always pass a valid filename to prevent backend rejection
+    const safeName = (file.name && file.name !== 'blob' && /\.(jpe?g|png|gif|webp)$/i.test(file.name))
+      ? file.name
+      : 'slip.jpg';
+    fd.append('slip', file, safeName);
     fd.append('house_id', houseId);
     return apiClient.post('/api/payin-reports/upload-slip', fd);
   },

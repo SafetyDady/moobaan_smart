@@ -164,7 +164,13 @@ export default function MobileSubmitPayment() {
         submitFormData.append('paid_at', paidAtISO);
         
         if (formData.slip_image) {
-          submitFormData.append('slip', formData.slip_image);
+          // Always pass a valid filename — browser-image-compression may return
+          // a Blob without .name, causing backend to reject as invalid file type
+          const file = formData.slip_image;
+          const safeName = (file.name && file.name !== 'blob' && /\.(jpe?g|png|gif|webp)$/i.test(file.name))
+            ? file.name
+            : 'slip.jpg';
+          submitFormData.append('slip', file, safeName);
         }
 
         const response = await payinsAPI.createFormData(submitFormData);
