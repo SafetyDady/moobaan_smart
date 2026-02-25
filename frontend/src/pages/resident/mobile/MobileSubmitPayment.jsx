@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { AlertCircle, CheckCircle, AlertTriangle, Edit3, CreditCard, Lightbulb, Camera, Loader2, X as XIcon } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Edit3, CreditCard, Lightbulb, Camera, Loader2, X as XIcon } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import { subDays, startOfDay } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -416,7 +416,7 @@ export default function MobileSubmitPayment() {
                     htmlFor="camera-input"
                     className="absolute bottom-3 right-3 bg-primary-600 text-white px-3 py-2 rounded-lg shadow-lg cursor-pointer active:bg-primary-700 flex items-center gap-2 text-sm"
                   >
-                    <span>�</span>
+                    <Camera size={16} />
                     <span className="font-medium">{t('mobileSubmitPayment.changeSlip')}</span>
                   </label>
                 </div>
@@ -426,7 +426,7 @@ export default function MobileSubmitPayment() {
                   className="block w-full bg-gray-800 border-2 border-dashed border-gray-600 rounded-lg p-4 text-center cursor-pointer active:bg-gray-750 transition-colors"
                 >
                   <div className="flex items-center justify-center gap-3">
-                    <span className="text-3xl">�</span>
+                    <Camera size={28} className="text-gray-400" />
                     <span className="text-white font-medium">{t('mobileSubmitPayment.tapToAttach')}</span>
                   </div>
                 </label>
