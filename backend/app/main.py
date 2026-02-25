@@ -52,6 +52,7 @@ from app.api.resident_auth import router as resident_auth_router  # Phase R.2: R
 from app.api.line_auth import router as line_auth_router  # Phase D.4.1: LINE Login
 from app.api.vendors import router as vendors_router  # Phase H.1.1: Vendor & Category Foundation
 from app.api.expense_reconciliation import router as expense_reconciliation_router  # Expense ↔ Bank Allocation
+from app.api.notifications import router as notifications_router  # Phase 5.1: In-App Notifications
 try:
     from app.api.r2_test import router as r2_test_router  # R2 connectivity test (temporary)
 except ImportError:
@@ -176,6 +177,7 @@ app.include_router(resident_auth_router)  # Phase R.2: Resident OTP Login
 app.include_router(line_auth_router)  # Phase D.4.1: LINE Login
 app.include_router(vendors_router)  # Phase H.1.1: Vendor & Category Foundation
 app.include_router(expense_reconciliation_router)  # Expense ↔ Bank Allocation
+app.include_router(notifications_router)  # Phase 5.1: In-App Notifications
 if r2_test_router:
     app.include_router(r2_test_router)  # R2 connectivity test (temporary)
 if attachments_router:

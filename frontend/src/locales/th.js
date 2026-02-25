@@ -1360,6 +1360,44 @@ const th = {
     enter: 'เข้า',
   },
 
+  // ── Notifications (Phase 5.1) ─────────────────────────────
+  notifications: {
+    title: 'การแจ้งเตือน',
+    empty: 'ไม่มีการแจ้งเตือน',
+    markAllRead: 'อ่านทั้งหมด',
+    justNow: 'เมื่อสักครู่',
+    minutesAgo: 'นาทีที่แล้ว',
+    hoursAgo: 'ชั่วโมงที่แล้ว',
+    daysAgo: 'วันที่แล้ว',
+    invoiceCreated: 'ใบแจ้งหนี้ใหม่',
+    payinSubmitted: 'แจ้งชำระเงินใหม่',
+    payinAccepted: 'ยืนยันการชำระเงิน',
+    payinRejected: 'การชำระเงินถูกปฏิเสธ',
+    system: 'แจ้งเตือนระบบ',
+  },
+
+  // ── Audit Log (Phase 5.3) ──────────────────────────────────
+  auditLog: {
+    title: 'บันทึกกิจกรรม',
+    exportLogs: 'บันทึกการส่งออก',
+    houseLogs: 'บันทึกการเลือกบ้าน',
+    user: 'ผู้ใช้',
+    action: 'กิจกรรม',
+    timestamp: 'เวลา',
+    details: 'รายละเอียด',
+    eventType: 'ประเภท',
+    houseSelected: 'เลือกบ้าน',
+    houseSwitch: 'เปลี่ยนบ้าน',
+    fromHouse: 'จากบ้าน',
+    toHouse: 'ไปบ้าน',
+    period: 'งวด',
+    exportType: 'รูปแบบ',
+    reportsIncluded: 'รายงานที่รวม',
+    noLogs: 'ไม่มีบันทึก',
+    filterByType: 'กรองตามประเภท',
+    allTypes: 'ทั้งหมด',
+  },
+
 };
 
 export default th;

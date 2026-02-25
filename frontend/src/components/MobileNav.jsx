@@ -13,6 +13,7 @@
  * 4. The drawer closes on link click or backdrop click
  */
 import React, { useState, useEffect } from 'react';
+import NotificationBell from './NotificationBell';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { t } from '../hooks/useLocale';
@@ -218,13 +219,16 @@ export default function MobileNav() {
               </span>
             </div>
           </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors"
-            aria-label={t('common.closeMenu')}
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors"
+              aria-label={t('common.closeMenu')}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation */}

@@ -7,6 +7,7 @@ import {
   HelpCircle, UserCog, Send
 } from 'lucide-react';
 import { useState } from 'react';
+import NotificationBell from './NotificationBell';
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -171,6 +172,7 @@ export default function Layout({ children }) {
                 {getRoleDisplayName()}
               </span>
             </div>
+            <NotificationBell />
           </div>
         </div>
 
