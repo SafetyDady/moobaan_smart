@@ -13,9 +13,27 @@ const ToastContext = createContext(null);
  * toast.warning('กรุณาตรวจสอบข้อมูล');
  * toast.info('กำลังดำเนินการ...');
  */
+/**
+ * Safe fallback: if ToastProvider is not yet mounted, useToast() returns
+ * no-op functions that log to console instead of crashing the app.
+ * This allows gradual integration — pages work before App.jsx is updated.
+ */
+const FALLBACK_TOAST = {
+  success: (msg) => console.log('[Toast fallback] success:', msg),
+  error:   (msg) => console.warn('[Toast fallback] error:', msg),
+  warning: (msg) => console.warn('[Toast fallback] warning:', msg),
+  info:    (msg) => console.log('[Toast fallback] info:', msg),
+};
+
 export function useToast() {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within <ToastProvider>');
+  if (!ctx) {
+    // Warn once in dev, but never crash
+    if (import.meta.env?.DEV) {
+      console.warn('[Toast] useToast() called outside <ToastProvider>. Using console fallback.');
+    }
+    return FALLBACK_TOAST;
+  }
   return ctx;
 }
 
