@@ -4,7 +4,7 @@ import { invoicesAPI, payinsAPI, api } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import InvoiceTable from './InvoiceTable';
-import { Home, Loader2, CreditCard } from 'lucide-react';
+import { Home, Loader2, CreditCard, AlertTriangle } from 'lucide-react';
 import { SkeletonMobileList } from '../../../components/Skeleton';
 import { isBlockingPayin } from '../../../utils/payinStatus';
 import PullToRefresh from '../../../components/PullToRefresh';
@@ -128,7 +128,7 @@ export default function MobileDashboard() {
                   ชำระเงินเลย
                 </div>
                 <p className="text-yellow-200 text-xs mt-2 text-center">
-                  ⚠️ คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน
+                  <AlertTriangle size={12} className="inline mr-1" />คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน
                 </p>
               </div>
             ) : (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Building2, CheckCircle, XCircle, X as XIcon, Ban, Plus, RefreshCw } from 'lucide-react';
 import { vendorsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonPage } from '../../components/Skeleton';
@@ -243,20 +244,20 @@ export default function Vendors() {
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">🏢 {t('vendors.title')}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2"><Building2 size={24} className="inline mr-1" />{t('vendors.title')}</h1>
         <p className="text-gray-400">{t('vendors.subtitle')}</p>
       </div>
 
       {/* Success/Error Messages */}
       {success && (
         <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400">
-          ✅ {success}
+          <CheckCircle size={16} className="inline mr-1" />{success}
         </div>
       )}
       {error && (
         <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400">
-          ❌ {error}
-          <button onClick={() => setError('')} className="ml-2 text-red-300 hover:text-red-200">✕</button>
+          <XCircle size={16} className="inline mr-1" />{error}
+          <button onClick={() => setError('')} className="ml-2 text-red-300 hover:text-red-200"><XIcon size={14} className="inline" /></button>
         </div>
       )}
 
@@ -323,7 +324,7 @@ export default function Vendors() {
                     {vendors.length === 0 ? (
                       <tr>
                         <td colSpan="6">
-                          <EmptyState icon="🏢" message={t('vendors.noVendors') || 'ยังไม่มีผู้รับเงิน'} description={t('vendors.noVendorsDesc') || 'คลิก "เพิ่มผู้รับเงิน" เพื่อสร้างใหม่'} />
+                          <EmptyState icon={<Building2 size={32} />} message={t('vendors.noVendors') || 'ยังไม่มีผู้รับเงิน'} description={t('vendors.noVendorsDesc') || 'คลิก "เพิ่มผู้รับเงิน" เพื่อสร้างใหม่'} />
                         </td>
                       </tr>
                     ) : (
@@ -356,7 +357,7 @@ export default function Vendors() {
                                     className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
                                     title={t('vendors.deactivateTooltip') || 'ปิดใช้งาน'}
                                   >
-                                    🚫
+                                    <Ban size={14} />
                                   </button>
                                 </>
                               ) : (
@@ -399,7 +400,7 @@ export default function Vendors() {
                   disabled={!newCategoryName.trim()}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg"
                 >
-                ➕ {t('common.add') || 'เพิ่ม'}
+                <Plus size={14} className="inline mr-1" />{t('common.add') || 'เพิ่ม'}
               </button>
             </div>
 
@@ -472,7 +473,7 @@ export default function Vendors() {
                   disabled={!newExpenseCategoryName.trim()}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg"
                 >
-                ➕ {t('common.add') || 'เพิ่ม'}
+                <Plus size={14} className="inline mr-1" />{t('common.add') || 'เพิ่ม'}
               </button>
             </div>
 
@@ -510,7 +511,7 @@ export default function Vendors() {
                                   : 'bg-green-600 hover:bg-green-700 text-white'
                               }`}
                             >
-                              {cat.is_active ? `🚫 ${t('vendors.deactivate')}` : `♻️ ${t('vendors.activate')}`}
+                              {cat.is_active ? <><Ban size={14} className="inline mr-1" />{t('vendors.deactivate')}</> : <><RefreshCw size={14} className="inline mr-1" />{t('vendors.activate')}</>}
                             </button>
                           </td>
                         </tr>

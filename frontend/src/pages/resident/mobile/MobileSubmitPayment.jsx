@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { AlertCircle, CheckCircle, AlertTriangle, Edit3, CreditCard, Lightbulb, Camera, Loader2, X as XIcon } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import { subDays, startOfDay } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -87,7 +88,7 @@ export default function MobileSubmitPayment() {
     try {
       // Validate slip image FIRST for CREATE
       if (!editPayin && !formData.slip_image) {
-        setError('❌ กรุณาแนบสลิปก่อนส่ง');
+        setError('กรุณาแนบสลิปก่อนส่ง');
         setSubmitting(false);
         return;
       }
@@ -152,7 +153,7 @@ export default function MobileSubmitPayment() {
           jsonData.slip_image_url = slipUrl;
         }
         await payinsAPI.update(editPayin.id, jsonData);
-        setSuccessMessage('✅ แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
+        setSuccessMessage('แก้ไขและส่งสลิปใหม่เรียบร้อยแล้ว');
         setTimeout(() => navigate('/resident/dashboard'), 1500);
         return;
       } else {
@@ -166,7 +167,7 @@ export default function MobileSubmitPayment() {
         }
 
         const response = await payinsAPI.createFormData(submitFormData);
-        setSuccessMessage('✅ ส่งสลิปเรียบร้อยแล้ว');
+        setSuccessMessage('ส่งสลิปเรียบร้อยแล้ว');
         setTimeout(() => navigate('/resident/dashboard'), 1500);
         return;
       }
@@ -191,7 +192,7 @@ export default function MobileSubmitPayment() {
             case 'SUBMITTED': statusText = '(ส่งแล้ว)'; break;
             default: statusText = '';
           }
-          const msg = `⚠️ คุณมีสลิปที่ส่งแล้ว (รอตรวจสอบ) ระบบป้องกันส่งซ้ำๆ\nกรุณารอให้ Admin กระทบยอดภายในวันที่ 10 ก่อน\nจึงบันทึกรายการใหม่ได้   ขออภัยในความไม่สะดวก`;
+          const msg = `คุณมีสลิปที่ส่งแล้ว (รอตรวจสอบ) ระบบป้องกันส่งซ้ำๆ\nกรุณารอให้ Admin กระทบยอดภายในวันที่ 10 ก่อน\nจึงบันทึกรายการใหม่ได้   ขออภัยในความไม่สะดวก`;
           setError(msg);
           setSubmitting(false);
           return;
@@ -199,14 +200,14 @@ export default function MobileSubmitPayment() {
         
         // Generic 409 message
         const msg = detail?.message || 'มีรายการค้างอยู่ กรุณาตรวจสอบ';
-        setError(`⚠️ ${msg}`);
+        setError(msg);
         setSubmitting(false);
         return;
       }
       
       // Handle network error
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        setError('❌ เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+        setError('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
         setSubmitting(false);
         return;
       }
@@ -249,7 +250,7 @@ export default function MobileSubmitPayment() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white mb-1">
-            {editPayin ? '✏️ แก้ไขและส่งใหม่' : '💳 ส่งสลิปการชำระเงิน'}
+            {editPayin ? (<><Edit3 size={18} className="inline mr-1" /> แก้ไขและส่งใหม่</>) : (<><CreditCard size={18} className="inline mr-1" /> ส่งสลิปการชำระเงิน</>)}
           </h1>
           <p className="text-sm text-gray-400">
             บ้านเลขที่ #{currentHouseId}
@@ -264,7 +265,7 @@ export default function MobileSubmitPayment() {
               onClick={() => { setError(null); navigate('/resident/payments'); }}
               className="mt-3 w-full bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
             >
-              ✕ ปิด / กลับหน้าประวัติ
+              <XIcon size={14} className="inline mr-1" />ปิด / กลับหน้าประวัติ
             </button>
           </div>
         )}
@@ -280,7 +281,7 @@ export default function MobileSubmitPayment() {
         {editPayin && editPayin.status === 'REJECTED' && editPayin.reject_reason && (
           <div className="mb-4 bg-red-900/30 border border-red-600 rounded-lg p-3">
             <p className="text-xs text-red-300 mb-1">
-              <strong>⚠️ เหตุผลที่ถูกปฏิเสธ:</strong>
+              <strong><AlertTriangle size={14} className="inline mr-1" />เหตุผลที่ถูกปฏิเสธ:</strong>
             </p>
             <p className="text-sm text-red-200">{editPayin.reject_reason}</p>
           </div>
@@ -325,7 +326,7 @@ export default function MobileSubmitPayment() {
               wrapperClassName="w-full"
             />
             <p className="text-xs text-gray-500 mt-2">
-              💡 เลือกได้ย้อนหลังไม่เกิน 90 วัน
+              <Lightbulb size={12} className="inline mr-1" />เลือกได้ย้อนหลังไม่เกิน 90 วัน
             </p>
           </div>
 
@@ -378,7 +379,7 @@ export default function MobileSubmitPayment() {
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              💡 กรอก 00-23 และ 00-59
+              <Lightbulb size={12} className="inline mr-1" />กรอก 00-23 และ 00-59
             </p>
           </div>
 
@@ -431,7 +432,7 @@ export default function MobileSubmitPayment() {
               )}
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              💡 ถ่ายให้เห็นรายละเอียดชัดเจน หรือเลือกรูป Slip จากแกลเลอรี
+              <Lightbulb size={12} className="inline mr-1" />ถ่ายให้เห็นรายละเอียดชัดเจน หรือเลือกรูป Slip จากแกลเลอรี
             </p>
           </div>
         </form>
@@ -446,13 +447,13 @@ export default function MobileSubmitPayment() {
           className="w-full bg-primary-600 active:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg text-lg transition-colors min-h-[56px] shadow-lg"
         >
           {compressing ? (
-            <span>กำลังบีบอัดรูป...</span>
+            <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" />กำลังบีบอัดรูป...</span>
           ) : submitting ? (
-            <span>⏳ กำลังส่ง...</span>
+            <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" />กำลังส่ง...</span>
           ) : editPayin ? (
-            <span>✅ แก้ไขและส่งใหม่</span>
+            <span className="flex items-center justify-center gap-2"><CheckCircle size={18} />แก้ไขและส่งใหม่</span>
           ) : (
-            <span>✅ ส่งสลิปเลย</span>
+            <span className="flex items-center justify-center gap-2"><CheckCircle size={18} />ส่งสลิปเลย</span>
           )}
         </button>
         

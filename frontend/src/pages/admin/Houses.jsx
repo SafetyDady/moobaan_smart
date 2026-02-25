@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Home, UserPlus, RefreshCw, Edit3, FileText, FileSpreadsheet, Save, X as XIcon } from 'lucide-react';
 import { housesAPI } from '../../api/client';
 import { SkeletonTable } from '../../components/Skeleton';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -162,10 +163,10 @@ export default function Houses() {
           </div>
           <div className="flex gap-3 flex-wrap">
             <Link to="/admin/add-house" className="btn-primary whitespace-nowrap">
-              🏠 {t('houses.addHouse')}
+              <Home size={16} className="inline mr-1" />{t('houses.addHouse')}
             </Link>
             <Link to="/admin/add-resident" className="btn-secondary whitespace-nowrap">
-              👤 {t('houses.addResident')}
+              <UserPlus size={16} className="inline mr-1" />{t('houses.addResident')}
             </Link>
           </div>
         </div>
@@ -199,7 +200,7 @@ export default function Houses() {
           </div>
           <div className="flex items-end">
             <button onClick={loadHouses} className="btn-secondary w-full">
-              🔄 {t('common.refresh')}
+              <RefreshCw size={16} className="inline mr-1" />{t('common.refresh')}
             </button>
           </div>
         </div>
@@ -224,7 +225,7 @@ export default function Houses() {
                 <SkeletonTable rows={5} cols={6} />
               ) : houses.length === 0 ? (
                 <EmptyState
-                  icon="🏠"
+                  icon={<Home size={32} />}
                   colSpan={6}
                   isFiltered={!!(search || statusFilter)}
                   onClearFilters={() => { setSearch(''); setStatusFilter(''); }}
@@ -249,7 +250,7 @@ export default function Houses() {
                           onClick={() => openEdit(house)}
                           className="text-yellow-400 hover:text-yellow-300 text-sm"
                         >
-                          ✏️ {t('common.edit')}
+                          <Edit3 size={14} className="inline mr-1" />{t('common.edit')}
                         </button>
                         <Link
                           to="/admin/add-resident"
@@ -263,14 +264,14 @@ export default function Houses() {
                           disabled={downloadingStatements.has(`${house.id}-pdf`)}
                           className="text-green-400 hover:text-green-300 text-sm"
                         >
-                          {downloadingStatements.has(`${house.id}-pdf`) ? '📄...' : '📄 PDF'}
+                          {downloadingStatements.has(`${house.id}-pdf`) ? <><FileText size={14} className="inline mr-1" />...</> : <><FileText size={14} className="inline mr-1" />PDF</>}
                         </button>
                         <button
                           onClick={() => downloadStatement(house.id, 'xlsx')}
                           disabled={downloadingStatements.has(`${house.id}-xlsx`)}
                           className="text-blue-400 hover:text-blue-300 text-sm"
                         >
-                          {downloadingStatements.has(`${house.id}-xlsx`) ? '📊...' : '📊 Excel'}
+                          {downloadingStatements.has(`${house.id}-xlsx`) ? <><FileSpreadsheet size={14} className="inline mr-1" />...</> : <><FileSpreadsheet size={14} className="inline mr-1" />Excel</>}
                         </button>
                         <button
                           onClick={() => setConfirmState({ open: true, houseId: house.id })}
@@ -304,7 +305,7 @@ export default function Houses() {
                 <h2 className="text-xl font-bold text-white">{t('houses.editHouse')}</h2>
                 <p className="text-gray-400 text-sm mt-1">{t('houses.houseNumber')} {editingHouse.house_code}</p>
               </div>
-              <button onClick={closeEdit} className="text-gray-400 hover:text-white text-2xl">✕</button>
+              <button onClick={closeEdit} className="text-gray-400 hover:text-white text-2xl"><XIcon size={24} /></button>
             </div>
 
             {/* Form */}
@@ -406,7 +407,7 @@ export default function Houses() {
                 disabled={editLoading}
                 className="px-6 py-2 rounded-lg bg-yellow-500 text-black font-semibold hover:bg-yellow-400 disabled:opacity-50"
               >
-                {editLoading ? t('common.saving') : `💾 ${t('common.save')}`}
+                {editLoading ? t('common.saving') : <><Save size={16} className="inline mr-1" />{t('common.save')}</>}
               </button>
             </div>
           </div>

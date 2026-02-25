@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { FileText } from 'lucide-react';
 import { invoicesAPI, housesAPI, creditNotesAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
 import CreditNoteModal from '../../components/CreditNoteModal';
@@ -295,7 +296,7 @@ export default function Invoices() {
               {loading ? (
                 <SkeletonTable rows={5} cols={8} />
               ) : invoices.length === 0 ? (
-                <EmptyState icon="📄" colSpan={8} />
+                <EmptyState icon={<FileText size={32} />} colSpan={8} />
               ) : (
                 paged.currentItems.map((inv) => {
                   const paid = inv.paid || 0;

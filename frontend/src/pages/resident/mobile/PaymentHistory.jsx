@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, Eye } from 'lucide-react';
+import { ChevronLeft, Eye, Camera, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoicesAPI, payinsAPI } from '../../../api/client';
 import { useToast } from '../../../components/Toast';
@@ -176,7 +176,7 @@ export default function PaymentHistory() {
               {/* Payin List */}
               {filteredPayins.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                  <div className="text-4xl mb-2">📸</div>
+                  <div className="mb-2"><Camera size={36} className="text-gray-500 mx-auto" /></div>
                   <div className="text-sm">ยังไม่มีประวัติการส่งสลิป</div>
                 </div>
               ) : (
@@ -247,7 +247,7 @@ export default function PaymentHistory() {
               {/* Invoice List */}
               {sortedInvoices.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                  <div className="text-4xl mb-2">📄</div>
+                  <div className="mb-2"><FileText size={36} className="text-gray-500 mx-auto" /></div>
                   <div className="text-sm">ยังไม่มีใบแจ้งหนี้</div>
                 </div>
               ) : (

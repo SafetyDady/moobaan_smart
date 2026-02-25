@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, LogOut, Home, User, Mail, Phone, Edit3, Check, X, ArrowRightLeft } from 'lucide-react';
+import { ChevronLeft, LogOut, Home, User, Mail, Phone, Edit3, Check, X, ArrowRightLeft, Circle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRole } from '../../../contexts/RoleContext';
@@ -57,10 +57,10 @@ export default function Profile() {
       const resp = await authAPI.updateMe(payload);
       updateUser(resp.data);
       setEditing(false);
-      showToast('✅ บันทึกข้อมูลเรียบร้อย', 'success');
+      showToast('บันทึกข้อมูลเรียบร้อย', 'success');
     } catch (err) {
       const msg = err.response?.data?.detail || 'เกิดข้อผิดพลาด';
-      showToast(`❌ ${msg}`, 'error');
+      showToast(msg, 'error');
     } finally {
       setSaving(false);
     }
@@ -76,12 +76,12 @@ export default function Profile() {
       const userData = resp.data?.user || resp.data;
       // Update auth context with new house info
       setResidentUser(userData);
-      showToast(`✅ สลับไปบ้าน ${houseCode} เรียบร้อย`, 'success');
+      showToast(`สลับไปบ้าน ${houseCode} เรียบร้อย`, 'success');
       // Navigate to dashboard to reload data for new house
       setTimeout(() => navigate('/resident/dashboard'), 1000);
     } catch (err) {
       const msg = err.response?.data?.detail?.message || err.response?.data?.detail || 'เกิดข้อผิดพลาด';
-      showToast(`❌ ${msg}`, 'error');
+      showToast(msg, 'error');
     } finally {
       setSwitching(false);
     }
@@ -255,7 +255,7 @@ export default function Profile() {
           <div className="bg-gray-800 rounded-lg border border-gray-700">
             <div className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">🟢</span>
+                <Circle size={16} className="text-green-500 fill-green-500" />
                 <span className="text-white text-sm">LINE เชื่อมต่อ</span>
               </div>
               <span className="text-xs text-green-400">เข้าสู่ระบบผ่าน LINE</span>

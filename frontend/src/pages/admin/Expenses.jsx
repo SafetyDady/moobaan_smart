@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ClipboardList, Search } from 'lucide-react';
 import { expensesAPI } from '../../api/client';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
@@ -76,7 +77,7 @@ export default function Expenses() {
                 <tr>
                   <td colSpan="6">
                     <EmptyState
-                      icon="📋"
+                      icon={<ClipboardList size={32} />}
                       message={t('expenses.noData') || t('common.noData')}
                       description={t('expenses.noDataDesc') || 'ยังไม่มีรายการค่าใช้จ่าย'}
                     />
@@ -86,7 +87,7 @@ export default function Expenses() {
                 <tr>
                   <td colSpan="6">
                     <EmptyState
-                      icon="🔍"
+                      icon={<Search size={32} />}
                       message={t('common.noResults') || 'ไม่พบข้อมูล'}
                     />
                   </td>

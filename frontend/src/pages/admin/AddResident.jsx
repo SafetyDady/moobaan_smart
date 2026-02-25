@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Smartphone, User, Mail } from 'lucide-react';
 import { usersAPI, housesAPI } from '../../api/client';
 import { useToast } from '../../components/Toast';
 import { t } from '../../hooks/useLocale';
@@ -269,7 +270,7 @@ export default function AddResident() {
                       <span className="text-white font-medium">{searchResult.user.full_name}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-gray-400">📱 LINE:</span>
+                      <span className="text-gray-400"><Smartphone size={14} className="inline mr-1" />LINE:</span>
                       <span className={searchResult.user.line_linked ? 'text-green-400' : 'text-yellow-400'}>
                         {searchResult.user.line_linked ? t('addResident.lineLinked') : t('addResident.lineNotLinked')}
                       </span>
@@ -472,11 +473,11 @@ export default function AddResident() {
                     : 'bg-green-500/10 border border-green-500/20'
                 }`}>
                   <p className={`font-medium mb-2 ${creationSuccess.existing_user ? 'text-blue-400' : 'text-green-400'}`}>
-                    👤 {creationSuccess.name}
+                    <User size={16} className="inline mr-1" />{creationSuccess.name}
                   </p>
-                  <p className="text-gray-300 text-sm">📱 {creationSuccess.phone}</p>
+                  <p className="text-gray-300 text-sm"><Smartphone size={14} className="inline mr-1" />{creationSuccess.phone}</p>
                   {creationSuccess.email && (
-                    <p className="text-gray-300 text-sm">📧 {creationSuccess.email}</p>
+                    <p className="text-gray-300 text-sm"><Mail size={14} className="inline mr-1" />{creationSuccess.email}</p>
                   )}
                   {creationSuccess.active_houses_count > 1 && (
                     <p className="text-yellow-400 text-sm mt-2">

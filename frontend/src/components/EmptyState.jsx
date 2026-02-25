@@ -7,10 +7,11 @@
  * - Filtered: data exists but current filters return no results
  */
 import React from 'react';
+import { ClipboardList } from 'lucide-react';
 import { t } from '../hooks/useLocale';
 
 export default function EmptyState({
-  icon = '📋',
+  icon = <ClipboardList size={32} />,
   title,
   message,
   isFiltered = false,

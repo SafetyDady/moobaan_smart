@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, CheckCircle } from 'lucide-react';
 import { api } from '../../api/client';
 import compressImage from '../../utils/compressImage';
 import { useToast } from '../../components/Toast';
@@ -160,7 +160,7 @@ export default function UnidentifiedReceipts() {
 
       {transactions.length === 0 ? (
         <div className="card p-8">
-          <EmptyState icon="✅" message={t('unidentified.allMatched')} description={t('unidentified.allMatchedDesc')} />
+          <EmptyState icon={<CheckCircle size={32} />} message={t('unidentified.allMatched')} description={t('unidentified.allMatchedDesc')} />
         </div>
       ) : (
         <div className="card">

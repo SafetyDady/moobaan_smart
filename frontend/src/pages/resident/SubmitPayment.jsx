@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { AlertTriangle, MessageCircle, FileText, Paperclip, Check, Loader2, CheckCircle } from 'lucide-react';
 import { payinsAPI, api } from '../../api/client';
 import { useToast } from '../../components/Toast';
 import { useRole } from '../../contexts/RoleContext';
@@ -227,7 +228,7 @@ export default function SubmitPayment() {
         {editPayin && editPayin.status === 'REJECTED_NEEDS_FIX' && (
           <div className="mt-4 p-4 bg-red-900 bg-opacity-30 border border-red-600 rounded-lg">
             <p className="text-red-300 text-sm font-medium mb-2">
-              ⚠️ ต้องแก้ไขข้อมูล
+              <AlertTriangle size={14} className="inline mr-1" />ต้องแก้ไขข้อมูล
             </p>
             {editPayin.reject_reason && (
               <p className="text-red-200 text-sm">
@@ -236,7 +237,7 @@ export default function SubmitPayment() {
             )}
             {editPayin.admin_note && (
               <p className="text-yellow-300 text-sm mt-2">
-                💬 <strong>หมายเหตุจากแอดมิน:</strong> {editPayin.admin_note}
+                <MessageCircle size={14} className="inline mr-1" /><strong>หมายเหตุจากแอดมิน:</strong> {editPayin.admin_note}
               </p>
             )}
           </div>
@@ -244,14 +245,14 @@ export default function SubmitPayment() {
         {editPayin && editPayin.status === 'DRAFT' && (
           <div className="mt-4 p-4 bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg">
             <p className="text-gray-300 text-sm">
-              📝 แก้ไขร่างการชำระเงิน - ยังไม่ได้ส่งเข้าระบบ
+              <FileText size={14} className="inline mr-1" />แก้ไขร่างการชำระเงิน - ยังไม่ได้ส่งเข้าระบบ
             </p>
           </div>
         )}
         {editPayin && editPayin.status === 'PENDING' && (
           <div className="mt-4 p-4 bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg">
             <p className="text-blue-300 text-sm">
-              📝 กำลังแก้ไขรายการที่รอตรวจสอบ - คุณสามารถปรับปรุงข้อมูลได้
+              <FileText size={14} className="inline mr-1" />กำลังแก้ไขรายการที่รอตรวจสอบ - คุณสามารถปรับปรุงข้อมูลได้
             </p>
           </div>
         )}
@@ -326,7 +327,7 @@ export default function SubmitPayment() {
               แนบสลิปการโอนเงิน *
             </label>
             <div className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center">
-              <div className="text-4xl mb-2">📎</div>
+              <div className="mb-2"><Paperclip size={36} className="text-gray-500 mx-auto" /></div>
               <p className="text-gray-400 text-sm mb-2">
                 แนบรูปสลิปการโอนเงิน (บังคับ)
               </p>
@@ -348,12 +349,12 @@ export default function SubmitPayment() {
               </label>
               {slipFile && (
                 <p className="text-primary-400 text-sm mt-2">
-                  ✓ เลือกไฟล์แล้ว: {slipFile.name}
+                  <Check size={14} className="inline mr-1" />เลือกไฟล์แล้ว: {slipFile.name}
                 </p>
               )}
               {formData.slip_image_url && !slipFile && (
                 <p className="text-primary-400 text-sm mt-2">
-                  ✓ มีไฟล์แนบอยู่แล้ว
+                  <Check size={14} className="inline mr-1" />มีไฟล์แนบอยู่แล้ว
                 </p>
               )}
             </div>
@@ -368,7 +369,7 @@ export default function SubmitPayment() {
               disabled={submitting}
               className="btn-primary flex-1 disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
-              {submitting ? '⏳ กำลังส่ง...' : (editPayin ? '✅ แก้ไขและส่งใหม่' : '✅ ส่งสลิป')}
+              {submitting ? <><Loader2 size={16} className="inline mr-1 animate-spin" />กำลังส่ง...</> : (editPayin ? <><CheckCircle size={16} className="inline mr-1" />แก้ไขและส่งใหม่</> : <><CheckCircle size={16} className="inline mr-1" />ส่งสลิป</>)}
             </button>
             <button
               type="button"

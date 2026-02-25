@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowUp, ArrowDown, Users, Coins, Landmark, RefreshCw } from 'lucide-react';
+import { ArrowUp, ArrowDown, Users, Coins, Landmark, RefreshCw, Zap, Droplets, Shield, Sparkles, Wrench, ClipboardList, Home, Package, Pin, BarChart3 } from 'lucide-react';
 import MobileLayout from './MobileLayout';
 import { api } from '../../../api/client';
 import PullToRefresh from '../../../components/PullToRefresh';
@@ -189,7 +189,7 @@ export default function VillageDashboard() {
 
           {months.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
-              <div className="text-3xl mb-2">📊</div>
+              <div className="mb-2"><BarChart3 size={32} className="text-gray-500 mx-auto" /></div>
               <div className="text-sm">ยังไม่มีข้อมูล Statement</div>
             </div>
           ) : (
@@ -275,16 +275,16 @@ export default function VillageDashboard() {
 
           // Semantic color + icon per category
           const catMeta = {
-            'ELECTRICITY': { icon: '⚡', label: 'ค่าไฟฟ้า',       bar: 'bg-amber-500',   text: 'text-amber-400'   },
-            'WATER':       { icon: '💧', label: 'ค่าน้ำประปา',    bar: 'bg-cyan-500',    text: 'text-cyan-400'    },
-            'SECURITY':    { icon: '🛡️', label: 'รปภ.',           bar: 'bg-blue-500',    text: 'text-blue-400'    },
-            'CLEANING':    { icon: '🧹', label: 'ทำความสะอาด',   bar: 'bg-emerald-500', text: 'text-emerald-400' },
-            'MAINTENANCE': { icon: '🔧', label: 'ซ่อมบำรุง',      bar: 'bg-orange-500',  text: 'text-orange-400'  },
-            'ADMIN':       { icon: '📋', label: 'บริหาร',         bar: 'bg-purple-500',  text: 'text-purple-400'  },
-            'UTILITIES':   { icon: '🏠', label: 'สาธารณูปโภค',    bar: 'bg-teal-500',    text: 'text-teal-400'    },
-            'OTHER':       { icon: '📦', label: 'อื่นๆ',          bar: 'bg-gray-500',    text: 'text-gray-400'    },
+            'ELECTRICITY': { icon: <Zap size={16} />, label: 'ค่าไฟฟ้า',       bar: 'bg-amber-500',   text: 'text-amber-400'   },
+            'WATER':       { icon: <Droplets size={16} />, label: 'ค่าน้ำประปา',    bar: 'bg-cyan-500',    text: 'text-cyan-400'    },
+            'SECURITY':    { icon: <Shield size={16} />, label: 'รปภ.',           bar: 'bg-blue-500',    text: 'text-blue-400'    },
+            'CLEANING':    { icon: <Sparkles size={16} />, label: 'ทำความสะอาด',   bar: 'bg-emerald-500', text: 'text-emerald-400' },
+            'MAINTENANCE': { icon: <Wrench size={16} />, label: 'ซ่อมบำรุง',      bar: 'bg-orange-500',  text: 'text-orange-400'  },
+            'ADMIN':       { icon: <ClipboardList size={16} />, label: 'บริหาร',         bar: 'bg-purple-500',  text: 'text-purple-400'  },
+            'UTILITIES':   { icon: <Home size={16} />, label: 'สาธารณูปโภค',    bar: 'bg-teal-500',    text: 'text-teal-400'    },
+            'OTHER':       { icon: <Package size={16} />, label: 'อื่นๆ',          bar: 'bg-gray-500',    text: 'text-gray-400'    },
           };
-          const defaultMeta = { icon: '📌', label: '', bar: 'bg-gray-500', text: 'text-gray-400' };
+          const defaultMeta = { icon: <Pin size={16} />, label: '', bar: 'bg-gray-500', text: 'text-gray-400' };
           const grandTotal = cats.reduce((s, c) => s + c.grand_total, 0);
 
           return (

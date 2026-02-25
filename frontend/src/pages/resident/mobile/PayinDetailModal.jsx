@@ -19,6 +19,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { X as XIcon, AlertTriangle, FileText, Edit3, Trash2, CheckCircle, Clock, Pencil } from 'lucide-react';
 import { payinsAPI } from '../../../api/client';
 import ConfirmModal from '../../../components/ConfirmModal';
 import {
@@ -70,7 +71,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
             onClick={onClose}
             className="w-10 h-10 flex items-center justify-center text-gray-400 active:text-white active:bg-gray-700 rounded-full min-h-[44px] min-w-[44px]"
           >
-            ✕
+            <XIcon size={20} />
           </button>
         </div>
 
@@ -92,7 +93,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
           {/* Rejection Reason - Prominent when rejected */}
           {(payin.status === 'REJECTED_NEEDS_FIX' || payin.status === 'REJECTED') && payin.reject_reason && (
             <div className="bg-red-900 bg-opacity-40 border border-red-600 rounded-lg p-4">
-              <p className="text-sm font-medium text-red-300 mb-1">⚠️ เหตุผลที่ปฏิเสธ</p>
+              <p className="text-sm font-medium text-red-300 mb-1 flex items-center gap-1"><AlertTriangle size={14} />เหตุผลที่ปฏิเสธ</p>
               <p className="text-white">
                 {payin.reject_reason}
               </p>
@@ -102,7 +103,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
           {/* Admin Note - Display separately if present (read-only) */}
           {payin.admin_note && (
             <div className="bg-gray-700 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-400 mb-1">📝 หมายเหตุจากผู้ดูแล</p>
+              <p className="text-sm font-medium text-gray-400 mb-1 flex items-center gap-1"><FileText size={14} />หมายเหตุจากผู้ดูแล</p>
               <p className="text-white text-sm">
                 {payin.admin_note}
               </p>
@@ -170,7 +171,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
                   className="block w-full bg-blue-600 text-white text-center font-semibold py-4 rounded-lg active:bg-blue-700 min-h-[44px]"
                   onClick={onClose}
                 >
-                  ✏️ แก้ไข
+                  <Edit3 size={16} className="inline mr-1" />แก้ไข
                 </Link>
               )}
               {canDelete && (
@@ -178,7 +179,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
                   onClick={() => setShowDeleteConfirm(true)}
                   className="w-full bg-red-600 text-white font-semibold py-4 rounded-lg active:bg-red-700 min-h-[44px]"
                 >
-                  🗑️ ลบรายการ
+                  <Trash2 size={16} className="inline mr-1" />ลบรายการ
                 </button>
               )}
             </div>
@@ -188,7 +189,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
           {payin.status === 'ACCEPTED' && (
             <div className="bg-green-900 bg-opacity-30 border border-green-600 rounded-lg p-4 text-center">
               <p className="text-green-300 text-sm">
-                ✓ รายการนี้ได้รับการยืนยันแล้ว
+                <CheckCircle size={16} className="inline mr-1" />รายการนี้ได้รับการยืนยันแล้ว
               </p>
               <p className="text-green-400 text-xs mt-1">
                 ไม่สามารถแก้ไขหรือลบได้
@@ -200,7 +201,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
           {payin.status === 'SUBMITTED' && (
             <div className="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 text-center">
               <p className="text-blue-300 text-sm">
-                ⏳ กำลังรอการตรวจสอบ
+                <Clock size={16} className="inline mr-1" />กำลังรอการตรวจสอบ
               </p>
               <p className="text-blue-400 text-xs mt-1">
                 ไม่สามารถแก้ไขหรือลบได้ในขณะนี้
@@ -212,7 +213,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
           {payin.status === 'PENDING' && (
             <div className="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-4 text-center">
               <p className="text-yellow-300 text-sm">
-                📝 สามารถแก้ไขข้อมูลได้
+                <Pencil size={16} className="inline mr-1" />สามารถแก้ไขข้อมูลได้
               </p>
               <p className="text-yellow-400 text-xs mt-1">
                 แต่ไม่สามารถลบได้ เนื่องจากรายการอยู่ระหว่างรอตรวจสอบ

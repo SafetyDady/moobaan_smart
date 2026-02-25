@@ -88,7 +88,7 @@ export default function SelectHouse() {
       <div className="w-full max-w-sm">
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-white mb-1">🏠 เลือกบ้าน</h1>
+          <h1 className="text-2xl font-bold text-white mb-1"><Home size={20} className="inline mr-1" />เลือกบ้าน</h1>
           {displayName && (
             <p className="text-gray-400 text-sm">
               สวัสดี {displayName}

@@ -98,7 +98,7 @@ export default function LinkAccount() {
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-white mb-2">
-            🏠 หมู่บ้านสมาร์ท
+            <Home size={20} className="inline mr-1" />หมู่บ้านสมาร์ท
           </h1>
           <p className="text-gray-400 text-sm">
             ผูกบัญชี LINE กับข้อมูลลูกบ้าน
@@ -117,7 +117,7 @@ export default function LinkAccount() {
             </h2>
             {displayName && (
               <p className="text-green-400 text-sm">
-                สวัสดี, {displayName} 👋
+                สวัสดี, {displayName}
               </p>
             )}
             <p className="text-gray-400 text-xs mt-2">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CreditCard, Search } from 'lucide-react';
 import { payinsAPI, bankReconciliationAPI } from '../../api/client';
 import { useRole } from '../../contexts/RoleContext';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -254,7 +255,7 @@ export default function PayIns() {
                 <SkeletonTable rows={5} cols={8} />
               ) : payins.length === 0 ? (
                 <EmptyState
-                  icon="💳"
+                  icon={<CreditCard size={32} />}
                   colSpan={8}
                   isFiltered={!!statusFilter}
                   onClearFilters={() => setStatusFilter('')}
@@ -580,7 +581,7 @@ export default function PayIns() {
                   {/* Debug info for troubleshooting */}
                   {matchDebugInfo && (
                     <div className="mt-4 text-left bg-gray-800 rounded p-3 text-xs font-mono">
-                      <p className="text-gray-300 mb-1">🔍 Debug Info:</p>
+                      <p className="text-gray-300 mb-1"><Search size={14} className="inline mr-1" />Debug Info:</p>
                       <p className="text-gray-400">{t('payins.payinTimeUtc')}: {matchDebugInfo.payin_time_utc}</p>
                       <p className="text-gray-400">{t('payins.payinTimezone')}: {matchDebugInfo.payin_time_tzinfo}</p>
                       <p className="text-gray-400">{t('payins.unmatchedCredits')}: {matchDebugInfo.total_unmatched_credit}</p>
