@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { expensesAPI, housesAPI, accountsAPI, vendorsAPI, attachmentsAPI } from '../../api/client';
+import ConfirmModal from '../../components/ConfirmModal';
 
 /**
  * Phase F.1: Expense Core (Cash Out)
@@ -35,6 +36,7 @@ const PAYMENT_METHODS = [
 export default function Expenses() {
   // Data state
   const [expenses, setExpenses] = useState([]);
+  const [confirmDeleteAttach, setConfirmDeleteAttach] = useState({ open: false, attachmentId: null, expenseId: null });
   const [summary, setSummary] = useState({
     total_paid: 0,
     total_pending: 0,
@@ -334,7 +336,7 @@ export default function Expenses() {
   };
 
   const handleDeleteAttachment = async (attachmentId, expenseId) => {
-    if (!confirm('Delete this attachment?')) return;
+    setConfirmDeleteAttach({ open: false, attachmentId: null, expenseId: null });
     try {
       await attachmentsAPI.delete(attachmentId);
       await loadAttachments(expenseId);
@@ -1237,7 +1239,7 @@ export default function Expenses() {
                         </a>
                       )}
                       <button
-                        onClick={() => handleDeleteAttachment(att.id, selectedExpense.id)}
+                        onClick={() => setConfirmDeleteAttach({ open: true, attachmentId: att.id, expenseId: selectedExpense.id })}
                         className="px-2 py-1 text-xs bg-red-600/80 hover:bg-red-600 text-white rounded"
                         title="Delete"
                       >
@@ -1261,6 +1263,15 @@ export default function Expenses() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmDeleteAttach.open}
+        title="ลบไฟล์แนบ"
+        message="ต้องการลบไฟล์แนบนี้ใช่หรือไม่?"
+        variant="danger"
+        confirmText="ลบ"
+        onConfirm={() => handleDeleteAttachment(confirmDeleteAttach.attachmentId, confirmDeleteAttach.expenseId)}
+        onCancel={() => setConfirmDeleteAttach({ open: false, attachmentId: null, expenseId: null })}
+      />
     </div>
   );
 }

@@ -17,8 +17,10 @@
  * - When ACCEPTED → detail becomes read-only permanently
  */
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { payinsAPI } from '../../../api/client';
+import ConfirmModal from '../../../components/ConfirmModal';
 import {
   canEditPayin,
   canDeletePayin,
@@ -44,10 +46,11 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
     minute: '2-digit',
   });
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const handleDelete = () => {
-    if (confirm('คุณต้องการลบรายการชำระเงินนี้ใช่หรือไม่?\nการดำเนินการนี้ไม่สามารถย้อนกลับได้')) {
-      onDelete(payin.id);
-    }
+    setShowDeleteConfirm(false);
+    onDelete(payin.id);
   };
 
   return (
@@ -172,7 +175,7 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
               )}
               {canDelete && (
                 <button
-                  onClick={handleDelete}
+                  onClick={() => setShowDeleteConfirm(true)}
                   className="w-full bg-red-600 text-white font-semibold py-4 rounded-lg active:bg-red-700 min-h-[44px]"
                 >
                   🗑️ ลบรายการ
@@ -228,6 +231,15 @@ export default function PayinDetailModal({ payin, onClose, onDelete }) {
           </button>
         </div>
       </div>
+      <ConfirmModal
+        open={showDeleteConfirm}
+        title="ลบรายการชำระเงิน"
+        message="คุณต้องการลบรายการชำระเงินนี้ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+        variant="danger"
+        confirmText="ลบ"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   );
 }

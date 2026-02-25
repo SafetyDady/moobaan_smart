@@ -12,6 +12,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { invoicesAPI, payinsAPI, api } from '../../api/client';
+import ConfirmModal from '../../components/ConfirmModal';
 import { useRole } from '../../contexts/RoleContext';
 
 export default function ResidentDashboard() {
@@ -22,6 +23,7 @@ export default function ResidentDashboard() {
   const [loading, setLoading] = useState(true);
   const [downloadingStatement, setDownloadingStatement] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, payinId: null });
 
   useEffect(() => {
     loadData();
@@ -45,9 +47,7 @@ export default function ResidentDashboard() {
   };
 
   const handleDeletePayin = async (payinId) => {
-    if (!confirm('คุณต้องการลบรายการชำระเงินนี้ใช่หรือไม่?')) {
-      return;
-    }
+    setConfirmDelete({ open: false, payinId: null });
     try {
       await payinsAPI.delete(payinId);
       setNotification({ type: 'success', message: 'ลบรายการสำเร็จ' });
@@ -304,7 +304,7 @@ export default function ResidentDashboard() {
                                 ✏️ แก้ไข
                               </Link>
                               <button
-                                onClick={() => handleDeletePayin(payin.id)}
+                                onClick={() => setConfirmDelete({ open: true, payinId: payin.id })}
                                 className="text-red-400 hover:text-red-300 text-sm"
                               >
                                 🗑️ ลบ
@@ -316,7 +316,7 @@ export default function ResidentDashboard() {
                               <span className="text-blue-400 text-sm">⏳ กำลังตรวจสอบ</span>
                               {!payin.is_matched && (
                                 <button
-                                  onClick={() => handleDeletePayin(payin.id)}
+                                  onClick={() => setConfirmDelete({ open: true, payinId: payin.id })}
                                   className="text-red-400 hover:text-red-300 text-sm"
                                 >
                                   🗑️ ลบ
@@ -334,7 +334,7 @@ export default function ResidentDashboard() {
                                 🔄 แก้ไขและส่งใหม่
                               </Link>
                               <button
-                                onClick={() => handleDeletePayin(payin.id)}
+                                onClick={() => setConfirmDelete({ open: true, payinId: payin.id })}
                                 className="text-red-400 hover:text-red-300 text-sm"
                               >
                                 🗑️ ลบ
@@ -352,7 +352,7 @@ export default function ResidentDashboard() {
                                 ✏️ แก้ไข
                               </Link>
                               <button
-                                onClick={() => handleDeletePayin(payin.id)}
+                                onClick={() => setConfirmDelete({ open: true, payinId: payin.id })}
                                 className="text-red-400 hover:text-red-300 text-sm"
                               >
                                 🗑️ ลบ
@@ -381,6 +381,15 @@ export default function ResidentDashboard() {
           </table>
         </div>
       </div>
+      <ConfirmModal
+        open={confirmDelete.open}
+        title="ลบรายการชำระเงิน"
+        message="คุณต้องการลบรายการชำระเงินนี้ใช่หรือไม่?"
+        variant="danger"
+        confirmText="ลบ"
+        onConfirm={() => handleDeletePayin(confirmDelete.payinId)}
+        onCancel={() => setConfirmDelete({ open: false, payinId: null })}
+      />
     </div>
   );
 }

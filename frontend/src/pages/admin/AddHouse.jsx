@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { housesAPI } from '../../api/client';
+import { useToast } from '../../components/Toast';
 
 export default function AddHouse() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
@@ -53,7 +55,7 @@ export default function AddHouse() {
       const response = await housesAPI.create(formData);
       
       if (response.data.success) {
-        alert(`House created successfully! / สร้างข้อมูลบ้านเรียบร้อยแล้ว!\\nHouse Code: ${formData.house_code}\\nOwner: ${formData.owner_name}`);
+        toast.success(`สร้างข้อมูลบ้านเรียบร้อย! House Code: ${formData.house_code} / Owner: ${formData.owner_name}`);
         
         if (saveAndAddAnother) {
           // Reset form for another entry
@@ -77,9 +79,9 @@ export default function AddHouse() {
       const errorDetail = error.response?.data?.detail || error.response?.data || error.message;
       
       if (typeof errorDetail === 'object' && errorDetail.error_en) {
-        alert(`Error: ${errorDetail.error_en}\\nข้อผิดพลาด: ${errorDetail.error_th || errorDetail.error_en}`);
+        toast.error(`${errorDetail.error_th || errorDetail.error_en}`);
       } else {
-        alert(`Failed to create house: ${typeof errorDetail === 'string' ? errorDetail : 'Unknown error'}`);
+        toast.error(`ไม่สามารถสร้างบ้านได้: ${typeof errorDetail === 'string' ? errorDetail : 'Unknown error'}`);
       }
     } finally {
       setLoading(false);

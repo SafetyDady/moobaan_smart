@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usersAPI, housesAPI } from '../../api/client';
+import { useToast } from '../../components/Toast';
 
 export default function AddResident() {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const preselectedHouseId = location.state?.house_id || '';
 
   // ── Phone search state ──
@@ -181,9 +183,9 @@ export default function AddResident() {
       console.error('Failed to create/assign resident:', error);
       const detail = error.response?.data?.detail || error.message;
       if (typeof detail === 'object' && detail.error_th) {
-        alert(`${detail.error_th}\n\n${detail.error_en || ''}`);
+        toast.error(detail.error_th || detail.error_en || 'เกิดข้อผิดพลาด');
       } else {
-        alert(`ไม่สำเร็จ: ${typeof detail === 'string' ? detail : 'Unknown error'}`);
+        toast.error(`ไม่สำเร็จ: ${typeof detail === 'string' ? detail : 'Unknown error'}`);
       }
     } finally {
       setLoading(false);

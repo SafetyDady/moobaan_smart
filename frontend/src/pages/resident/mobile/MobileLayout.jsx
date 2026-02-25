@@ -18,7 +18,9 @@
 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, BarChart3, CreditCard, History, User, LogOut } from 'lucide-react';
+import { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import ConfirmModal from '../../../components/ConfirmModal';
 import { useRole } from '../../../contexts/RoleContext';
 
 export default function MobileLayout({ children }) {
@@ -27,11 +29,12 @@ export default function MobileLayout({ children }) {
   const { user, logout } = useAuth();
   const { currentHouseCode } = useRole();
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const handleLogout = async () => {
-    if (confirm('ต้องการออกจากระบบหรือไม่?')) {
-      await logout();
-      navigate('/login');
-    }
+    setShowLogoutConfirm(false);
+    await logout();
+    navigate('/login');
   };
 
   const navItems = [
@@ -83,7 +86,7 @@ export default function MobileLayout({ children }) {
           </p>
         </div>
         <button
-          onClick={handleLogout}
+          onClick={() => setShowLogoutConfirm(true)}
           className="flex items-center gap-2 text-gray-400 hover:text-white active:text-white 
                      text-sm px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600
                      transition-colors duration-200 min-h-[44px]"
@@ -161,6 +164,15 @@ export default function MobileLayout({ children }) {
           })}
         </div>
       </nav>
+      <ConfirmModal
+        open={showLogoutConfirm}
+        title="ออกจากระบบ"
+        message="ต้องการออกจากระบบหรือไม่?"
+        variant="warning"
+        confirmText="ออกจากระบบ"
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   );
 }

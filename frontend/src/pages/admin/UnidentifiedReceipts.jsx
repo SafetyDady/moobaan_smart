@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../api/client';
+import { useToast } from '../../components/Toast';
 import { safeParseDate, formatThaiDate, formatThaiTime } from '../../utils/payinStatus';
 
 export default function UnidentifiedReceipts() {
+  const toast = useToast();
   const [transactions, setTransactions] = useState([]);
   const [houses, setHouses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,12 +60,12 @@ export default function UnidentifiedReceipts() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+        toast.warning('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
         return;
       }
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('ไฟล์ต้องมีขนาดไม่เกิน 5MB');
+        toast.warning('ไฟล์ต้องมีขนาดไม่เกิน 5MB');
         return;
       }
       setSlipFile(file);
@@ -84,13 +86,13 @@ export default function UnidentifiedReceipts() {
 
   const handleCreate = async () => {
     if (!formData.house_id) {
-      alert('กรุณาเลือกบ้าน');
+      toast.warning('กรุณาเลือกบ้าน');
       return;
     }
     
     // Slip is REQUIRED for audit completeness
     if (!slipFile) {
-      alert('กรุณาแนบสลิปการโอนเงิน (จำเป็นสำหรับการตรวจสอบ)');
+      toast.warning('กรุณาแนบสลิปการโอนเงิน (จำเป็นสำหรับการตรวจสอบ)');
       return;
     }
 
@@ -116,13 +118,13 @@ export default function UnidentifiedReceipts() {
         });
       }
       
-      alert('สร้าง Pay-in และแนบสลิปสำเร็จ');
+      toast.success('สร้าง Pay-in และแนบสลิปสำเร็จ');
       setShowModal(false);
       loadData();
     } catch (error) {
       console.error('Failed to create pay-in:', error);
       const errorMsg = error.response?.data?.detail || 'สร้าง Pay-in ไม่สำเร็จ';
-      alert(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg);
+      toast.error(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg);
     } finally {
       setCreating(false);
     }

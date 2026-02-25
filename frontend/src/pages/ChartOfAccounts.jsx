@@ -14,6 +14,7 @@
  */
 import { useState, useEffect, useMemo } from 'react';
 import { accountsAPI } from '../api/client';
+import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
 
 // Account type badge colors
@@ -46,6 +47,7 @@ export default function ChartOfAccounts() {
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
+  const [confirmDisable, setConfirmDisable] = useState({ open: false, account: null });
   
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -150,9 +152,7 @@ export default function ChartOfAccounts() {
 
   // Handle soft delete
   const handleDelete = async (account) => {
-    if (!window.confirm(`Disable account "${account.account_code} - ${account.account_name}"?`)) {
-      return;
-    }
+    setConfirmDisable({ open: false, account: null });
     
     try {
       await accountsAPI.delete(account.id);
@@ -337,7 +337,7 @@ export default function ChartOfAccounts() {
           canEdit={canEdit}
           canDelete={canDelete}
           onEdit={openEditModal}
-          onDelete={handleDelete}
+          onDelete={(account) => setConfirmDisable({ open: true, account })}
         />
       ) : (
         // All types grouped view
@@ -350,7 +350,7 @@ export default function ChartOfAccounts() {
               canEdit={canEdit}
               canDelete={canDelete}
               onEdit={openEditModal}
-              onDelete={handleDelete}
+              onDelete={(account) => setConfirmDisable({ open: true, account })}
             />
           ))}
         </div>
@@ -389,6 +389,15 @@ export default function ChartOfAccounts() {
           isCreate={false}
         />
       )}
+      <ConfirmModal
+        open={confirmDisable.open}
+        title="ปิดการใช้งานบัญชี"
+        message={`ต้องการปิดการใช้งานบัญชี "${confirmDisable.account?.account_code || ''} - ${confirmDisable.account?.account_name || ''}" ใช่หรือไม่?`}
+        variant="warning"
+        confirmText="ปิดการใช้งาน"
+        onConfirm={() => handleDelete(confirmDisable.account)}
+        onCancel={() => setConfirmDisable({ open: false, account: null })}
+      />
     </div>
   );
 }

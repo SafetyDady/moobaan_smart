@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRole } from '../../../contexts/RoleContext';
 import { authAPI } from '../../../api/client';
+import ConfirmModal from '../../../components/ConfirmModal';
 import MobileLayout from './MobileLayout';
 
 export default function Profile() {
@@ -19,6 +20,8 @@ export default function Profile() {
     phone: '',
   });
   const [switching, setSwitching] = useState(false);
+  const [confirmSwitch, setConfirmSwitch] = useState({ open: false, houseId: null, houseCode: '' });
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -64,8 +67,8 @@ export default function Profile() {
   };
   
   const handleSwitchHouse = async (houseId, houseCode) => {
+    setConfirmSwitch({ open: false, houseId: null, houseCode: '' });
     if (switching) return;
-    if (!confirm(`ต้องการสลับไปบ้าน ${houseCode} หรือไม่?`)) return;
     
     setSwitching(true);
     try {
@@ -85,10 +88,9 @@ export default function Profile() {
   };
 
   const handleLogout = async () => {
-    if (confirm('ต้องการออกจากระบบหรือไม่?')) {
-      await logout();
-      navigate('/login');
-    }
+    setShowLogoutConfirm(false);
+    await logout();
+    navigate('/login');
   };
   
   return (
@@ -272,7 +274,7 @@ export default function Profile() {
                       <button
                         key={h.id}
                         disabled={isCurrent || switching}
-                        onClick={() => !isCurrent && handleSwitchHouse(h.id, h.house_code)}
+                        onClick={() => !isCurrent && setConfirmSwitch({ open: true, houseId: h.id, houseCode: h.house_code })}
                         className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
                           isCurrent
                             ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30 cursor-default'
@@ -308,7 +310,7 @@ export default function Profile() {
           
           {/* Logout Button */}
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="w-full bg-red-500/10 border border-red-500 text-red-400 rounded-lg p-4 flex items-center justify-center gap-2 font-medium active:bg-red-500/20"
           >
             <LogOut size={20} />
@@ -318,6 +320,24 @@ export default function Profile() {
           <div className="h-4"></div>
         </div>
       </div>
+      <ConfirmModal
+        open={confirmSwitch.open}
+        title="สลับบ้าน"
+        message={`ต้องการสลับไปบ้าน ${confirmSwitch.houseCode} หรือไม่?`}
+        variant="info"
+        confirmText="สลับ"
+        onConfirm={() => handleSwitchHouse(confirmSwitch.houseId, confirmSwitch.houseCode)}
+        onCancel={() => setConfirmSwitch({ open: false, houseId: null, houseCode: '' })}
+      />
+      <ConfirmModal
+        open={showLogoutConfirm}
+        title="ออกจากระบบ"
+        message="ต้องการออกจากระบบหรือไม่?"
+        variant="warning"
+        confirmText="ออกจากระบบ"
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </MobileLayout>
   );
 }

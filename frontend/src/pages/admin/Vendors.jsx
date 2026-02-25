@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { vendorsAPI } from '../../api/client';
+import ConfirmModal from '../../components/ConfirmModal';
 
 /**
  * Phase H.1.1: Vendor & Category Management
@@ -21,6 +22,7 @@ export default function Vendors() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [confirmDeactivate, setConfirmDeactivate] = useState({ open: false, vendor: null });
 
   // Vendor Form
   const [showVendorForm, setShowVendorForm] = useState(false);
@@ -130,7 +132,7 @@ export default function Vendors() {
   };
 
   const handleDeactivateVendor = async (vendor) => {
-    if (!confirm(`Deactivate vendor "${vendor.name}"? It will be hidden from dropdowns but old expenses remain linked.`)) return;
+    setConfirmDeactivate({ open: false, vendor: null });
     try {
       await vendorsAPI.deactivate(vendor.id);
       showMessage(`Vendor "${vendor.name}" deactivated`);
@@ -338,7 +340,7 @@ export default function Vendors() {
                                     ✏️ Edit
                                   </button>
                                   <button
-                                    onClick={() => handleDeactivateVendor(vendor)}
+                                    onClick={() => setConfirmDeactivate({ open: true, vendor })}
                                     className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
                                     title="Deactivate"
                                   >
@@ -600,6 +602,15 @@ export default function Vendors() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmDeactivate.open}
+        title="ระงับ Vendor"
+        message={`ต้องการระงับ "${confirmDeactivate.vendor?.name || ''}" ใช่หรือไม่? Vendor จะถูกซ่อนจาก dropdown แต่รายการค่าใช้จ่ายเดิมยังคงอยู่`}
+        variant="warning"
+        confirmText="ระงับ"
+        onConfirm={() => handleDeactivateVendor(confirmDeactivate.vendor)}
+        onCancel={() => setConfirmDeactivate({ open: false, vendor: null })}
+      />
     </div>
   );
 }
