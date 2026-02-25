@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardAPI } from '../../api/client';
+import { dashboardAPI, api } from '../../api/client';
 import { SkeletonDashboard } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import { 
   DollarSign, TrendingUp, TrendingDown, Home, 
-  FileText, AlertTriangle, Users, CheckCircle 
+  FileText, AlertTriangle, Users, CheckCircle,
+  Server, Database, Clock, Loader2
 } from 'lucide-react';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
 
@@ -13,9 +14,12 @@ import AdminPageWrapper from '../../components/AdminPageWrapper';
 export default function AdminDashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(true);
 
   useEffect(() => {
     loadSummary();
+    loadSystemStatus();
   }, []);
 
   const loadSummary = async () => {
@@ -26,6 +30,19 @@ export default function AdminDashboard() {
       console.error('Failed to load summary:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSystemStatus = async () => {
+    try {
+      setStatusLoading(true);
+      const response = await api.get('/api/system/status');
+      setSystemStatus(response.data);
+    } catch (error) {
+      console.error('Failed to load system status:', error);
+      setSystemStatus(null);
+    } finally {
+      setStatusLoading(false);
     }
   };
 
@@ -119,6 +136,56 @@ export default function AdminDashboard() {
     },
   ];
 
+  // Helper to get status badge
+  const getStatusBadge = (status, type) => {
+    if (statusLoading) {
+      return (
+        <span className="px-3 py-1 bg-slate-600/30 text-gray-400 rounded-full text-sm font-medium flex items-center gap-1">
+          <Loader2 size={12} className="animate-spin" />
+          {t('common.loading')}
+        </span>
+      );
+    }
+    
+    if (!systemStatus) {
+      return (
+        <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-sm font-medium">
+          {t('common.error')}
+        </span>
+      );
+    }
+
+    if (type === 'backend') {
+      const isOnline = systemStatus.backend_api?.status === 'online';
+      return (
+        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+          isOnline ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+        }`}>
+          {isOnline ? t('common.online') : t('common.offline')}
+        </span>
+      );
+    }
+
+    if (type === 'database') {
+      const isConnected = systemStatus.database?.status === 'connected';
+      const responseTime = systemStatus.database?.response_time_ms;
+      return (
+        <div className="flex items-center gap-2">
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            isConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+          }`}>
+            {isConnected ? t('common.connected') : t('common.disconnected')}
+          </span>
+          {isConnected && responseTime != null && (
+            <span className="text-xs text-gray-500">{responseTime}ms</span>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
@@ -180,25 +247,47 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* System Status */}
+      {/* System Status — Phase 4.2: Real data from /api/system/status */}
       <div className="bg-slate-800 rounded-xl p-4 sm:p-6 shadow-lg">
-        <h2 className="text-xl font-bold text-white mb-6">{t('dashboard.systemStatus')}</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-white">{t('dashboard.systemStatus')}</h2>
+          <button
+            onClick={loadSystemStatus}
+            disabled={statusLoading}
+            className="text-sm text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            title={t('common.refresh')}
+          >
+            <Loader2 size={16} className={statusLoading ? 'animate-spin' : ''} />
+          </button>
+        </div>
         <div className="space-y-4">
           <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-            <span className="text-gray-300 font-medium">{t('dashboard.backendApi')}</span>
-            <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
-              {t('common.online')}
-            </span>
+            <div className="flex items-center gap-2">
+              <Server size={16} className="text-gray-400" />
+              <span className="text-gray-300 font-medium">{t('dashboard.backendApi')}</span>
+            </div>
+            {getStatusBadge(systemStatus, 'backend')}
           </div>
           <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-            <span className="text-gray-300 font-medium">{t('dashboard.database')}</span>
-            <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
-              {t('common.connected')}
-            </span>
+            <div className="flex items-center gap-2">
+              <Database size={16} className="text-gray-400" />
+              <span className="text-gray-300 font-medium">{t('dashboard.database')}</span>
+            </div>
+            {getStatusBadge(systemStatus, 'database')}
           </div>
           <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-            <span className="text-gray-300 font-medium">{t('dashboard.lastBackup')}</span>
-            <span className="text-gray-400 text-sm">2 {t('dashboard.hoursAgo')}</span>
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-gray-400" />
+              <span className="text-gray-300 font-medium">{t('dashboard.uptime')}</span>
+            </div>
+            <span className="text-gray-400 text-sm">
+              {statusLoading ? (
+                <span className="flex items-center gap-1">
+                  <Loader2 size={12} className="animate-spin" />
+                  {t('common.loading')}
+                </span>
+              ) : systemStatus?.uptime?.human || '-'}
+            </span>
           </div>
         </div>
       </div>
