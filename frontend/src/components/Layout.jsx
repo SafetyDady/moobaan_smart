@@ -4,7 +4,7 @@ import {
   BarChart3, Home, Users, Building2, FileText, DollarSign, 
   TrendingDown, CreditCard, PieChart, TrendingUp, List, 
   Lock, LogOut, ChevronDown, ChevronRight, GitCompare,
-  HelpCircle, UserCog, Send
+  HelpCircle, UserCog, Send, ClipboardList
 } from 'lucide-react';
 import { useState } from 'react';
 import NotificationBell from './NotificationBell';
@@ -79,6 +79,7 @@ export default function Layout({ children }) {
             items: [
               { name: 'Chart of Accounts', path: '/admin/chart-of-accounts', icon: List },
               { name: 'Period Closing', path: '/admin/period-closing', icon: Lock },
+              { name: 'Audit Logs', path: '/admin/audit-logs', icon: ClipboardList },
             ]
           },
         ]
@@ -114,6 +115,7 @@ export default function Layout({ children }) {
             items: [
               { name: 'Chart of Accounts', path: '/accounting/chart-of-accounts', icon: List },
               { name: 'Period Closing', path: '/accounting/period-closing', icon: Lock },
+              { name: 'Audit Logs', path: '/accounting/audit-logs', icon: ClipboardList },
             ]
           },
         ]

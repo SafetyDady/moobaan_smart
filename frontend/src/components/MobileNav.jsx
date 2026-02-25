@@ -21,7 +21,7 @@ import {
   BarChart3, Home, Users, Building2, FileText, DollarSign,
   TrendingDown, CreditCard, PieChart, TrendingUp, List,
   Lock, LogOut, ChevronDown, ChevronRight, GitCompare,
-  HelpCircle, UserCog, Send, Menu, X
+  HelpCircle, UserCog, Send, Menu, X, ClipboardList
 } from 'lucide-react';
 
 export default function MobileNav() {
@@ -107,6 +107,7 @@ export default function MobileNav() {
             items: [
               { name: t('nav.chartOfAccounts'), path: '/admin/chart-of-accounts', icon: List },
               { name: t('nav.periodClosing'), path: '/admin/period-closing', icon: Lock },
+              { name: t('auditLog.title'), path: '/admin/audit-logs', icon: ClipboardList },
             ]
           },
         ]
@@ -142,6 +143,7 @@ export default function MobileNav() {
             items: [
               { name: t('nav.chartOfAccounts'), path: '/accounting/chart-of-accounts', icon: List },
               { name: t('nav.periodClosing'), path: '/accounting/period-closing', icon: Lock },
+              { name: t('auditLog.title'), path: '/accounting/audit-logs', icon: ClipboardList },
             ]
           },
         ]
