@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DollarSign, Plus, Download, Edit3, Paperclip, CheckCircle, XCircle, Eye, Trash2, Lightbulb, FileText, Loader2, X as XIcon } from 'lucide-react';
 import { expensesAPI, housesAPI, accountsAPI, vendorsAPI, attachmentsAPI } from '../../api/client';
 import compressImage from '../../utils/compressImage';
