@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Form, File, UploadFile, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File, Form, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -20,15 +20,18 @@ from app.core.deps import (
 )
 from app.core.uploads import save_slip_file, get_slip_download_url
 from app.core.period_lock import validate_period_not_locked
+from app.core.pagination import paginate_list
 
 router = APIRouter(prefix="/api/payin-reports", tags=["payin-reports"])
 
 
-@router.get("", response_model=List[dict])
+@router.get("")
 async def list_payin_reports(
     request: Request,
     house_id: Optional[int] = None,
     status: Optional[str] = None,
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-indexed). Omit for all results."),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
     token_house_id: Optional[int] = Depends(get_house_id_from_token)
@@ -64,7 +67,7 @@ async def list_payin_reports(
     
     payins = query.order_by(PayinReportModel.created_at.desc()).all()
     
-    return [{
+    result = [{
         "id": payin.id,
         "house_id": payin.house_id,
         "house_number": payin.house.house_code,
@@ -87,6 +90,8 @@ async def list_payin_reports(
         "created_at": payin.created_at,
         "updated_at": payin.updated_at
     } for payin in payins]
+    
+    return paginate_list(result, page=page, page_size=page_size)
 
 
 @router.get("/{payin_id}", response_model=dict)

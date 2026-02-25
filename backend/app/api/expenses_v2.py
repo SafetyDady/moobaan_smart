@@ -25,6 +25,7 @@ from app.db.models.vendor import Vendor
 from app.db.models.expense_bank_allocation import ExpenseBankAllocation
 from app.core.deps import require_admin_or_accounting, require_admin, get_current_user
 from app.core.period_lock import validate_period_not_locked
+from app.core.pagination import paginate_list
 
 
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
@@ -100,13 +101,15 @@ EXPENSE_CATEGORIES = [
 # ============================================
 # List Expenses
 # ============================================
-@router.get("", response_model=ExpenseListResponse)
+@router.get("")
 async def list_expenses(
     from_date: Optional[str] = Query(None, description="Filter from date (YYYY-MM-DD)"),
     to_date: Optional[str] = Query(None, description="Filter to date (YYYY-MM-DD)"),
     status: Optional[str] = Query(None, description="Filter by status (PENDING/PAID/CANCELLED)"),
     category: Optional[str] = Query(None, description="Filter by category"),
     house_id: Optional[int] = Query(None, description="Filter by house"),
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-indexed). Omit for all results."),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_accounting)
 ):
@@ -170,15 +173,31 @@ async def list_expenses(
     count_pending = sum(1 for e in expenses if e.status == ExpenseStatus.PENDING)
     count_cancelled = sum(1 for e in expenses if e.status == ExpenseStatus.CANCELLED)
     
+    expense_dicts = [e.to_dict() for e in expenses]
+    summary = ExpenseSummary(
+        total_paid=round(total_paid, 2),
+        total_pending=round(total_pending, 2),
+        count_paid=count_paid,
+        count_pending=count_pending,
+        count_cancelled=count_cancelled
+    )
+    
+    # If pagination requested, wrap expenses in paginated format
+    if page is not None:
+        paginated = paginate_list(expense_dicts, page=page, page_size=page_size)
+        return {
+            "items": paginated["items"],
+            "total": paginated["total"],
+            "page": paginated["page"],
+            "page_size": paginated["page_size"],
+            "total_pages": paginated["total_pages"],
+            "summary": summary,
+        }
+    
+    # Backward compatible: return original format
     return ExpenseListResponse(
-        expenses=[e.to_dict() for e in expenses],
-        summary=ExpenseSummary(
-            total_paid=round(total_paid, 2),
-            total_pending=round(total_pending, 2),
-            count_paid=count_paid,
-            count_pending=count_pending,
-            count_cancelled=count_cancelled
-        ),
+        expenses=expense_dicts,
+        summary=summary,
         total_count=len(expenses)
     )
 
