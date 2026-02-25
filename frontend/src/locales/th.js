@@ -263,6 +263,7 @@ const th = {
     fillRequired: 'กรุณากรอกข้อมูลให้ครบ',
     amountPositive: 'จำนวนเงินต้องมากกว่า 0',
     paymentHistory: 'ประวัติการชำระ',
+    confirmCreditNote: 'ยืนยันใบลดหนี้',
   },
 
   // ── Pay-ins ──────────────────────────────────────────────
@@ -301,6 +302,7 @@ const th = {
     nearMisses: 'รายการใกล้เคียง (จำนวนตรง เวลาต่าง):',
     bankTxn: 'รายการธนาคาร',
     transferTime: 'เวลาโอน',
+    applyPayment: 'บันทึกการชำระ',
   },
 
   // ── Expenses ─────────────────────────────────────────────
@@ -314,6 +316,9 @@ const th = {
     paidDate: 'วันที่จ่าย',
     markPaid: 'บันทึกการจ่าย',
     cancelExpense: 'ยกเลิกรายจ่าย',
+    createExpense: 'สร้างรายจ่าย',
+    markAsPaid: 'บันทึกการจ่าย',
+    yesCancel: 'ใช่, ยกเลิก',
     noExpensesFound: 'ไม่พบรายจ่าย',
     totalPaid: 'รวมจ่ายแล้ว',
     totalPending: 'รวมรอจ่าย',
@@ -361,6 +366,7 @@ const th = {
     selectVendor: 'เลือกผู้รับเงิน...',
     deactivateVendor: 'ปิดใช้งานผู้รับเงิน',
     reactivateVendor: 'เปิดใช้งานผู้รับเงิน',
+    createVendor: 'สร้างผู้รับเงิน',
   },
 
   // ── Bank Statements ──────────────────────────────────────
@@ -383,6 +389,10 @@ const th = {
     accountNumber: 'เลขบัญชี (ปกปิด)',
     addBankAccount: 'เพิ่มบัญชีธนาคาร',
     transactions: 'รายการ',
+    selectAccount: 'เลือกบัญชี',
+    noAccounts: 'ยังไม่มีบัญชี - เพิ่มบัญชีก่อน',
+    addAccount: 'เพิ่มบัญชีธนาคาร',
+    confirmImport: 'ยืนยันการนำเข้า',
   },
 
   // ── Expense Reconciliation ───────────────────────────────
@@ -394,6 +404,8 @@ const th = {
     noExpenses: 'ไม่พบรายจ่าย',
     noBankDebits: 'ไม่พบรายการเดบิตจากธนาคาร',
     noAllocations: 'ยังไม่มีการจับคู่',
+    allocate: 'จัดสรร',
+    noVendor: 'ไม่ระบุผู้รับเงิน',
   },
 
   // ── Unidentified Receipts ────────────────────────────────

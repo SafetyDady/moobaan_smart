@@ -233,8 +233,8 @@ export default function CashFlowReport() {
               {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString('th-TH')}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              {report.summary.total_gap > 0 ? 'Under-collected' : 
-               report.summary.total_gap < 0 ? 'Over-collected' : 'Balanced'}
+              {report.summary.total_gap > 0 ? 'เก็บได้น้อยกว่าที่ควร' : 
+               report.summary.total_gap < 0 ? 'เก็บได้มากกว่าที่ควร' : 'สมดุล'}
             </p>
           </div>
           

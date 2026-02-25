@@ -74,7 +74,7 @@ export default function PayIns() {
       }
     } catch (error) {
       console.error('Failed to load candidate bank transactions:', error);
-      toast.error(error.response?.data?.detail || 'Failed to load candidate bank transactions');
+      toast.error(error.response?.data?.detail || 'ไม่สามารถโหลดรายการธนาคารได้');
     } finally {
       setLoadingTransactions(false);
     }
@@ -89,18 +89,18 @@ export default function PayIns() {
       loadPayins();
     } catch (error) {
       console.error('Failed to match:', error);
-      toast.error(error.response?.data?.detail || 'Failed to match transaction');
+      toast.error(error.response?.data?.detail || 'ไม่สามารถจับคู่รายการได้');
     }
   };
 
   const handleUnmatch = async (payin) => {
     try {
       await bankReconciliationAPI.unmatchTransaction(payin.matched_statement_txn_id);
-      toast.success('Unmatch สำเร็จ');
+      toast.success('ยกเลิกการจับคู่สำเร็จ');
       loadPayins();
     } catch (error) {
       console.error('Failed to unmatch:', error);
-      toast.error(error.response?.data?.detail || 'Failed to unmatch');
+      toast.error(error.response?.data?.detail || 'ไม่สามารถยกเลิกการจับคู่ได้');
     }
   };
 
@@ -125,7 +125,7 @@ export default function PayIns() {
       loadPayins();
     } catch (error) {
       console.error('Failed to reject:', error);
-      toast.error(error.response?.data?.detail || 'Failed to reject pay-in');
+      toast.error(error.response?.data?.detail || 'ไม่สามารถปฏิเสธรายการได้');
     }
   };
 
@@ -136,9 +136,9 @@ export default function PayIns() {
       const data = result.data;
       const allocCount = data.allocations?.length || 0;
       if (data.status === 'already_posted') {
-        toast.info('รายการนี้ถูก Post ไปแล้ว (idempotent)');
+        toast.info('รายการนี้ถูกบันทึกไปแล้ว');
       } else {
-        toast.success(`Posted สำเร็จ! Ledger #${data.income_transaction_id} / จัดสรร ${allocCount} ใบแจ้งหนี้`);
+        toast.success(`บันทึกสำเร็จ! บัญชี #${data.income_transaction_id} / จัดสรร ${allocCount} ใบแจ้งหนี้`);
       }
       loadPayins();
     } catch (error) {
@@ -147,7 +147,7 @@ export default function PayIns() {
       if (typeof detail === 'object' && detail.code === 'AMBIGUOUS') {
         toast.warning(detail.message);
       } else {
-        toast.error(typeof detail === 'string' ? detail : 'Failed to confirm & post');
+        toast.error(typeof detail === 'string' ? detail : 'ไม่สามารถยืนยันและบันทึกได้');
       }
     } finally {
       setPosting(null);
@@ -156,7 +156,7 @@ export default function PayIns() {
 
   const handleReverse = async () => {
     if (!reverseReason.trim()) {
-      toast.warning('กรุณาระบุเหตุผลในการ Reverse');
+      toast.warning('กรุณาระบุเหตุผลในการกลับรายการ');
       return;
     }
     try {
@@ -164,14 +164,14 @@ export default function PayIns() {
         selectedPayin.matched_statement_txn_id,
         reverseReason
       );
-      toast.success(`Reversed สำเร็จ: ${result.data.message}`);
+      toast.success(`กลับรายการสำเร็จ: ${result.data.message}`);
       setShowReverseModal(false);
       setReverseReason('');
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to reverse:', error);
-      toast.error(error.response?.data?.detail || 'Failed to reverse');
+      toast.error(error.response?.data?.detail || 'ไม่สามารถกลับรายการได้');
     }
   };
 
@@ -277,7 +277,7 @@ export default function PayIns() {
                           onClick={() => window.open(payinsAPI.slipUrl(payin.id), '_blank')}
                           className="text-blue-400 hover:text-blue-300 text-sm"
                         >
-                          📎 View
+                          📎 ดูสลิป
                         </button>
                       ) : (
                         <span className="text-gray-500 text-sm">{t('payins.noSlip')}</span>
@@ -285,16 +285,16 @@ export default function PayIns() {
                     </td>
                     <td>
                       {payin.is_matched ? (
-                        <span className="badge badge-success text-xs">✓ Matched</span>
+                        <span className="badge badge-success text-xs">✓ จับคู่แล้ว</span>
                       ) : (
-                        <span className="badge badge-warning text-xs">○ Unmatched</span>
+                        <span className="badge badge-warning text-xs">○ ยังไม่จับคู่</span>
                       )}
                       {/* Posting status badge */}
                       {payin.posting_status === 'POSTED' && (
-                        <span className="badge bg-green-700 text-green-100 text-xs ml-1">📌 Posted</span>
+                        <span className="badge bg-green-700 text-green-100 text-xs ml-1">📌 บันทึกแล้ว</span>
                       )}
                       {payin.posting_status === 'REVERSED' && (
-                        <span className="badge bg-red-700 text-red-100 text-xs ml-1">↩️ Reversed</span>
+                        <span className="badge bg-red-700 text-red-100 text-xs ml-1">↩️ กลับรายการ</span>
                       )}
                     </td>
                     <td>
@@ -318,7 +318,7 @@ export default function PayIns() {
                             onClick={() => window.open(payinsAPI.slipUrl(payin.id), '_blank')}
                             className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 border border-blue-400 rounded"
                           >
-                            👁️ View Slip
+                            👁️ ดูสลิป
                           </button>
                         )}
                         
@@ -331,14 +331,14 @@ export default function PayIns() {
                                 onClick={() => openMatchModal(payin)}
                                 className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded"
                               >
-                                🔗 Match
+                                🔗 จับคู่
                               </button>
                             ) : (
                               <button
                                 onClick={() => setConfirmUnmatch({ open: true, payin })}
                                 className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-3 py-1 rounded"
                               >
-                                🔓 Unmatch
+                                🔓 ยกเลิกคู่
                               </button>
                             )}
                             
@@ -351,9 +351,9 @@ export default function PayIns() {
                                   ? 'bg-green-600 hover:bg-green-700 text-white' 
                                   : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                               }`}
-                              title={!payin.is_matched ? 'Must match with bank statement first' : 'Confirm & Post: Ledger + Invoice allocation'}
+                              title={!payin.is_matched ? 'ต้องจับคู่กับรายการธนาคารก่อน' : 'ยืนยันและบันทึก: บัญชี + จัดสรรใบแจ้งหนี้'}
                             >
-                              {posting === payin.id ? '⏳ Posting...' : '✅ Confirm & Post'}
+                              {posting === payin.id ? '⏳ กำลังบันทึก...' : '✅ ยืนยันและบันทึก'}
                             </button>
                             <button
                               onClick={() => {
@@ -362,7 +362,7 @@ export default function PayIns() {
                               }}
                               className="btn-danger text-sm px-3 py-1"
                             >
-                              ✗ Reject
+                              ✗ ปฏิเสธ
                             </button>
                             <button
                               onClick={() => {
@@ -371,7 +371,7 @@ export default function PayIns() {
                               }}
                               className="btn-secondary text-sm px-3 py-1"
                             >
-                              🗑 Delete
+                              🗑 ลบ
                             </button>
                           </>
                         )}
@@ -385,7 +385,7 @@ export default function PayIns() {
                             }}
                             className="btn-secondary text-sm px-3 py-1"
                           >
-                            🗑 Delete
+                            🗑 ลบ
                           </button>
                         )}
 
@@ -402,7 +402,7 @@ export default function PayIns() {
                               }}
                               className="btn-secondary text-sm px-3 py-1"
                             >
-                              🗑 Delete
+                              🗑 ลบ
                             </button>
                           </div>
                         )}
@@ -410,7 +410,7 @@ export default function PayIns() {
                         {/* Status indicators */}
                         {payin.status === 'ACCEPTED' && (
                           <div className="flex items-center gap-2">
-                            <span className="text-green-400 text-sm">✓ Ledger created</span>
+                            <span className="text-green-400 text-sm">✓ บันทึกบัญชีแล้ว</span>
                             {canManagePayins && payin.matched_statement_txn_id && (
                               <button
                                 onClick={() => {
@@ -420,7 +420,7 @@ export default function PayIns() {
                                 className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
                                 title={t("payins.reverse")}
                               >
-                                ↩️ Reverse
+                                ↩️ กลับรายการ
                               </button>
                             )}
                           </div>
@@ -445,7 +445,7 @@ export default function PayIns() {
       {showRejectModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">✗ ปฏิเสธรายการ (Reject Submission)</h2>
+            <h2 className="text-xl font-bold text-white mb-4">✗ ปฏิเสธรายการ</h2>
             <p className="text-gray-300 mb-2">
               บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
@@ -470,7 +470,7 @@ export default function PayIns() {
             </div>
             <div className="flex gap-3">
               <button onClick={handleReject} className="btn-danger flex-1">
-                ✗ Reject
+                ✗ ปฏิเสธ
               </button>
               <button
                 onClick={() => {
@@ -491,7 +491,7 @@ export default function PayIns() {
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">🗑 ลบรายการส่งเงิน (Delete Submission)</h2>
+            <h2 className="text-xl font-bold text-white mb-4">🗑 ลบรายการส่งเงิน</h2>
             <p className="text-gray-300 mb-2">
               บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
@@ -500,7 +500,7 @@ export default function PayIns() {
             </p>
             <div className="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded p-3 mb-4">
               <p className="text-yellow-400 text-sm">
-                ⚠️ ระบบจะลบรายการส่งเงินนี้ออก — ไม่มีผลต่อบัญชี เพราะยังไม่ได้ Confirm & Post
+                ⚠️ ระบบจะลบรายการส่งเงินนี้ออก — ไม่มีผลต่อบัญชี เพราะยังไม่ได้ยืนยันและบันทึก
               </p>
             </div>
             <div className="mb-4">
@@ -516,7 +516,7 @@ export default function PayIns() {
             </div>
             <div className="flex gap-3">
               <button onClick={handleDeleteSubmission} className="btn-danger flex-1">
-                🗑 Delete
+                🗑 ลบ
               </button>
               <button
                 onClick={() => {
@@ -558,10 +558,10 @@ export default function PayIns() {
             {/* Bank Transactions List */}
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-white mb-3">
-                Select Matching Bank Transaction
+                เลือกรายการธนาคารที่ตรงกัน
                 {bankTransactions.length > 0 && (
                   <span className="text-sm text-gray-400 ml-2">
-                    ({bankTransactions.length} candidates - Amount exact, Time ±1 min)
+                    ({bankTransactions.length} รายการ - ยอดตรง, เวลา ±1 นาที)
                   </span>
                 )}
               </h3>
@@ -570,12 +570,12 @@ export default function PayIns() {
                 <div className="text-center py-8 text-gray-400">{t('common.loading')}</div>
               ) : bankTransactions.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-yellow-400 mb-2">⚠️ No matching bank transactions found</p>
+                  <p className="text-yellow-400 mb-2">⚠️ ไม่พบรายการธนาคารที่ตรงกัน</p>
                   <p className="text-sm text-gray-400 mb-2">
-                    Matching criteria: Amount exactly ฿{selectedPayin?.amount?.toLocaleString('th-TH')}, Time within ±1 minute
+                    เงื่อนไขการจับคู่: ยอดตรง ฿{selectedPayin?.amount?.toLocaleString('th-TH')}, เวลาห่างไม่เกิน ±1 นาที
                   </p>
                   <p className="text-xs text-gray-500">
-                    Check if: (1) Bank statement imported, (2) Amount matches exactly, (3) Time within ±1 minute of transfer_datetime
+                    ตรวจสอบ: (1) นำเข้า Bank Statement แล้ว (2) ยอดตรงกัน (3) เวลาห่างไม่เกิน ±1 นาที
                   </p>
                   {/* Debug info for troubleshooting */}
                   {matchDebugInfo && (
@@ -627,13 +627,13 @@ export default function PayIns() {
                           <div className="flex-1">
                             <div className="text-white font-medium mb-1">
                               ฿{parseFloat(txn.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
-                              {isPerfectMatch && <span className="ml-2 text-green-400 text-xs font-semibold">✓ Perfect Match</span>}
+                              {isPerfectMatch && <span className="ml-2 text-green-400 text-xs font-semibold">✓ ตรงกันสมบูรณ์</span>}
                               {amountDiff > 0 && <span className="ml-2 text-yellow-400 text-xs">ส่วนต่าง: ฿{amountDiff.toFixed(2)}</span>}
                             </div>
                             <div className="text-sm text-gray-400">
                               {txnDate.toLocaleDateString('th-TH')} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                               <span className="ml-2 text-green-300">
-                                ({timeDiffSeconds < 60 ? `${Math.floor(timeDiffSeconds)}s` : `${Math.floor(timeDiffSeconds / 60)}m ${Math.floor(timeDiffSeconds % 60)}s`} diff)
+                                ({timeDiffSeconds < 60 ? `${Math.floor(timeDiffSeconds)}s` : `${Math.floor(timeDiffSeconds / 60)}m ${Math.floor(timeDiffSeconds % 60)}s`} ห่างกัน)
                               </span>
                             </div>
                             {txn.description && (
@@ -651,9 +651,9 @@ export default function PayIns() {
                                 ? 'bg-green-600 hover:bg-green-700 text-white' 
                                 : 'bg-blue-600 hover:bg-blue-700 text-white'
                             }`}
-                            title={`Match with bank transaction (${Math.floor(timeDiffSeconds)}s time difference)`}
+                            title={`จับคู่กับรายการธนาคาร (ห่างกัน ${Math.floor(timeDiffSeconds)} วินาที)`}
                           >
-                            {isPerfectMatch ? '✓ Match (Perfect)' : '🔗 Match'}
+                            {isPerfectMatch ? '✓ จับคู่ (สมบูรณ์)' : '🔗 จับคู่'}
                           </button>
                         </div>
                       </div>
@@ -673,7 +673,7 @@ export default function PayIns() {
                 }}
                 className="btn-secondary px-6"
               >
-                Close
+                ปิด
               </button>
             </div>
           </div>
@@ -686,7 +686,7 @@ export default function PayIns() {
         title={t("payins.unmatch")}
         message="ต้องการยกเลิกการจับคู่กับรายการธนาคารใช่หรือไม่?"
         variant="warning"
-        confirmText="Unmatch"
+        confirmText="ยกเลิกคู่"
         onConfirm={() => handleUnmatch(confirmUnmatch.payin)}
         onCancel={() => setConfirmUnmatch({ open: false, payin: null })}
       />
@@ -695,9 +695,9 @@ export default function PayIns() {
       <ConfirmModal
         open={confirmPost.open}
         title={t("payins.post")}
-        message={confirmPost.payin ? `Confirm & Post ฿${confirmPost.payin.amount} จากบ้าน ${confirmPost.payin.house_number}?\n\nระบบจะสร้าง Ledger + จัดสรรยอดเข้าใบแจ้งหนี้อัตโนมัติ` : ''}
+        message={confirmPost.payin ? `ยืนยันและบันทึก ฿${confirmPost.payin.amount} จากบ้าน ${confirmPost.payin.house_number}?\n\nระบบจะสร้างบัญชี + จัดสรรยอดเข้าใบแจ้งหนี้อัตโนมัติ` : ''}
         variant="info"
-        confirmText="Confirm & Post"
+        confirmText="ยืนยันและบันทึก"
         onConfirm={() => { if (confirmPost.payin) handleConfirmAndPost(confirmPost.payin); }}
         onCancel={() => setConfirmPost({ open: false, payin: null })}
       />
@@ -706,21 +706,21 @@ export default function PayIns() {
       {showReverseModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">↩️ Reverse Posting</h2>
+            <h2 className="text-xl font-bold text-white mb-4">↩️ กลับรายการ</h2>
             <p className="text-gray-300 mb-2">
-              House: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
+              บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              Amount: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
+              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
             </p>
             <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-3 mb-4">
               <p className="text-red-400 text-sm">
-                ⚠️ การ Reverse จะยกเลิก Ledger entry และคืนสถานะใบแจ้งหนี้ รายการจะยังอยู่ในระบบ (ไม่ถูกลบ)
+                ⚠️ การกลับรายการจะยกเลิกบัญชี และคืนสถานะใบแจ้งหนี้ รายการจะยังอยู่ในระบบ (ไม่ถูกลบ)
               </p>
             </div>
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">
-                เหตุผลในการ Reverse *
+                เหตุผลในการกลับรายการ *
               </label>
               <textarea
                 value={reverseReason}
@@ -731,8 +731,8 @@ export default function PayIns() {
             </div>
             <div className="flex gap-3">
               <button onClick={handleReverse} className="btn-danger flex-1">
-                ↩️ Reverse
-              </button>
+↩️ กลับรายการ
+                </button>
               <button
                 onClick={() => {
                   setShowReverseModal(false);

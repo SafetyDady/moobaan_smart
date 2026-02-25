@@ -318,7 +318,7 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
               disabled={submitting || !form.confirm}
               className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {submitting ? 'กำลังสร้าง...' : 'Confirm Credit Note'}
+              {submitting ? t('common.saving') : t('invoices.confirmCreditNote')}
             </button>
           </div>
         </form>

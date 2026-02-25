@@ -446,7 +446,7 @@ function AccountTypeSection({ title, accounts, canEdit, canDelete, onEdit, onDel
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {account.active ? 'Active' : 'Inactive'}
+                  {account.active ? t('common.active') : t('common.inactive')}
                 </span>
               </td>
               <td className="px-4 py-3 text-center text-sm text-gray-500">
@@ -629,7 +629,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
               disabled={saving}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : isCreate ? 'Create' : 'Save Changes'}
+              {saving ? t('common.saving') : isCreate ? t('common.create') : t('common.save')}
             </button>
           </div>
         </form>

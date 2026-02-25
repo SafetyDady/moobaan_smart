@@ -237,7 +237,7 @@ export default function ExpenseReconciliation() {
                     disabled={allocating}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
                   >
-                    {allocating ? 'Saving...' : '✓ Allocate'}
+                    {allocating ? t('common.saving') : '✓ ' + t('expenseRecon.allocate')}
                   </button>
                   <button
                     onClick={() => { setSelectedBankTxn(null); setMatchAmount(''); }}
@@ -290,7 +290,7 @@ export default function ExpenseReconciliation() {
                           </span>
                         </div>
                         <p className="text-sm text-gray-500 mt-0.5">
-                          {exp.vendor_name || 'No vendor'} • {formatDate(exp.expense_date)}
+                          {exp.vendor_name || t('expenseRecon.noVendor')} • {formatDate(exp.expense_date)}
                         </p>
                         {exp.allocation_count > 0 && (
                           <p className="text-xs text-blue-600 mt-1">
@@ -417,7 +417,7 @@ export default function ExpenseReconciliation() {
         title="ยกเลิกการจัดสรร"
         message="ต้องการยกเลิกการจัดสรรนี้ใช่หรือไม่?"
         variant="danger"
-        confirmText="Remove"
+        confirmText={t('common.delete')}
         onConfirm={() => handleRemoveAllocation(confirmRemove.allocId)}
         onCancel={() => setConfirmRemove({ open: false, allocId: null })}
       />

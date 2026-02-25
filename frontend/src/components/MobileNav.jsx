@@ -87,7 +87,7 @@ export default function MobileNav() {
               { name: 'ใบแจ้งหนี้', path: '/admin/invoices', icon: FileText },
               { name: 'ตรวจสอบการชำระ', path: '/admin/payins', icon: DollarSign },
               { name: 'รายจ่าย', path: '/admin/expenses', icon: TrendingDown },
-              { name: 'Bank Statement', path: '/admin/statements', icon: CreditCard },
+              { name: 'รายการธนาคาร', path: '/admin/statements', icon: CreditCard },
               { name: 'จับคู่รายจ่าย', path: '/admin/expense-reconciliation', icon: GitCompare },
               { name: 'รายการรับเงินที่ยังระบุไม่ได้', path: '/admin/unidentified-receipts', icon: HelpCircle },
             ]
@@ -122,7 +122,7 @@ export default function MobileNav() {
               { name: 'ตรวจสอบการชำระ', path: '/accounting/payins', icon: DollarSign },
               { name: 'รายจ่าย', path: '/accounting/expenses', icon: TrendingDown },
               { name: 'ผู้รับเงิน', path: '/accounting/vendors', icon: Building2 },
-              { name: 'Bank Statement', path: '/accounting/statements', icon: CreditCard },
+              { name: 'รายการธนาคาร', path: '/accounting/statements', icon: CreditCard },
               { name: 'จับคู่รายจ่าย', path: '/accounting/expense-reconciliation', icon: GitCompare },
               { name: 'รายการรับเงินที่ยังระบุไม่ได้', path: '/accounting/unidentified-receipts', icon: HelpCircle },
             ]
@@ -211,7 +211,7 @@ export default function MobileNav() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
-                {user?.name || 'User'}
+                {user?.name || 'ผู้ใช้งาน'}
               </p>
               <span className={`inline-block px-2 py-0.5 text-xs rounded ${getRoleBadgeColor()} text-white`}>
                 {getRoleDisplayName()}

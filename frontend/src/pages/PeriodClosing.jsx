@@ -23,11 +23,7 @@ const MONTH_NAMES_TH = [
   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
 ];
 
-// Month names in English
-const MONTH_NAMES_EN = [
-  '', 'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
+// MONTH_NAMES_EN removed - using Thai only (Phase 2 Localization)
 
 function PeriodClosing() {
   const { user } = useAuth();
@@ -261,7 +257,7 @@ function PeriodClosing() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {MONTH_NAMES_EN[opt.month]} {opt.year}
+                {MONTH_NAMES_TH[opt.month]} {opt.year}
                 {isLocked && ' 🔒'}
               </button>
             );
@@ -372,7 +368,7 @@ function PeriodClosing() {
                         disabled={exporting}
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {exporting ? '📦 Exporting…' : '📦 Export Accounting (ZIP)'}
+                        {exporting ? '📦 กำลังส่งออก...' : '📦 ส่งออกข้อมูลบัญชี (ZIP)'}
                       </button>
                     )}
                     <button

@@ -246,7 +246,7 @@ export default function UnidentifiedReceipts() {
                   onChange={(e) => setFormData({ ...formData, source: e.target.value })}
                   className="input w-full"
                 >
-                  <option value="ADMIN_CREATED">Admin สร้าง</option>
+                  <option value="ADMIN_CREATED">แอดมินสร้าง</option>
                   <option value="LINE_RECEIVED">รับจาก LINE</option>
                 </select>
               </div>

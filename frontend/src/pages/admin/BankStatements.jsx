@@ -92,7 +92,7 @@ const BankStatements = () => {
       }
     } catch (err) {
       // Robust error message handling
-      let errorMessage = 'Failed to add bank account';
+      let errorMessage = 'ไม่สามารถเพิ่มบัญชีธนาคารได้';
       
       if (err.response?.data?.detail) {
         const detail = err.response.data.detail;
@@ -151,15 +151,15 @@ const BankStatements = () => {
       // Handle 409 Conflict (duplicate batch)
       if (statusCode === 409) {
         if (typeof errorDetail === 'object' && errorDetail !== null) {
-          let errorMsg = errorDetail.message || 'Batch already exists';
-          errorMsg += '\n\n⚠️ Duplicate Batch Details:';
+          let errorMsg = errorDetail.message || 'ชุดข้อมูลนี้มีอยู่แล้ว';
+          errorMsg += '\n\n⚠️ รายละเอียดชุดข้อมูลซ้ำ:';
           if (errorDetail.batch_id) errorMsg += '\n• Batch ID: ' + errorDetail.batch_id;
           if (errorDetail.batch_status) errorMsg += '\n• Status: ' + errorDetail.batch_status;
           if (errorDetail.uploaded_at) errorMsg += '\n• Uploaded: ' + errorDetail.uploaded_at;
-          errorMsg += '\n\n💡 Please select a different month/year or delete the existing batch first.';
+          errorMsg += '\n\n💡 กรุณาเลือกเดือน/ปีอื่น หรือลบชุดข้อมูลเดิมก่อน';
           setError(errorMsg);
         } else {
-          setError('A batch for this month already exists. Please select a different month.');
+          setError('ชุดข้อมูลสำหรับเดือนนี้มีอยู่แล้ว กรุณาเลือกเดือนอื่น');
         }
         return;
       }
@@ -339,7 +339,7 @@ const BankStatements = () => {
           onClick={() => setShowAddAccount(!showAddAccount)}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
         >
-          {showAddAccount ? 'Cancel' : 'Add Bank Account'}
+          {showAddAccount ? t('common.cancel') : t('bankStatements.addAccount')}
         </button>
       </div>
 
@@ -418,7 +418,7 @@ const BankStatements = () => {
               disabled={safeAccounts.length === 0}
             >
               <option value="">
-                {safeAccounts.length === 0 ? 'No accounts - Add one first' : 'Select Account'}
+                {safeAccounts.length === 0 ? t('bankStatements.noAccounts') : t('bankStatements.selectAccount')}
               </option>
               {safeAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
@@ -569,7 +569,7 @@ const BankStatements = () => {
               disabled={loading}
               className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
             >
-              {loading ? 'Importing...' : 'Confirm Import'}
+              {loading ? t('common.loading') : t('bankStatements.confirmImport')}
             </button>
           )}
         </div>

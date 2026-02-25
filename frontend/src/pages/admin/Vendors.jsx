@@ -63,7 +63,7 @@ export default function Vendors() {
       setExpenseCategories(expCatRes.data.categories || []);
     } catch (err) {
       console.error('Failed to load vendor data:', err);
-      setError('Failed to load data');
+      setError('ไม่สามารถโหลดข้อมูลได้');
     } finally {
       setLoading(false);
     }
@@ -109,7 +109,7 @@ export default function Vendors() {
           phone: vendorForm.phone || null,
           bank_account: vendorForm.bank_account || null,
         });
-        showMessage(`Vendor "${editingVendor.name}" updated`);
+        showMessage(`อัปเดตผู้รับเงิน "${editingVendor.name}" สำเร็จ`);
       } else {
         // Create
         await vendorsAPI.create({
@@ -118,7 +118,7 @@ export default function Vendors() {
           phone: vendorForm.phone || null,
           bank_account: vendorForm.bank_account || null,
         });
-        showMessage(`Vendor "${vendorForm.name}" created`);
+        showMessage(`สร้างผู้รับเงิน "${vendorForm.name}" สำเร็จ`);
       }
       setShowVendorForm(false);
       resetVendorForm();
@@ -128,7 +128,7 @@ export default function Vendors() {
       if (detail?.code === 'VENDOR_NAME_ALREADY_EXISTS') {
         setFormError(detail.message);
       } else {
-        setFormError(typeof detail === 'string' ? detail : 'Operation failed');
+        setFormError(typeof detail === 'string' ? detail : 'ดำเนินการไม่สำเร็จ');
       }
     } finally {
       setFormLoading(false);
@@ -139,20 +139,20 @@ export default function Vendors() {
     setConfirmDeactivate({ open: false, vendor: null });
     try {
       await vendorsAPI.deactivate(vendor.id);
-      showMessage(`Vendor "${vendor.name}" deactivated`);
+      showMessage(`ปิดการใช้งาน "${vendor.name}" สำเร็จ`);
       loadAll();
     } catch (err) {
-      setError('Failed to deactivate vendor');
+      setError('ไม่สามารถปิดการใช้งานผู้รับเงินได้');
     }
   };
 
   const handleReactivateVendor = async (vendor) => {
     try {
       await vendorsAPI.reactivate(vendor.id);
-      showMessage(`Vendor "${vendor.name}" reactivated`);
+      showMessage(`เปิดใช้งาน "${vendor.name}" สำเร็จ`);
       loadAll();
     } catch (err) {
-      setError('Failed to reactivate vendor');
+      setError('ไม่สามารถเปิดใช้งานผู้รับเงินได้');
     }
   };
 
@@ -162,14 +162,14 @@ export default function Vendors() {
     try {
       await vendorsAPI.createCategory({ name: newCategoryName.trim() });
       setNewCategoryName('');
-      showMessage('Vendor category created');
+      showMessage('สร้างหมวดหมู่ผู้รับเงินสำเร็จ');
       loadAll();
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (detail?.code === 'CATEGORY_NAME_ALREADY_EXISTS') {
         setError(detail.message);
       } else {
-        setError('Failed to create vendor category');
+        setError('ไม่สามารถสร้างหมวดหมู่ผู้รับเงินได้');
       }
     }
   };
@@ -178,14 +178,14 @@ export default function Vendors() {
     try {
       if (cat.is_active) {
         await vendorsAPI.deactivateCategory(cat.id);
-        showMessage(`Category "${cat.name}" deactivated`);
+        showMessage(`ปิดการใช้งานหมวดหมู่ "${cat.name}" สำเร็จ`);
       } else {
         await vendorsAPI.reactivateCategory(cat.id);
-        showMessage(`Category "${cat.name}" reactivated`);
+        showMessage(`เปิดใช้งานหมวดหมู่ "${cat.name}" สำเร็จ`);
       }
       loadAll();
     } catch (err) {
-      setError('Failed to toggle category');
+      setError('ไม่สามารถเปลี่ยนสถานะหมวดหมู่ได้');
     }
   };
 
@@ -195,14 +195,14 @@ export default function Vendors() {
     try {
       await vendorsAPI.createExpenseCategory({ name: newExpenseCategoryName.trim() });
       setNewExpenseCategoryName('');
-      showMessage('Expense category created');
+      showMessage('สร้างหมวดหมู่รายจ่ายสำเร็จ');
       loadAll();
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (detail?.code === 'CATEGORY_NAME_ALREADY_EXISTS') {
         setError(detail.message);
       } else {
-        setError('Failed to create expense category');
+        setError('ไม่สามารถสร้างหมวดหมู่รายจ่ายได้');
       }
     }
   };
@@ -211,14 +211,14 @@ export default function Vendors() {
     try {
       if (cat.is_active) {
         await vendorsAPI.deactivateExpenseCategory(cat.id);
-        showMessage(`Expense category "${cat.name}" deactivated`);
+        showMessage(`ปิดการใช้งานหมวดหมู่รายจ่าย "${cat.name}" สำเร็จ`);
       } else {
         await vendorsAPI.reactivateExpenseCategory(cat.id);
-        showMessage(`Expense category "${cat.name}" reactivated`);
+        showMessage(`เปิดใช้งานหมวดหมู่รายจ่าย "${cat.name}" สำเร็จ`);
       }
       loadAll();
     } catch (err) {
-      setError('Failed to toggle expense category');
+      setError('ไม่สามารถเปลี่ยนสถานะหมวดหมู่รายจ่ายได้');
     }
   };
 
@@ -226,9 +226,9 @@ export default function Vendors() {
   const activeVendorCategories = vendorCategories.filter(c => c.is_active !== false);
 
   const tabs = [
-    { id: 'vendors', label: '🏢 Vendors', count: vendors.length },
-    { id: 'vendor-categories', label: '📂 Vendor Categories', count: vendorCategories.length },
-    { id: 'expense-categories', label: '💰 Expense Categories', count: expenseCategories.length },
+    { id: 'vendors', label: '🏢 ผู้รับเงิน', count: vendors.length },
+    { id: 'vendor-categories', label: '📂 หมวดหมู่ผู้รับเงิน', count: vendorCategories.length },
+    { id: 'expense-categories', label: '💰 หมวดหมู่รายจ่าย', count: expenseCategories.length },
   ];
 
   return (
@@ -236,7 +236,7 @@ export default function Vendors() {
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">🏢 Vendor & Category Management</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">🏢 {t('vendors.title')}</h1>
         <p className="text-gray-400">{t('vendors.subtitle')}</p>
       </div>
 
@@ -279,7 +279,7 @@ export default function Vendors() {
             onChange={(e) => setShowInactive(e.target.checked)}
             className="rounded border-gray-600 bg-slate-700 text-primary-600"
           />
-          Show inactive items
+          แสดงรายการที่ปิดใช้งาน
         </label>
       </div>
 
@@ -296,7 +296,7 @@ export default function Vendors() {
                   onClick={openCreateVendor}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center gap-2"
                 >
-                  ➕ Add Vendor
+                  ➕ เพิ่มผู้รับเงิน
                 </button>
               </div>
 
@@ -316,7 +316,7 @@ export default function Vendors() {
                     {vendors.length === 0 ? (
                       <tr>
                         <td colSpan="6" className="px-4 py-8 text-center text-gray-400">
-                          No vendors yet. Click "Add Vendor" to create one.
+                          ยังไม่มีผู้รับเงิน คลิก "เพิ่มผู้รับเงิน" เพื่อสร้างใหม่
                         </td>
                       </tr>
                     ) : (
@@ -342,7 +342,7 @@ export default function Vendors() {
                                     className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
                                     title="Edit (name is immutable)"
                                   >
-                                    ✏️ Edit
+                                    ✏️ แก้ไข
                                   </button>
                                   <button
                                     onClick={() => setConfirmDeactivate({ open: true, vendor })}
@@ -357,7 +357,7 @@ export default function Vendors() {
                                   onClick={() => handleReactivateVendor(vendor)}
                                   className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
                                 >
-                                  ♻️ Reactivate
+                                  ♻️ เปิดใช้งาน
                                 </button>
                               )}
                             </div>
@@ -384,7 +384,7 @@ export default function Vendors() {
                   onChange={(e) => setNewCategoryName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateVendorCategory()}
                   className="flex-1 max-w-md px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                  placeholder="New vendor category name..."
+                  placeholder="ชื่อหมวดหมู่ผู้รับเงินใหม่..."
                 />
                 <button
                   onClick={handleCreateVendorCategory}
@@ -429,7 +429,7 @@ export default function Vendors() {
                                   : 'bg-green-600 hover:bg-green-700 text-white'
                               }`}
                             >
-                              {cat.is_active ? '🚫 Deactivate' : '♻️ Reactivate'}
+                              {cat.is_active ? '🚫 ปิดใช้งาน' : '♻️ เปิดใช้งาน'}
                             </button>
                           </td>
                         </tr>
@@ -457,7 +457,7 @@ export default function Vendors() {
                   onChange={(e) => setNewExpenseCategoryName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateExpenseCategory()}
                   className="flex-1 max-w-md px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                  placeholder="New expense category name..."
+                  placeholder="ชื่อหมวดหมู่รายจ่ายใหม่..."
                 />
                 <button
                   onClick={handleCreateExpenseCategory}
@@ -502,7 +502,7 @@ export default function Vendors() {
                                   : 'bg-green-600 hover:bg-green-700 text-white'
                               }`}
                             >
-                              {cat.is_active ? '🚫 Deactivate' : '♻️ Reactivate'}
+                              {cat.is_active ? '🚫 ปิดใช้งาน' : '♻️ เปิดใช้งาน'}
                             </button>
                           </td>
                         </tr>
@@ -521,7 +521,7 @@ export default function Vendors() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-lg mx-4 border border-gray-700">
             <h2 className="text-xl font-bold text-white mb-4">
-              {editingVendor ? `✏️ Edit Vendor: ${editingVendor.name}` : '➕ Create Vendor'}
+              {editingVendor ? `✏️ แก้ไขผู้รับเงิน: ${editingVendor.name}` : '➕ สร้างผู้รับเงิน'}
             </h2>
 
             {formError && (
@@ -601,7 +601,7 @@ export default function Vendors() {
                 className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg"
                 disabled={formLoading || (!editingVendor && !vendorForm.name.trim())}
               >
-                {formLoading ? 'Saving...' : (editingVendor ? 'Save Changes' : 'Create Vendor')}
+                {formLoading ? t('common.saving') : (editingVendor ? t('common.save') : t('vendors.createVendor'))}
               </button>
             </div>
           </div>
@@ -609,8 +609,8 @@ export default function Vendors() {
       )}
       <ConfirmModal
         open={confirmDeactivate.open}
-        title="ระงับ Vendor"
-        message={`ต้องการระงับ "${confirmDeactivate.vendor?.name || ''}" ใช่หรือไม่? Vendor จะถูกซ่อนจาก dropdown แต่รายการค่าใช้จ่ายเดิมยังคงอยู่`}
+        title="ระงับผู้รับเงิน"
+        message={`ต้องการระงับ "${confirmDeactivate.vendor?.name || ''}" ใช่หรือไม่? ผู้รับเงินจะถูกซ่อนจาก dropdown แต่รายการค่าใช้จ่ายเดิมยังคงอยู่`}
         variant="warning"
         confirmText="ระงับ"
         onConfirm={() => handleDeactivateVendor(confirmDeactivate.vendor)}

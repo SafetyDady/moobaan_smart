@@ -24,20 +24,20 @@ import AdminPageWrapper from '../../components/AdminPageWrapper';
 
 // Fallback categories (replaced by API-loaded expense_categories from DB)
 const FALLBACK_EXPENSE_CATEGORIES = [
-  { value: 'MAINTENANCE', label: 'Maintenance' },
-  { value: 'SECURITY', label: 'Security' },
-  { value: 'CLEANING', label: 'Cleaning' },
+  { value: 'MAINTENANCE', label: 'ค่าซ่อมบำรุง' },
+  { value: 'SECURITY', label: 'ค่ารักษาความปลอดภัย' },
+  { value: 'CLEANING', label: 'ค่าทำความสะอาด' },
   { value: 'ELECTRICITY', label: 'ค่าไฟฟ้า' },
   { value: 'WATER', label: 'ค่าน้ำประปา' },
-  { value: 'ADMIN', label: 'Admin' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'ADMIN', label: 'ค่าบริหารจัดการ' },
+  { value: 'OTHER', label: 'อื่นๆ' },
 ];
 
 const PAYMENT_METHODS = [
-  { value: 'CASH', label: 'Cash' },
-  { value: 'TRANSFER', label: 'Bank Transfer' },
-  { value: 'CHECK', label: 'Check' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'CASH', label: 'เงินสด' },
+  { value: 'TRANSFER', label: 'โอนเงิน' },
+  { value: 'CHECK', label: 'เช็ค' },
+  { value: 'OTHER', label: 'อื่นๆ' },
 ];
 
 export default function Expenses() {
@@ -836,7 +836,7 @@ export default function Expenses() {
                 className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg"
                 disabled={modalLoading || !formData.amount || !formData.description || !formData.vendor_id}
               >
-                {modalLoading ? 'Creating...' : 'Create Expense'}
+                {modalLoading ? t('common.saving') : t('expenses.createExpense')}
               </button>
             </div>
           </div>
@@ -993,7 +993,7 @@ export default function Expenses() {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                 disabled={modalLoading || !formData.amount || !formData.description}
               >
-                {modalLoading ? 'Saving...' : 'Save Changes'}
+                {modalLoading ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>
@@ -1062,7 +1062,7 @@ export default function Expenses() {
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
                 disabled={modalLoading || !paidDate}
               >
-                {modalLoading ? 'Processing...' : 'Mark as Paid'}
+                {modalLoading ? t('common.saving') : t('expenses.markAsPaid')}
               </button>
             </div>
           </div>
@@ -1107,7 +1107,7 @@ export default function Expenses() {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
                 disabled={modalLoading}
               >
-                {modalLoading ? 'Cancelling...' : 'Yes, Cancel'}
+                {modalLoading ? t('common.saving') : t('expenses.yesCancel')}
               </button>
             </div>
           </div>
@@ -1185,9 +1185,9 @@ export default function Expenses() {
                       ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-600/50'
                       : 'bg-gray-600 cursor-not-allowed opacity-50'
                   }`}
-                  title={selectedExpense.status !== 'PAID' ? 'Receipt can only be uploaded when expense is PAID' : ''}
+                  title={selectedExpense.status !== 'PAID' ? 'อัปโหลดใบเสร็จได้เมื่อสถานะเป็น ชำระแล้ว เท่านั้น' : ''}
                 >
-                  {uploading ? '⏳ Uploading...' : '🧾 Upload Receipt'}
+                  {uploading ? '⏳ กำลังอัปโหลด...' : '🧾 อัปโหลดใบเสร็จ'}
                 </button>
                 <input
                   ref={receiptInputRef}

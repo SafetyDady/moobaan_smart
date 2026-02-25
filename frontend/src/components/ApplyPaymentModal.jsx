@@ -258,7 +258,7 @@ export default function ApplyPaymentModal({
             disabled={!selectedLedger || !amount || submitting}
             className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Processing...' : 'Apply Payment'}
+            {submitting ? t('common.saving') : t('payins.applyPayment')}
           </button>
         </div>
       </div>
