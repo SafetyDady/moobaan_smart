@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { CreditCard, FileText, FileSpreadsheet, MessageCircle, Edit3, Trash2, RefreshCw, Check } from 'lucide-react';
 import { invoicesAPI, payinsAPI, api } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonPage } from '../../components/Skeleton';
@@ -182,21 +183,21 @@ export default function ResidentDashboard() {
       <div className="mb-8">
         <div className="flex flex-wrap gap-4">
           <Link to="/resident/submit" className="btn-primary">
-            💳 ชำระเงิน
+            <CreditCard size={16} className="inline mr-1" />ชำระเงิน
           </Link>
           <button 
             onClick={() => downloadStatement('pdf')}
             disabled={downloadingStatement}
             className="btn-secondary"
           >
-            {downloadingStatement ? '📄 กำลังสร้าง...' : '📄 ดาวน์โหลดใบแจ้งยอด / Download Statement (PDF)'}
+            {downloadingStatement ? <><FileText size={16} className="inline mr-1" />กำลังสร้าง...</> : <><FileText size={16} className="inline mr-1" />ดาวน์โหลดใบแจ้งยอด / Download Statement (PDF)</>}
           </button>
           <button 
             onClick={() => downloadStatement('xlsx')}
             disabled={downloadingStatement}
             className="btn-outline"
           >
-            {downloadingStatement ? '📊 กำลังสร้าง...' : '📊 Download Excel'}
+            {downloadingStatement ? <><FileSpreadsheet size={16} className="inline mr-1" />กำลังสร้าง...</> : <><FileSpreadsheet size={16} className="inline mr-1" />Download Excel</>}
           </button>
         </div>
       </div>
@@ -267,8 +268,7 @@ export default function ResidentDashboard() {
                     hour: '2-digit', 
                     minute: '2-digit',
                     hour12: false 
-                  });
-                  
+                                   <Trash2 size={14} className="inline mr-1" />ลบ
                   return (
                     <tr key={payin.id}>
                       <td className="font-medium text-white">฿{payin.amount.toLocaleString()}</td>
@@ -285,7 +285,7 @@ export default function ResidentDashboard() {
                           <div className="text-xs text-red-400 mt-1">{payin.reject_reason}</div>
                         )}
                         {payin.admin_note && payin.status === 'REJECTED_NEEDS_FIX' && (
-                          <div className="text-xs text-yellow-400 mt-1">💬 {payin.admin_note}</div>
+                          <div className="text-xs text-yellow-400 mt-1 flex items-center gap-1"><MessageCircle size={12} />{payin.admin_note}</div>
                         )}
                       </td>
                       <td className="text-gray-400 text-sm">
@@ -302,25 +302,25 @@ export default function ResidentDashboard() {
                                 state={{ editPayin: payin }} 
                                 className="text-blue-400 hover:text-blue-300 text-sm"
                               >
-                                ✏️ แก้ไข
+                                <Edit3 size={14} className="inline mr-1" />แก้ไข
                               </Link>
                               <button
                                 onClick={() => setConfirmDelete({ open: true, payinId: payin.id })}
                                 className="text-red-400 hover:text-red-300 text-sm"
                               >
-                                🗑️ ลบ
+                                <Trash2 size={14} className="inline mr-1" />ลบ
                               </button>
                             </>
                           )}
                           {payin.status === 'SUBMITTED' && (
                             <>
-                              <span className="text-blue-400 text-sm">⏳ กำลังตรวจสอบ</span>
+                              <span className="text-blue-400 text-sm flex items-center gap-1"><RefreshCw size={14} className="animate-spin" />กำลังตรวจสอบ</span>
                               {!payin.is_matched && (
                                 <button
                                   onClick={() => setConfirmDelete({ open: true, payinId: payin.id })}
                                   className="text-red-400 hover:text-red-300 text-sm"
                                 >
-                                  🗑️ ลบ
+                                  <Trash2 size={14} className="inline mr-1" />ลบ
                                 </button>
                               )}
                             </>
@@ -332,13 +332,13 @@ export default function ResidentDashboard() {
                                 state={{ editPayin: payin }} 
                                 className="text-primary-400 hover:text-primary-300 text-sm"
                               >
-                                🔄 แก้ไขและส่งใหม่
+                                <RefreshCw size={14} className="inline mr-1" />แก้ไขและส่งใหม่
                               </Link>
                               <button
                                 onClick={() => setConfirmDelete({ open: true, payinId: payin.id })}
                                 className="text-red-400 hover:text-red-300 text-sm"
                               >
-                                🗑️ ลบ
+                                <Trash2 size={14} className="inline mr-1" />ลบ
                               </button>
                             </>
                           )}
@@ -350,13 +350,13 @@ export default function ResidentDashboard() {
                                 state={{ editPayin: payin }} 
                                 className="text-blue-400 hover:text-blue-300 text-sm"
                               >
-                                ✏️ แก้ไข
+                                <Edit3 size={14} className="inline mr-1" />แก้ไข
                               </Link>
                               <button
                                 onClick={() => setConfirmDelete({ open: true, payinId: payin.id })}
                                 className="text-red-400 hover:text-red-300 text-sm"
                               >
-                                🗑️ ลบ
+                                <Trash2 size={14} className="inline mr-1" />ลบ
                               </button>
                             </>
                           )}
@@ -366,11 +366,11 @@ export default function ResidentDashboard() {
                               state={{ editPayin: payin }} 
                               className="text-primary-400 hover:text-primary-300 text-sm"
                             >
-                              🔄 แก้ไขและส่งใหม่
+                              <RefreshCw size={14} className="inline mr-1" />แก้ไขและส่งใหม่
                             </Link>
                           )}
                           {payin.status === 'ACCEPTED' && (
-                            <span className="text-green-400 text-sm">✓ รับแล้ว</span>
+                            <span className="text-green-400 text-sm flex items-center gap-1"><Check size={14} />รับแล้ว</span>
                           )}
                         </div>
                       </td>

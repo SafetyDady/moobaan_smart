@@ -10,6 +10,7 @@
  * Governance Layer: "ตัวเลขเดือนนี้จบแล้ว" (This month's figures are finalized)
  */
 import React, { useState, useEffect } from 'react';
+import { Lock, ClipboardList, X as XIcon } from 'lucide-react';
 import { periodsAPI, exportAPI } from '../api/client';
 import { useToast } from '../components/Toast';
 import { SkeletonCard } from '../components/Skeleton';
@@ -259,7 +260,7 @@ function PeriodClosing() {
                 }`}
               >
                 {MONTH_NAMES_TH[opt.month]} {opt.year}
-                {isLocked && ' 🔒'}
+                {isLocked && <Lock size={14} className="inline ml-1" />}
               </button>
             );
           })}
@@ -461,7 +462,7 @@ function PeriodClosing() {
                         className="text-gray-400 hover:text-gray-600"
                         title={t("periodClosing.viewHistory")}
                       >
-                        📋
+                        <ClipboardList size={16} />
                       </button>
                     </td>
                   </tr>
@@ -573,7 +574,7 @@ function PeriodClosing() {
                 onClick={() => setShowLogsModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <XIcon size={16} />
               </button>
             </div>
             

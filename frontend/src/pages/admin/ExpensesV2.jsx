@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { DollarSign, Plus, Download, Edit3, Paperclip, CheckCircle, XCircle, Eye, Trash2, Lightbulb, FileText, Loader2, X as XIcon } from 'lucide-react';
 import { expensesAPI, housesAPI, accountsAPI, vendorsAPI, attachmentsAPI } from '../../api/client';
 import compressImage from '../../utils/compressImage';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -458,14 +459,14 @@ export default function Expenses() {
       {/* Header */}
       <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">💸 Expenses Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2"><DollarSign size={24} className="inline mr-1" />Expenses Management</h1>
           <p className="text-gray-400">{t('expenses.subtitle')}</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowCreateModal(true); }}
           className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center gap-2"
         >
-          <span>➕</span> Create Expense
+          <Plus size={16} className="inline" /> Create Expense
         </button>
       </div>
 
@@ -562,7 +563,7 @@ export default function Expenses() {
               onClick={exportToCSV}
               className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg"
             >
-              📥 Export CSV
+              <Download size={16} className="inline mr-1" />Export CSV
             </button>
           </div>
         </div>
@@ -597,7 +598,7 @@ export default function Expenses() {
                 <SkeletonTable rows={5} cols={9} />
               ) : expenses.length === 0 ? (
                 <EmptyState
-                  icon="💸"
+                  icon={<DollarSign size={32} />}
                   colSpan={9}
                   isFiltered={!!(statusFilter || categoryFilter || houseFilter || fromDate || toDate)}
                   onClearFilters={() => { setStatusFilter(''); setCategoryFilter(''); setHouseFilter(''); setFromDate(''); setToDate(''); }}
@@ -640,28 +641,28 @@ export default function Expenses() {
                               className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
                               title="Edit"
                             >
-                              ✏️
+                              <Edit3 size={16} />
                             </button>
                             <button
                               onClick={() => openDetailModal(expense)}
                               className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded"
                               title="Attachments"
                             >
-                              📎
+                              <Paperclip size={16} />
                             </button>
                             <button
                               onClick={() => openMarkPaidModal(expense)}
                               className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
                               title="Mark Paid"
                             >
-                              ✅
+                              <CheckCircle size={16} />
                             </button>
                             <button
                               onClick={() => openCancelModal(expense)}
                               className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
                               title="Cancel"
                             >
-                              ❌
+                              <XCircle size={16} />
                             </button>
                           </>
                         )}
@@ -671,7 +672,7 @@ export default function Expenses() {
                             className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded"
                             title="View & Attach"
                           >
-                            📎 View
+                            <Paperclip size={14} className="inline mr-1" />View
                           </button>
                         )}
                         {expense.status === 'CANCELLED' && (
@@ -694,7 +695,7 @@ export default function Expenses() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-lg mx-4 border border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4">➕ Create Expense</h2>
+            <h2 className="text-xl font-bold text-white mb-4"><Plus size={20} className="inline mr-1" />Create Expense</h2>
             
             {modalError && (
               <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
@@ -851,7 +852,7 @@ export default function Expenses() {
       {showEditModal && selectedExpense && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-lg mx-4 border border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4">✏️ Edit Expense #{selectedExpense.id}</h2>
+            <h2 className="text-xl font-bold text-white mb-4"><Edit3 size={20} className="inline mr-1" />Edit Expense #{selectedExpense.id}</h2>
             
             {modalError && (
               <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
@@ -1008,7 +1009,7 @@ export default function Expenses() {
       {showMarkPaidModal && selectedExpense && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-md mx-4 border border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4">✅ Mark as Paid</h2>
+            <h2 className="text-xl font-bold text-white mb-4"><CheckCircle size={20} className="inline mr-1" />Mark as Paid</h2>
             
             {modalError && (
               <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
@@ -1077,7 +1078,7 @@ export default function Expenses() {
       {showCancelModal && selectedExpense && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-md mx-4 border border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4">❌ Cancel Expense</h2>
+            <h2 className="text-xl font-bold text-white mb-4"><XCircle size={20} className="inline mr-1" />Cancel Expense</h2>
             
             {modalError && (
               <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
@@ -1123,12 +1124,12 @@ export default function Expenses() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-lg mx-4 border border-gray-700 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-bold text-white">📎 Expense #{selectedExpense.id} — Attachments</h2>
+              <h2 className="text-xl font-bold text-white"><Paperclip size={20} className="inline mr-1" />Expense #{selectedExpense.id} — Attachments</h2>
               <button
                 onClick={() => { setShowDetailModal(false); setSelectedExpense(null); setAttachments([]); }}
                 className="text-gray-400 hover:text-white text-xl"
               >
-                ✕
+                <XIcon size={20} />
               </button>
             </div>
 
@@ -1167,7 +1168,7 @@ export default function Expenses() {
                   disabled={uploading}
                   className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white text-sm rounded-lg flex items-center justify-center gap-2"
                 >
-                  {uploading ? '⏳ Uploading...' : '📄 Upload Invoice'}
+                  {uploading ? <><Loader2 size={16} className="inline mr-1 animate-spin" />Uploading...</> : <><FileText size={16} className="inline mr-1" />Upload Invoice</>}
                 </button>
                 <input
                   ref={invoiceInputRef}
@@ -1208,7 +1209,7 @@ export default function Expenses() {
 
             {selectedExpense.status !== 'PAID' && selectedExpense.status !== 'CANCELLED' && (
               <p className="text-xs text-gray-500 mb-3 -mt-2">
-                💡 Receipt upload will be available after marking this expense as Paid.
+                <Lightbulb size={14} className="inline mr-1" />Receipt upload will be available after marking this expense as Paid.
               </p>
             )}
 
@@ -1251,7 +1252,7 @@ export default function Expenses() {
                           className="px-2 py-1 text-xs bg-slate-600 hover:bg-slate-500 text-white rounded"
                           title="View file"
                         >
-                          👁️
+                          <Eye size={16} />
                         </a>
                       )}
                       <button
@@ -1259,7 +1260,7 @@ export default function Expenses() {
                         className="px-2 py-1 text-xs bg-red-600/80 hover:bg-red-600 text-white rounded"
                         title="Delete"
                       >
-                        🗑️
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, Eye } from 'lucide-react';
+import { ChevronLeft, Eye, Camera, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoicesAPI, payinsAPI } from '../../../api/client';
 import { useToast } from '../../../components/Toast';
@@ -8,6 +8,7 @@ import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import PayinDetailModal from './PayinDetailModal';
 import PullToRefresh from '../../../components/PullToRefresh';
+import { t } from '../../../hooks/useLocale';
 import {
   getStatusText as getPayinStatusText,
   getStatusBadgeColor,
@@ -80,17 +81,17 @@ export default function PaymentHistory() {
   });
   
   const payinFilterButtons = [
-    { id: 'all', label: 'ทั้งหมด' },
-    { id: 'pending', label: 'รอตรวจสอบ' },
-    { id: 'accepted', label: 'ผ่านแล้ว' },
-    { id: 'rejected', label: 'ถูกปฏิเสธ' },
+    { id: 'all', label: t('paymentHistory.filterAll') },
+    { id: 'pending', label: t('paymentHistory.filterPending') },
+    { id: 'accepted', label: t('paymentHistory.filterAccepted') },
+    { id: 'rejected', label: t('paymentHistory.filterRejected') },
   ];
   
   const invoiceFilterButtons = [
-    { id: 'all', label: `ทั้งหมด (${invoices.length})` },
-    { id: 'unpaid', label: `ค้างชำระ (${invoices.filter(i => ['ISSUED','PARTIALLY_PAID'].includes(i.status)).length})` },
-    { id: 'paid', label: `ชำระแล้ว (${invoices.filter(i => i.status === 'PAID').length})` },
-    { id: 'cancelled', label: 'ยกเลิก' },
+    { id: 'all', label: `${t('paymentHistory.filterAll')} (${invoices.length})` },
+    { id: 'unpaid', label: `${t('paymentHistory.filterUnpaid')} (${invoices.filter(i => ['ISSUED','PARTIALLY_PAID'].includes(i.status)).length})` },
+    { id: 'paid', label: `${t('paymentHistory.filterPaid')} (${invoices.filter(i => i.status === 'PAID').length})` },
+    { id: 'cancelled', label: t('paymentHistory.filterCancelled') },
   ];
   
   if (loading) {
@@ -119,7 +120,7 @@ export default function PaymentHistory() {
           >
             <ChevronLeft size={24} />
           </button>
-          <h1 className="text-lg font-bold text-white">ประวัติการชำระ</h1>
+          <h1 className="text-lg font-bold text-white">{t('paymentHistory.title')}</h1>
         </div>
         
         {/* Tabs */}
@@ -132,7 +133,7 @@ export default function PaymentHistory() {
                 : 'text-gray-400'
             }`}
           >
-            ประวัติส่งสลิป
+            {t('paymentHistory.tabPayins')}
             {activeTab === 'payins' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-400" />
             )}
@@ -145,7 +146,7 @@ export default function PaymentHistory() {
                 : 'text-gray-400'
             }`}
           >
-            ใบแจ้งหนี้
+            {t('paymentHistory.tabInvoices')}
             {activeTab === 'invoices' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-400" />
             )}
@@ -176,8 +177,8 @@ export default function PaymentHistory() {
               {/* Payin List */}
               {filteredPayins.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                  <div className="text-4xl mb-2">📸</div>
-                  <div className="text-sm">ยังไม่มีประวัติการส่งสลิป</div>
+                  <div className="mb-2"><Camera size={36} className="text-gray-500 mx-auto" /></div>
+                  <div className="text-sm">{t('paymentHistory.noPayins')}</div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -247,8 +248,8 @@ export default function PaymentHistory() {
               {/* Invoice List */}
               {sortedInvoices.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                  <div className="text-4xl mb-2">📄</div>
-                  <div className="text-sm">ยังไม่มีใบแจ้งหนี้</div>
+                  <div className="mb-2"><FileText size={36} className="text-gray-500 mx-auto" /></div>
+                  <div className="text-sm">{t('paymentHistory.noInvoices')}</div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -260,16 +261,16 @@ export default function PaymentHistory() {
                       const [y, m] = invoice.cycle.split('-').map(Number);
                       if (y && m) cycleLabel = `${thaiMonths[m]} ${y + 543}`;
                     } else if (invoice.cycle === 'MANUAL') {
-                      cycleLabel = invoice.manual_reason || 'ใบแจ้งหนี้พิเศษ';
+                      cycleLabel = invoice.manual_reason || t('paymentHistory.specialInvoice');
                     }
                     
                     // Status badge
                     const statusMap = {
-                      'ISSUED': { text: 'รอชำระ', color: 'bg-orange-500/20 text-orange-400' },
-                      'PARTIALLY_PAID': { text: 'ชำระบางส่วน', color: 'bg-yellow-500/20 text-yellow-400' },
-                      'PAID': { text: 'ชำระแล้ว', color: 'bg-green-500/20 text-green-400' },
-                      'CANCELLED': { text: 'ยกเลิก', color: 'bg-gray-500/20 text-gray-400' },
-                      'CREDITED': { text: 'เครดิตแล้ว', color: 'bg-gray-500/20 text-gray-400' },
+                      'ISSUED': { text: t('paymentHistory.statusIssued'), color: 'bg-orange-500/20 text-orange-400' },
+                      'PARTIALLY_PAID': { text: t('paymentHistory.statusPartiallyPaid'), color: 'bg-yellow-500/20 text-yellow-400' },
+                      'PAID': { text: t('paymentHistory.statusPaid'), color: 'bg-green-500/20 text-green-400' },
+                      'CANCELLED': { text: t('paymentHistory.statusCancelled'), color: 'bg-gray-500/20 text-gray-400' },
+                      'CREDITED': { text: t('paymentHistory.statusCredited'), color: 'bg-gray-500/20 text-gray-400' },
                     };
                     const st = statusMap[invoice.status] || { text: invoice.status, color: 'bg-gray-500/20 text-gray-400' };
                     
@@ -296,8 +297,8 @@ export default function PaymentHistory() {
                         {['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status) && (
                           <div className="mb-2">
                             <div className="flex justify-between text-xs mb-1">
-                              <span className="text-gray-400">ชำระแล้ว ฿{(invoice.paid || 0).toLocaleString('th-TH')}</span>
-                              <span className="text-orange-400">ค้าง ฿{(invoice.outstanding || 0).toLocaleString('th-TH')}</span>
+                              <span className="text-gray-400">{t('paymentHistory.paidAmount')} ฿{(invoice.paid || 0).toLocaleString('th-TH')}</span>
+                              <span className="text-orange-400">{t('paymentHistory.outstandingAmount')} ฿{(invoice.outstanding || 0).toLocaleString('th-TH')}</span>
                             </div>
                             <div className="w-full bg-gray-700 rounded-full h-1.5">
                               <div 
@@ -311,14 +312,14 @@ export default function PaymentHistory() {
                         {/* Credit note info */}
                         {invoice.total_credited > 0 && (
                           <div className="text-xs text-blue-400 mb-1">
-                            เครดิตโนต: -฿{invoice.total_credited.toLocaleString('th-TH')}
+                            {t('paymentHistory.creditNote')} -฿{invoice.total_credited.toLocaleString('th-TH')}
                           </div>
                         )}
                         
                         <div className="flex items-center justify-between">
                           {invoice.due_date && (
                             <div className="text-xs text-gray-400">
-                              ครบกำหนด: {new Date(invoice.due_date).toLocaleDateString('th-TH')}
+                              {t('paymentHistory.dueDateLabel')} {new Date(invoice.due_date).toLocaleDateString('th-TH')}
                             </div>
                           )}
                           {invoice.items?.[0]?.description && invoice.items[0].description !== 'ค่าส่วนกลาง' && (
@@ -349,7 +350,7 @@ export default function PaymentHistory() {
               setSelectedPayin(null);
               loadData();
             } catch (err) {
-              const msg = err.response?.data?.detail?.message || 'ลบไม่สำเร็จ';
+              const msg = err.response?.data?.detail?.message || t('paymentHistory.deleteFailed');
               toast.error(msg);
             }
           }}

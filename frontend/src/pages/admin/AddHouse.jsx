@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Save } from 'lucide-react';
 import { housesAPI } from '../../api/client';
 import { useToast } from '../../components/Toast';
 import { t } from '../../hooks/useLocale';
@@ -242,7 +243,7 @@ export default function AddHouse() {
               disabled={loading}
               className="btn-primary"
             >
-              {loading ? t('common.saving') : `💾 ${t('common.save')}`}
+              {loading ? t('common.saving') : <><Save size={16} className="inline mr-1" />{t('common.save')}</>}
             </button>
             <button
               type="button"
@@ -250,7 +251,7 @@ export default function AddHouse() {
               disabled={loading}
               className="btn-secondary"
             >
-              {loading ? t('common.saving') : `💾 ${t('addHouse.saveAndAdd')}`}
+              {loading ? t('common.saving') : <><Save size={16} className="inline mr-1" />{t('addHouse.saveAndAdd')}</>}
             </button>
             <button
               type="button"

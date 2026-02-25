@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Users, AlertTriangle, Home, Phone } from 'lucide-react';
 import { usersAPI, housesAPI } from '../../api/client';
 import { Link } from 'react-router-dom';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -169,7 +170,7 @@ export default function Members() {
         setMessageModal({
           show: true,
           type: 'success',
-          title: `✅ ${t('common.success')}`,
+          title: t('common.success'),
           message_th: t('members.reactivateSuccess'),
           message_en: '',
           showDetails: false,
@@ -258,7 +259,7 @@ export default function Members() {
       setMessageModal({
         show: true,
         type: 'success',
-        title: `✅ ${t('members.removeSuccess')}`,
+        title: t('members.removeSuccess'),
         message_th: response.data.message_th || `${t('members.removeFromHouse')} ${resident.full_name} - ${resident.house.house_code}  ${t('common.success')}`,
         message_en: '',
         showDetails: false,
@@ -268,7 +269,7 @@ export default function Members() {
       if (response.data.user_deactivated) {
         setMessageModal(prev => ({
           ...prev,
-          message_th: prev.message_th + `\n⚠️ ${t('members.noHouseAssigned')} — auto deactivated`,
+          message_th: prev.message_th + `\n${t('members.noHouseAssigned')} — auto deactivated`,
         }));
       }
 
@@ -280,7 +281,7 @@ export default function Members() {
       setMessageModal({
         show: true,
         type: 'error',
-        title: `❌ ${t('members.removeFailed')}`,
+        title: t('members.removeFailed'),
         message_th: typeof detail === 'object' ? (detail.error_th || t('common.error')) : (detail || t('common.error')),
         message_en: '',
         showDetails: false,
@@ -312,7 +313,7 @@ export default function Members() {
       setMessageModal({
         show: true,
         type: 'success',
-        title: `✅ ${t('members.forceLogoutSuccess')}`,
+        title: t('members.forceLogoutSuccess'),
         message_th: `${t('members.forceLogout')} ${resident.full_name} ${t('common.success')}\n${t('members.forceLogoutEffect2')}`,
         message_en: '',
         showDetails: false,
@@ -326,7 +327,7 @@ export default function Members() {
       setMessageModal({
         show: true,
         type: 'error',
-        title: `❌ ${t('members.forceLogoutFailed')}`,
+        title: t('members.forceLogoutFailed'),
         message_th: detail?.message_th || t('members.forceLogoutFailed'),
         message_en: '',
         showDetails: false,
@@ -398,7 +399,7 @@ export default function Members() {
                 <SkeletonTable rows={5} cols={8} />
               ) : residents.length === 0 ? (
                 <EmptyState
-                  icon="👥"
+                  icon={<Users size={32} />}
                   colSpan={8}
                   isFiltered={!!houseFilter}
                   onClearFilters={() => setHouseFilter('')}
@@ -493,7 +494,7 @@ export default function Members() {
       {removeHouseModal.show && removeHouseModal.resident && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold text-white mb-4">⚠️ {t('members.removeFromHouse')}</h3>
+            <h3 className="text-xl font-bold text-white mb-4"><AlertTriangle size={20} className="inline mr-1" />{t('members.removeFromHouse')}</h3>
 
             <div className="space-y-3 mb-6">
               <p className="text-gray-300">
@@ -502,14 +503,14 @@ export default function Members() {
               <div className="bg-gray-700 p-3 rounded">
                 <p className="text-white font-medium">{removeHouseModal.resident.full_name}</p>
                 <p className="text-gray-400 text-sm">
-                  🏠 {t('members.house')}: {removeHouseModal.resident.house?.house_code || '-'}
+                  <Home size={14} className="inline mr-1" />{t('members.house')}: {removeHouseModal.resident.house?.house_code || '-'}
                 </p>
                 <p className="text-gray-400 text-sm">
-                  📱 {t('common.phone')}: {removeHouseModal.resident.phone || '-'}
+                  <Phone size={14} className="inline mr-1" />{t('common.phone')}: {removeHouseModal.resident.phone || '-'}
                 </p>
               </div>
               <div className="text-yellow-400 text-sm">
-                <p>⚠️ {t('members.forceLogoutWarning')}</p>
+                <p><AlertTriangle size={14} className="inline mr-1" />{t('members.forceLogoutWarning')}</p>
                 <ul className="list-disc list-inside ml-2 mt-1 text-gray-300">
                   <li>{t('members.removeEffect1')} {removeHouseModal.resident.house?.house_code}</li>
                   <li>{t('members.removeEffect2')}</li>
@@ -544,7 +545,7 @@ export default function Members() {
       {forceLogoutModal.show && forceLogoutModal.resident && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold text-white mb-4">⚠️ {t('members.confirmForceLogout')}</h3>
+            <h3 className="text-xl font-bold text-white mb-4"><AlertTriangle size={20} className="inline mr-1" />{t('members.confirmForceLogout')}</h3>
             
             <div className="space-y-3 mb-6">
               <p className="text-gray-300">
@@ -560,7 +561,7 @@ export default function Members() {
                 </p>
               </div>
               <div className="text-yellow-400 text-sm">
-                <p>⚠️ {t('members.forceLogoutWarning')}</p>
+                <p><AlertTriangle size={14} className="inline mr-1" />{t('members.forceLogoutWarning')}</p>
                 <ul className="list-disc list-inside ml-2 mt-1 text-gray-300">
                   <li>{t('members.forceLogoutEffect1')}</li>
                   <li>{t('members.forceLogoutEffect2')}</li>

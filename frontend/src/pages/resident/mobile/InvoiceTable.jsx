@@ -12,6 +12,7 @@
 
 import React from 'react';
 import { FileText } from 'lucide-react';
+import { t } from '../../../hooks/useLocale';
 
 const InvoiceTable = ({ invoices = [] }) => {
   
@@ -30,11 +31,11 @@ const InvoiceTable = ({ invoices = [] }) => {
   // Get status text in Thai
   const getStatusText = (status) => {
     const statusMap = {
-      'PAID': 'ชำระแล้ว',
-      'PENDING': 'รอชำระ',
-      'OVERDUE': 'เกินกำหนด',
-      'ISSUED': 'ออกแล้ว',
-      'DRAFT': 'ฉบับร่าง',
+      'PAID': t('invoiceTable.statusPaid'),
+      'PENDING': t('invoiceTable.statusPending'),
+      'OVERDUE': t('invoiceTable.statusOverdue'),
+      'ISSUED': t('invoiceTable.statusIssued'),
+      'DRAFT': t('invoiceTable.statusDraft'),
     };
     return statusMap[status?.toUpperCase()] || status || '-';
   };
@@ -76,7 +77,7 @@ const InvoiceTable = ({ invoices = [] }) => {
     return (
       <div className="bg-gray-800 rounded-xl p-8 text-center border border-gray-700">
         <FileText className="mx-auto text-gray-600 mb-3" size={48} />
-        <p className="text-gray-400 font-medium">ไม่มีใบแจ้งหนี้</p>
+        <p className="text-gray-400 font-medium">{t('invoiceTable.noInvoices')}</p>
       </div>
     );
   }
@@ -86,16 +87,16 @@ const InvoiceTable = ({ invoices = [] }) => {
       {/* Table Header */}
       <div className="grid grid-cols-12 gap-2 bg-gray-750 px-3 py-3 border-b border-gray-700">
         <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide">
-          รอบบิล
+          {t('invoiceTable.cycle')}
         </div>
         <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide text-right">
-          จำนวนเงิน
+          {t('invoiceTable.amount')}
         </div>
         <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide text-center">
-          ครบกำหนด
+          {t('invoiceTable.dueDate')}
         </div>
         <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide text-center">
-          สถานะ
+          {t('invoiceTable.status')}
         </div>
       </div>
 

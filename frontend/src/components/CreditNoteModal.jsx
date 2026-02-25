@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Gift } from 'lucide-react';
 import { creditNotesAPI, promotionsAPI } from '../api/client';
 import { t } from '../hooks/useLocale';
 
@@ -189,7 +190,7 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
           {promotionSuggestion && !loadingPromotion && (
             <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <div className="text-2xl">🎁</div>
+                <div><Gift size={28} className="text-green-400" /></div>
                 <div className="flex-1">
                   <p className="text-green-300 font-medium text-sm">
                     {t('creditNote.promotion')}: {promotionSuggestion.promotion_name}

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { AlertTriangle, Lightbulb, ClipboardList, Calendar, XCircle, Loader2, X as XIcon } from 'lucide-react';
 import { bankStatementsAPI, bankAccountsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -159,11 +160,11 @@ const BankStatements = () => {
       if (statusCode === 409) {
         if (typeof errorDetail === 'object' && errorDetail !== null) {
           let errorMsg = errorDetail.message || t('bankStatements.batchDuplicate');
-          errorMsg += '\n\n⚠️ ' + t('bankStatements.duplicateDetail') + ':';
+          errorMsg += '\n\n' + t('bankStatements.duplicateDetail') + ':';
           if (errorDetail.batch_id) errorMsg += '\n• Batch ID: ' + errorDetail.batch_id;
           if (errorDetail.batch_status) errorMsg += '\n• Status: ' + errorDetail.batch_status;
           if (errorDetail.uploaded_at) errorMsg += '\n• Uploaded: ' + errorDetail.uploaded_at;
-          errorMsg += '\n\n💡 ' + t('bankStatements.duplicateHint');
+          errorMsg += '\n\n' + t('bankStatements.duplicateHint');
           setError(errorMsg);
         } else {
           setError(t('bankStatements.batchDuplicateShort'));
@@ -182,17 +183,17 @@ const BankStatements = () => {
         let errorMsg = errorDetail.message || 'Failed to preview CSV';
         
         if (errorDetail.detected_columns && errorDetail.expected_columns) {
-          errorMsg += '\n\n📋 Column Information:';
+          errorMsg += '\n\nColumn Information:';
           errorMsg += '\n• Detected: ' + errorDetail.detected_columns.join(', ');
           errorMsg += '\n• Expected: ' + errorDetail.expected_columns.join(', ');
         }
         
         if (errorDetail.csv_date_range) {
-          errorMsg += '\n\n📅 CSV Date Range: ' + errorDetail.csv_date_range.start + ' to ' + errorDetail.csv_date_range.end;
+          errorMsg += '\n\nCSV Date Range: ' + errorDetail.csv_date_range.start + ' to ' + errorDetail.csv_date_range.end;
         }
         
         if (errorDetail.skip_reasons && Object.keys(errorDetail.skip_reasons).length > 0) {
-          errorMsg += '\n\n⚠️ Parsing Issues:';
+          errorMsg += '\n\nParsing Issues:';
           const topReasons = Object.entries(errorDetail.skip_reasons)
             .sort(([, a], [, b]) => b - a)
             .slice(0, 3);
@@ -202,7 +203,7 @@ const BankStatements = () => {
         }
         
         if (errorDetail.hint) {
-          errorMsg += '\n\n💡 ' + errorDetail.hint;
+          errorMsg += '\n\n' + errorDetail.hint;
         }
         
         setError(errorMsg);
@@ -479,7 +480,7 @@ const BankStatements = () => {
           disabled={loading || !file || !selectedAccount}
           className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
         >
-          {loading ? '⏳ Processing...' : 'Preview CSV'}
+          {loading ? <><Loader2 size={16} className="inline mr-1 animate-spin" />Processing...</> : 'Preview CSV'}
         </button>
       </div>
 
@@ -491,7 +492,7 @@ const BankStatements = () => {
           {/* Validation Messages */}
           {preview.validation?.errors?.length > 0 && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-              <h3 className="font-semibold text-red-800 mb-2">❌ Errors (import blocked):</h3>
+              <h3 className="font-semibold text-red-800 mb-2"><XCircle size={16} className="inline mr-1" />Errors (import blocked):</h3>
               <ul className="list-disc list-inside text-red-700">
                 {preview.validation.errors.map((err, idx) => (
                   <li key={idx}>{err}</li>
@@ -502,7 +503,7 @@ const BankStatements = () => {
 
           {preview.validation?.warnings?.length > 0 && (
             <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
-              <h3 className="font-semibold text-yellow-800 mb-2">⚠️ Warnings:</h3>
+              <h3 className="font-semibold text-yellow-800 mb-2"><AlertTriangle size={16} className="inline mr-1" />Warnings:</h3>
               <ul className="list-disc list-inside text-yellow-700">
                 {preview.validation.warnings.map((warn, idx) => (
                   <li key={idx}>{warn}</li>
@@ -667,7 +668,7 @@ const BankStatements = () => {
               onClick={handleCloseTransactions}
               className="text-gray-600 hover:text-gray-800 font-medium"
             >
-              ✕ Close
+              <XIcon size={14} className="inline mr-1" />Close
             </button>
           </div>
 

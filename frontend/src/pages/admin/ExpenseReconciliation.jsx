@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { CreditCard, ClipboardList, Landmark, Link2, ScrollText, Check, X as XIcon } from 'lucide-react';
 import { expenseReconciliationAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonPage, SkeletonBlock } from '../../components/Skeleton';
@@ -165,7 +166,7 @@ export default function ExpenseReconciliation() {
     <div className="p-4 sm:p-6 lg:p-8 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">💳 Expense ↔ Bank Reconciliation</h1>
+        <h1 className="text-2xl font-bold text-gray-900"><CreditCard size={24} className="inline mr-1" />Expense ↔ Bank Reconciliation</h1>
         <div className="flex gap-2">
           <button
             onClick={() => setViewMode('match')}
@@ -237,13 +238,13 @@ export default function ExpenseReconciliation() {
                     disabled={allocating}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
                   >
-                    {allocating ? t('common.saving') : '✓ ' + t('expenseRecon.allocate')}
+                    {allocating ? t('common.saving') : <><Check size={14} className="inline mr-1" />{t('expenseRecon.allocate')}</>}
                   </button>
                   <button
                     onClick={() => { setSelectedBankTxn(null); setMatchAmount(''); }}
                     className="px-3 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
                   >
-                    ✕
+                    <XIcon size={14} />
                   </button>
                 </div>
               </div>
@@ -255,7 +256,7 @@ export default function ExpenseReconciliation() {
             {/* LEFT: Expenses */}
             <div className="bg-white rounded-lg shadow">
               <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
-                <h2 className="font-semibold text-gray-800">📋 Expenses</h2>
+                <h2 className="font-semibold text-gray-800"><ClipboardList size={18} className="inline mr-1" />Expenses</h2>
                 <select
                   value={expenseFilter}
                   onChange={(e) => { setExpenseFilter(e.target.value); setSelectedExpense(null); }}
@@ -313,7 +314,7 @@ export default function ExpenseReconciliation() {
             {/* RIGHT: Bank Debits */}
             <div className="bg-white rounded-lg shadow">
               <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
-                <h2 className="font-semibold text-gray-800">🏦 Bank Debits</h2>
+                <h2 className="font-semibold text-gray-800"><Landmark size={18} className="inline mr-1" />Bank Debits</h2>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -371,7 +372,7 @@ export default function ExpenseReconciliation() {
             <div className="bg-white rounded-lg shadow">
               <div className="px-4 py-3 border-b bg-gray-50">
                 <h3 className="font-semibold text-gray-800">
-                  🔗 Allocations for Expense #{selectedExpense.id}: {selectedExpense.description}
+                  <Link2 size={16} className="inline mr-1" />Allocations for Expense #{selectedExpense.id}: {selectedExpense.description}
                 </h3>
               </div>
               <div className="overflow-x-auto">
@@ -459,7 +460,7 @@ function AllocationHistory() {
   return (
     <div className="bg-white rounded-lg shadow">
       <div className="px-4 py-3 border-b bg-gray-50">
-        <h2 className="font-semibold text-gray-800">📜 All Allocations ({allocations.length})</h2>
+        <h2 className="font-semibold text-gray-800"><ScrollText size={18} className="inline mr-1" />All Allocations ({allocations.length})</h2>
       </div>
       {allocations.length === 0 ? (
         <p className="text-center py-8 text-gray-400">{t('expenseRecon.noAllocations')}</p>

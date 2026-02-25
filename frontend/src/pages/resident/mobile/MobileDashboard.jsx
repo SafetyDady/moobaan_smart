@@ -4,10 +4,11 @@ import { invoicesAPI, payinsAPI, api } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import InvoiceTable from './InvoiceTable';
-import { Home, Loader2, CreditCard } from 'lucide-react';
+import { Home, Loader2, CreditCard, AlertTriangle } from 'lucide-react';
 import { SkeletonMobileList } from '../../../components/Skeleton';
 import { isBlockingPayin } from '../../../utils/payinStatus';
 import PullToRefresh from '../../../components/PullToRefresh';
+import { t } from '../../../hooks/useLocale';
 
 export default function MobileDashboard() {
   const { currentHouseId } = useRole();
@@ -96,14 +97,14 @@ export default function MobileDashboard() {
             <span className={`text-sm font-medium ${
               isOverpaid ? 'text-emerald-100' : 'text-red-100'
             }`}>
-              {isOverpaid ? 'ชำระเกิน' : 'ยอดค้างชำระ'}
+              {isOverpaid ? t('mobileDashboard.overpaid') : t('mobileDashboard.outstanding')}
             </span>
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
               isOverpaid 
                 ? 'bg-emerald-500/30 text-emerald-100' 
                 : 'bg-red-500/30 text-red-100'
             }`}>
-              {isOverpaid ? 'ชำระแล้ว' : 'ต้องชำระ'}
+              {isOverpaid ? t('mobileDashboard.paid') : t('mobileDashboard.mustPay')}
             </span>
           </div>
           
@@ -112,7 +113,7 @@ export default function MobileDashboard() {
             <p className={`text-sm mb-1 ${
               isOverpaid ? 'text-emerald-100' : 'text-red-100'
             }`}>
-              จำนวนเงิน
+              {t('mobileDashboard.amount')}
             </p>
             <p className="text-3xl font-bold text-white">
               ฿{displayAmount.toLocaleString()}
@@ -125,10 +126,10 @@ export default function MobileDashboard() {
               <div className="w-full">
                 <div className="w-full bg-gray-400 text-gray-600 font-semibold py-2 rounded-lg text-center cursor-not-allowed flex items-center justify-center gap-2">
                   <CreditCard size={20} />
-                  ชำระเงินเลย
+                  {t('mobileDashboard.payNow')}
                 </div>
                 <p className="text-yellow-200 text-xs mt-2 text-center">
-                  ⚠️ คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน
+                  <AlertTriangle size={12} className="inline mr-1" />{t('mobileDashboard.blockingWarning')}
                 </p>
               </div>
             ) : (
@@ -137,7 +138,7 @@ export default function MobileDashboard() {
                 className="flex items-center justify-center gap-2 w-full bg-white text-red-600 font-semibold py-2 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors duration-200 shadow-md"
               >
                 <CreditCard size={20} />
-                ชำระเงินเลย
+                {t('mobileDashboard.payNow')}
               </Link>
             )
           )}
@@ -146,7 +147,7 @@ export default function MobileDashboard() {
 
       {/* Invoice Table Section */}
       <div className="px-4 mb-6">
-        <h2 className="text-xl font-bold text-white mb-4">ใบแจ้งหนี้</h2>
+        <h2 className="text-xl font-bold text-white mb-4">{t('mobileDashboard.invoiceTitle')}</h2>
         <InvoiceTable invoices={invoices} />
       </div>
       </PullToRefresh>

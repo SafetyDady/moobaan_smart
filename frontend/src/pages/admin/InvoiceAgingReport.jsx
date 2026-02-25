@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PartyPopper } from 'lucide-react';
 import { reportsAPI, housesAPI } from '../../api/client';
 import { t } from '../../hooks/useLocale';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
@@ -234,7 +235,7 @@ export default function InvoiceAgingReport() {
                 {report.rows.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                      {t('reports.noOverdueInvoices')} 🎉
+                      {t('reports.noOverdueInvoices')} <PartyPopper size={20} className="inline ml-1 text-green-400" />
                     </td>
                   </tr>
                 ) : (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { User, Home, Users, Key, Ban, CheckCircle } from 'lucide-react';
 import { usersAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
@@ -147,8 +148,8 @@ export default function UserManagement() {
   };
 
   const tabs = [
-    { key: 'staff', label: `${t('userManagement.staffTab')} (${staff.length})`, icon: '👤' },
-    { key: 'residents', label: `${t('userManagement.residentsTab')} (${residents.length})`, icon: '🏠' },
+    { key: 'staff', label: `${t('userManagement.staffTab')} (${staff.length})`, icon: <User size={16} /> },
+    { key: 'residents', label: `${t('userManagement.residentsTab')} (${residents.length})`, icon: <Home size={16} /> },
   ];
 
   return (
@@ -306,7 +307,7 @@ export default function UserManagement() {
                   {loading ? (
                     <SkeletonTable rows={5} cols={6} />
                   ) : staff.length === 0 ? (
-                    <EmptyState icon="👤" colSpan={6} />
+                    <EmptyState icon={<User size={32} />} colSpan={6} />
                   ) : (
                     staffPaged.currentItems.map(u => (
                       <tr key={u.id} className="hover:bg-slate-700/50">
@@ -342,7 +343,7 @@ export default function UserManagement() {
                               className="px-2 py-1 text-xs bg-yellow-600 hover:bg-yellow-700 text-white rounded"
                               title={t('userManagement.resetPassword')}
                             >
-                              🔑
+                              <Key size={14} />
                             </button>
                             {u.role !== 'super_admin' && (
                               u.is_active ? (
@@ -351,7 +352,7 @@ export default function UserManagement() {
                                   className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
                                   title={t('userManagement.suspend')}
                                 >
-                                  🚫
+                                  <Ban size={14} />
                                 </button>
                               ) : (
                                 <button
@@ -359,7 +360,7 @@ export default function UserManagement() {
                                   className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
                                   title={t('members.reactivate')}
                                 >
-                                  ✅
+                                  <CheckCircle size={14} />
                                 </button>
                               )
                             )}
@@ -417,7 +418,7 @@ export default function UserManagement() {
                   {residentsLoading ? (
                     <SkeletonTable rows={5} cols={6} />
                   ) : residents.length === 0 ? (
-                    <EmptyState icon="👥" colSpan={6} isFiltered={!!searchQuery} onClearFilters={() => setSearchQuery('')} />
+                    <EmptyState icon={<Users size={32} />} colSpan={6} isFiltered={!!searchQuery} onClearFilters={() => setSearchQuery('')} />
                   ) : (
                     residentsPaged.currentItems.map(r => (
                       <tr key={r.user_id || r.id} className="hover:bg-slate-700/50">
@@ -459,7 +460,7 @@ export default function UserManagement() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowResetModal(false)}>
           <div className="bg-slate-800 rounded-xl border border-gray-700 p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-white mb-4">
-              🔑 {t('userManagement.resetPassword')}
+              <Key size={16} className="inline mr-1" />{t('userManagement.resetPassword')}
             </h3>
             <p className="text-gray-400 text-sm mb-4">
               {t('userManagement.resetPassword')}: <span className="text-white font-medium">{resetTarget.email}</span>
