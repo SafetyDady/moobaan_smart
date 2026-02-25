@@ -204,7 +204,7 @@ export default function ExpenseReconciliation() {
               <h3 className="font-semibold text-blue-800 mb-3">{t('expenseRecon.createAllocation')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                 <div>
-                  <p className="text-sm text-gray-600">รายจ่าย #{selectedExpense.id}</p>
+                  <p className="text-sm text-gray-600">{t('expenseRecon.expenseId')} #{selectedExpense.id}</p>
                   <p className="font-medium">{selectedExpense.description}</p>
                   <p className="text-sm">
                     Amount: {formatMoney(selectedExpense.amount)} | 
@@ -212,7 +212,7 @@ export default function ExpenseReconciliation() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">รายการธนาคาร</p>
+                  <p className="text-sm text-gray-600">{t('expenseRecon.bankTxn')}</p>
                   <p className="font-medium text-sm">{selectedBankTxn.description?.substring(0, 50)}</p>
                   <p className="text-sm">
                     Debit: {formatMoney(selectedBankTxn.debit)} | 
@@ -221,7 +221,7 @@ export default function ExpenseReconciliation() {
                 </div>
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนเงิน (฿)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenseRecon.amountLabel')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -261,14 +261,14 @@ export default function ExpenseReconciliation() {
                   onChange={(e) => { setExpenseFilter(e.target.value); setSelectedExpense(null); }}
                   className="text-sm border border-gray-300 rounded px-2 py-1"
                 >
-                  <option value="PENDING">รอดำเนินการ</option>
-                  <option value="PAID">ชำระแล้ว</option>
-                  <option value="ALL">ทั้งหมด</option>
+                  <option value="PENDING">{t('expenseRecon.pending')}</option>
+                  <option value="PAID">{t('expenseRecon.paid')}</option>
+                  <option value="ALL">{t('common.all')}</option>
                 </select>
               </div>
               <div className="divide-y max-h-[500px] overflow-y-auto">
                 {expenses.length === 0 ? (
-                  <p className="text-center py-8 text-gray-400">ไม่พบรายจ่าย</p>
+                  <p className="text-center py-8 text-gray-400">{t('expenseRecon.noExpenses')}</p>
                 ) : expenses.map((exp) => (
                   <div
                     key={exp.id}
@@ -301,7 +301,7 @@ export default function ExpenseReconciliation() {
                       <div className="text-right ml-3 shrink-0">
                         <p className="font-semibold text-gray-900">{formatMoney(exp.amount)}</p>
                         {exp.remaining > 0 && exp.remaining < exp.amount && (
-                          <p className="text-xs text-orange-600">คงเหลือ: {formatMoney(exp.remaining)}</p>
+                          <p className="text-xs text-orange-600">{t('expenseRecon.remaining')}: {formatMoney(exp.remaining)}</p>
                         )}
                       </div>
                     </div>
@@ -326,7 +326,7 @@ export default function ExpenseReconciliation() {
               </div>
               <div className="divide-y max-h-[500px] overflow-y-auto">
                 {bankDebits.length === 0 ? (
-                  <p className="text-center py-8 text-gray-400">ไม่พบรายการเดบิตธนาคาร</p>
+                  <p className="text-center py-8 text-gray-400">{t('expenseRecon.noDebitTxns')}</p>
                 ) : bankDebits.map((txn) => (
                   <div
                     key={txn.id}
@@ -356,7 +356,7 @@ export default function ExpenseReconciliation() {
                       <div className="text-right ml-3 shrink-0">
                         <p className="font-semibold text-red-600">{formatMoney(txn.debit)}</p>
                         {txn.remaining > 0 && txn.remaining < txn.debit && (
-                          <p className="text-xs text-orange-600">คงเหลือ: {formatMoney(txn.remaining)}</p>
+                          <p className="text-xs text-orange-600">{t('expenseRecon.remaining')}: {formatMoney(txn.remaining)}</p>
                         )}
                       </div>
                     </div>
@@ -378,11 +378,11 @@ export default function ExpenseReconciliation() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายการธนาคาร</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">จับคู่แล้ว</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">สร้างเมื่อ</th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">จัดการ</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.bankTxn')}</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.date')}</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.matched')}</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.createdAt')}</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -414,14 +414,15 @@ export default function ExpenseReconciliation() {
       )}
       <ConfirmModal
         open={confirmRemove.open}
-        title="ยกเลิกการจัดสรร"
-        message="ต้องการยกเลิกการจัดสรรนี้ใช่หรือไม่?"
+        title={t("expenseRecon.cancelAllocation")}
+        message={t("expenseRecon.cancelAllocationConfirm")}
         variant="danger"
         confirmText={t('common.delete')}
         onConfirm={() => handleRemoveAllocation(confirmRemove.allocId)}
         onCancel={() => setConfirmRemove({ open: false, allocId: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }
 
@@ -468,12 +469,12 @@ function AllocationHistory() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.expense')}</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ผู้รับเงิน</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียดธนาคาร</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่ธนาคาร</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">จับคู่แล้ว</th>
-                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">สถานะรายจ่าย</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">สร้างเมื่อ</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.vendor')}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.bankDetails')}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.bankDate')}</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.matched')}</th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.expenseStatus')}</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('expenseRecon.createdAt')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -501,6 +502,5 @@ function AllocationHistory() {
         </div>
       )}
     </div>
-    </AdminPageWrapper>
   );
 }

@@ -68,92 +68,92 @@ export default function MobileNav() {
 
     if (user.role === 'super_admin') {
       return {
-        dashboard: { name: 'แดชบอร์ด', path: '/admin/dashboard', icon: BarChart3 },
+        dashboard: { name: t('nav.dashboard'), path: '/admin/dashboard', icon: BarChart3 },
         sections: [
           {
             id: 'management',
-            title: 'การจัดการ',
+            title: t('nav.management'),
             items: [
-              { name: 'จัดการบ้าน', path: '/admin/houses', icon: Home },
-              { name: 'ทะเบียนลูกบ้าน', path: '/admin/members', icon: Users },
-              { name: 'ผู้รับเงิน', path: '/admin/vendors', icon: Building2 },
-              { name: 'จัดการผู้ใช้', path: '/admin/users', icon: UserCog },
+              { name: t('nav.manageHouses'), path: '/admin/houses', icon: Home },
+              { name: t('nav.memberRegistry'), path: '/admin/members', icon: Users },
+              { name: t('nav.vendors'), path: '/admin/vendors', icon: Building2 },
+              { name: t('nav.userManagement'), path: '/admin/users', icon: UserCog },
             ]
           },
           {
             id: 'finance',
-            title: 'การเงิน',
+            title: t('nav.finance'),
             items: [
-              { name: 'ใบแจ้งหนี้', path: '/admin/invoices', icon: FileText },
-              { name: 'ตรวจสอบการชำระ', path: '/admin/payins', icon: DollarSign },
-              { name: 'รายจ่าย', path: '/admin/expenses', icon: TrendingDown },
-              { name: 'รายการธนาคาร', path: '/admin/statements', icon: CreditCard },
-              { name: 'จับคู่รายจ่าย', path: '/admin/expense-reconciliation', icon: GitCompare },
-              { name: 'รายการรับเงินที่ยังระบุไม่ได้', path: '/admin/unidentified-receipts', icon: HelpCircle },
+              { name: t('nav.invoices'), path: '/admin/invoices', icon: FileText },
+              { name: t('nav.paymentReview'), path: '/admin/payins', icon: DollarSign },
+              { name: t('nav.expenses'), path: '/admin/expenses', icon: TrendingDown },
+              { name: t('nav.bankStatements'), path: '/admin/statements', icon: CreditCard },
+              { name: t('nav.expenseRecon'), path: '/admin/expense-reconciliation', icon: GitCompare },
+              { name: t('nav.unidentifiedReceipts'), path: '/admin/unidentified-receipts', icon: HelpCircle },
             ]
           },
           {
             id: 'reporting',
-            title: 'รายงาน',
+            title: t('nav.reports'),
             items: [
-              { name: 'รายงานอายุหนี้', path: '/admin/reports/aging', icon: PieChart },
-              { name: 'รายงานกระแสเงินสด', path: '/admin/reports/cashflow', icon: TrendingUp },
+              { name: t('nav.agingReport'), path: '/admin/reports/aging', icon: PieChart },
+              { name: t('nav.cashFlowReport'), path: '/admin/reports/cashflow', icon: TrendingUp },
             ]
           },
           {
             id: 'settings',
-            title: 'ตั้งค่า',
+            title: t('nav.settings'),
             items: [
-              { name: 'ผังบัญชี', path: '/admin/chart-of-accounts', icon: List },
-              { name: 'ปิดงวดบัญชี', path: '/admin/period-closing', icon: Lock },
+              { name: t('nav.chartOfAccounts'), path: '/admin/chart-of-accounts', icon: List },
+              { name: t('nav.periodClosing'), path: '/admin/period-closing', icon: Lock },
             ]
           },
         ]
       };
     } else if (user.role === 'accounting') {
       return {
-        dashboard: { name: 'แดชบอร์ด', path: '/accounting/dashboard', icon: BarChart3 },
+        dashboard: { name: t('nav.dashboard'), path: '/accounting/dashboard', icon: BarChart3 },
         sections: [
           {
             id: 'finance',
-            title: 'การเงิน',
+            title: t('nav.finance'),
             items: [
-              { name: 'ใบแจ้งหนี้', path: '/accounting/invoices', icon: FileText },
-              { name: 'ตรวจสอบการชำระ', path: '/accounting/payins', icon: DollarSign },
-              { name: 'รายจ่าย', path: '/accounting/expenses', icon: TrendingDown },
-              { name: 'ผู้รับเงิน', path: '/accounting/vendors', icon: Building2 },
-              { name: 'รายการธนาคาร', path: '/accounting/statements', icon: CreditCard },
-              { name: 'จับคู่รายจ่าย', path: '/accounting/expense-reconciliation', icon: GitCompare },
-              { name: 'รายการรับเงินที่ยังระบุไม่ได้', path: '/accounting/unidentified-receipts', icon: HelpCircle },
+              { name: t('nav.invoices'), path: '/accounting/invoices', icon: FileText },
+              { name: t('nav.paymentReview'), path: '/accounting/payins', icon: DollarSign },
+              { name: t('nav.expenses'), path: '/accounting/expenses', icon: TrendingDown },
+              { name: t('nav.vendors'), path: '/accounting/vendors', icon: Building2 },
+              { name: t('nav.bankStatements'), path: '/accounting/statements', icon: CreditCard },
+              { name: t('nav.expenseRecon'), path: '/accounting/expense-reconciliation', icon: GitCompare },
+              { name: t('nav.unidentifiedReceipts'), path: '/accounting/unidentified-receipts', icon: HelpCircle },
             ]
           },
           {
             id: 'reporting',
-            title: 'รายงาน',
+            title: t('nav.reports'),
             items: [
-              { name: 'รายงานอายุหนี้', path: '/accounting/reports/aging', icon: PieChart },
-              { name: 'รายงานกระแสเงินสด', path: '/accounting/reports/cashflow', icon: TrendingUp },
+              { name: t('nav.agingReport'), path: '/accounting/reports/aging', icon: PieChart },
+              { name: t('nav.cashFlowReport'), path: '/accounting/reports/cashflow', icon: TrendingUp },
             ]
           },
           {
             id: 'settings',
-            title: 'ตั้งค่า',
+            title: t('nav.settings'),
             items: [
-              { name: 'ผังบัญชี', path: '/accounting/chart-of-accounts', icon: List },
-              { name: 'ปิดงวดบัญชี', path: '/accounting/period-closing', icon: Lock },
+              { name: t('nav.chartOfAccounts'), path: '/accounting/chart-of-accounts', icon: List },
+              { name: t('nav.periodClosing'), path: '/accounting/period-closing', icon: Lock },
             ]
           },
         ]
       };
     } else if (user.role === 'resident') {
       return {
-        dashboard: { name: 'แดชบอร์ด', path: '/resident/dashboard', icon: BarChart3 },
+        dashboard: { name: t('nav.dashboard'), path: '/resident/dashboard', icon: BarChart3 },
         sections: [
           {
             id: 'actions',
-            title: 'ดำเนินการ',
+            title: t('nav.actions'),
             items: [
-              { name: 'ส่งหลักฐานชำระเงิน', path: '/resident/submit', icon: Send },
+              { name: t('nav.submitPayment'), path: '/resident/submit', icon: Send },
             ]
           },
         ]
@@ -172,9 +172,9 @@ export default function MobileNav() {
   };
 
   const getRoleDisplayName = () => {
-    if (user?.role === 'super_admin') return 'ผู้ดูแลระบบ';
-    if (user?.role === 'accounting') return 'บัญชี';
-    if (user?.role === 'resident') return 'ลูกบ้าน';
+    if (user?.role === 'super_admin') return t('roles.super_admin');
+    if (user?.role === 'accounting') return t('roles.accounting');
+    if (user?.role === 'resident') return t('roles.resident');
     return '-';
   };
 
@@ -184,7 +184,7 @@ export default function MobileNav() {
       <button
         onClick={() => setIsOpen(true)}
         className="mobile-nav-toggle fixed top-4 left-4 z-50 p-2 bg-slate-800 border border-gray-700 rounded-lg shadow-lg text-white hover:bg-slate-700 transition-colors"
-        aria-label="เปิดเมนู"
+        aria-label={t('common.openMenu')}
       >
         <Menu className="w-6 h-6" />
       </button>
@@ -211,7 +211,7 @@ export default function MobileNav() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
-                {user?.name || 'ผู้ใช้งาน'}
+                {user?.name || t('common.user')}
               </p>
               <span className={`inline-block px-2 py-0.5 text-xs rounded ${getRoleBadgeColor()} text-white`}>
                 {getRoleDisplayName()}
@@ -221,7 +221,7 @@ export default function MobileNav() {
           <button
             onClick={() => setIsOpen(false)}
             className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors"
-            aria-label="ปิดเมนู"
+            aria-label={t('common.closeMenu')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -233,7 +233,7 @@ export default function MobileNav() {
           {currentNav.dashboard && (
             <div className="mb-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                แดชบอร์ด
+                {t('nav.dashboard')}
               </p>
               <Link
                 to={currentNav.dashboard.path}
@@ -297,7 +297,7 @@ export default function MobileNav() {
             className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
           >
             <LogOut className="w-5 h-5" />
-            <span className="font-medium">ออกจากระบบ</span>
+            <span className="font-medium">{t('common.logout')}</span>
           </button>
         </div>
       </aside>

@@ -58,7 +58,7 @@ export default function AddHouse() {
       const response = await housesAPI.create(formData);
       
       if (response.data.success) {
-        toast.success(`สร้างข้อมูลบ้านเรียบร้อย! รหัสบ้าน: ${formData.house_code} / เจ้าของ: ${formData.owner_name}`);
+        toast.success(`${t('addHouse.createSuccess')} ${t('addHouse.houseCode')}: ${formData.house_code} / ${t('addHouse.ownerName')}: ${formData.owner_name}`);
         
         if (saveAndAddAnother) {
           setFormData({
@@ -82,7 +82,7 @@ export default function AddHouse() {
       if (typeof errorDetail === 'object' && errorDetail.error_th) {
         toast.error(errorDetail.error_th);
       } else {
-        toast.error(`ไม่สามารถสร้างบ้านได้: ${typeof errorDetail === 'string' ? errorDetail : 'เกิดข้อผิดพลาด'}`);
+        toast.error(`${t('addHouse.createFailed')}: ${typeof errorDetail === 'string' ? errorDetail : t('common.error')}`);
       }
     } finally {
       setLoading(false);
@@ -127,7 +127,7 @@ export default function AddHouse() {
               type="text"
               value={formData.house_code}
               onChange={(e) => handleInputChange('house_code', e.target.value)}
-              placeholder="เช่น 28/1, 28/15, 28/158"
+              placeholder={t('addHouse.houseCodePlaceholder')}
               className={`input w-full ${errors.house_code ? 'border-red-500' : ''}`}
               disabled={loading}
             />
@@ -135,7 +135,7 @@ export default function AddHouse() {
               <p className="text-red-400 text-sm mt-1">{errors.house_code}</p>
             )}
             <p className="text-gray-500 text-sm mt-1">
-              รูปแบบ: 28/[หมายเลข] เช่น 28/1, 28/15, 28/158
+              {t('addHouse.houseCodeFormat')}
             </p>
           </div>
 
@@ -148,7 +148,7 @@ export default function AddHouse() {
               type="text"
               value={formData.owner_name}
               onChange={(e) => handleInputChange('owner_name', e.target.value)}
-              placeholder="ชื่อ-นามสกุลเจ้าของบ้าน"
+              placeholder={t('addHouse.ownerNamePlaceholder')}
               className={`input w-full ${errors.owner_name ? 'border-red-500' : ''}`}
               disabled={loading}
             />
@@ -186,7 +186,7 @@ export default function AddHouse() {
                 type="text"
                 value={formData.floor_area}
                 onChange={(e) => handleInputChange('floor_area', e.target.value)}
-                placeholder="เช่น 120 ตร.ม."
+                placeholder={t('houses.areaPlaceholder')}
                 className="input w-full"
                 disabled={loading}
               />
@@ -199,7 +199,7 @@ export default function AddHouse() {
                 type="text"
                 value={formData.land_area}
                 onChange={(e) => handleInputChange('land_area', e.target.value)}
-                placeholder="เช่น 80 ตรว."
+                placeholder={t('houses.landPlaceholder')}
                 className="input w-full"
                 disabled={loading}
               />
@@ -212,7 +212,7 @@ export default function AddHouse() {
                 type="text"
                 value={formData.zone}
                 onChange={(e) => handleInputChange('zone', e.target.value)}
-                placeholder="เช่น A, B, C"
+                placeholder={t('addHouse.zonePlaceholder')}
                 className="input w-full"
                 disabled={loading}
               />
@@ -227,7 +227,7 @@ export default function AddHouse() {
             <textarea
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="หมายเหตุเพิ่มเติม"
+              placeholder={t('common.notesPlaceholder')}
               rows="3"
               className="input w-full"
               disabled={loading}

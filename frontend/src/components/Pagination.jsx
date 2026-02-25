@@ -13,6 +13,7 @@
  *   // paged.currentItems = items for current page
  *   // Render <Pagination {...paged} /> below your table
  */
+import React from 'react';
 import { t } from '../hooks/useLocale';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -30,17 +31,20 @@ export function usePagination(data = [], initialPageSize = 25) {
   const totalItems = data.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-  // Reset to page 1 when data or pageSize changes
+  // Reset to page 1 when data length or pageSize changes
   React.useEffect(() => {
     setCurrentPage(1);
   }, [data.length, pageSize]);
 
-  // Ensure currentPage is within bounds
-  const safePage = Math.min(currentPage, totalPages);
-  if (safePage !== currentPage) {
-    setCurrentPage(safePage);
-  }
+  // Clamp currentPage within bounds using useEffect (avoids setState during render)
+  React.useEffect(() => {
+    setCurrentPage((prev) => {
+      const maxPage = Math.max(1, Math.ceil(data.length / pageSize));
+      return prev > maxPage ? maxPage : prev;
+    });
+  }, [data.length, pageSize]);
 
+  const safePage = Math.min(currentPage, totalPages);
   const startIndex = (safePage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
   const currentItems = data.slice(startIndex, endIndex);
@@ -60,8 +64,6 @@ export function usePagination(data = [], initialPageSize = 25) {
     },
   };
 }
-
-import React from 'react';
 
 /**
  * Pagination UI Component

@@ -158,7 +158,7 @@ export default function Members() {
         setMessageModal({
           show: true,
           type: 'success',
-          title: '✅ สำเร็จ',
+          title: t('common.success'),
           message_th: t('members.deactivateSuccess'),
           message_en: '',
           showDetails: false,
@@ -169,7 +169,7 @@ export default function Members() {
         setMessageModal({
           show: true,
           type: 'success',
-          title: '✅ สำเร็จ',
+          title: `✅ ${t('common.success')}`,
           message_th: t('members.reactivateSuccess'),
           message_en: '',
           showDetails: false,
@@ -185,7 +185,7 @@ export default function Members() {
           setMessageModal({
             show: true,
             type: 'warning',
-            title: '⚠️ ไม่สามารถเปิดใช้งานได้',
+            title: t('members.cannotActivate'),
             message_th: detail.message_th || t('members.houseFull'),
             message_en: '',
             showDetails: false,
@@ -204,7 +204,7 @@ export default function Members() {
           return;
         }
         
-        toast.error('ไม่สามารถดำเนินการได้เนื่องจากสถานะปัจจุบัน');
+        toast.error(t('members.cannotChangeStatus'));
         return;
       }
       
@@ -231,7 +231,7 @@ export default function Members() {
         }
       }
       
-      toast.error(`ไม่สามารถ${resident.is_active ? 'ปิด' : 'เปิด'}ใช้งานสมาชิกได้ กรุณาลองใหม่`);
+      toast.error(t('members.toggleFailed'));
     }
   };
 
@@ -259,7 +259,7 @@ export default function Members() {
         show: true,
         type: 'success',
         title: `✅ ${t('members.removeSuccess')}`,
-        message_th: response.data.message_th || `ถอด ${resident.full_name} ออกจากบ้าน ${resident.house.house_code} แล้ว`,
+        message_th: response.data.message_th || `${t('members.removeFromHouse')} ${resident.full_name} - ${resident.house.house_code}  ${t('common.success')}`,
         message_en: '',
         showDetails: false,
         errorDetails: null
@@ -268,7 +268,7 @@ export default function Members() {
       if (response.data.user_deactivated) {
         setMessageModal(prev => ({
           ...prev,
-          message_th: prev.message_th + '\n⚠️ ผู้ใช้ไม่มีบ้านเหลือ — ถูก deactivate อัตโนมัติ',
+          message_th: prev.message_th + `\n⚠️ ${t('members.noHouseAssigned')} — auto deactivated`,
         }));
       }
 
@@ -281,7 +281,7 @@ export default function Members() {
         show: true,
         type: 'error',
         title: `❌ ${t('members.removeFailed')}`,
-        message_th: typeof detail === 'object' ? (detail.error_th || 'เกิดข้อผิดพลาด') : (detail || 'เกิดข้อผิดพลาด'),
+        message_th: typeof detail === 'object' ? (detail.error_th || t('common.error')) : (detail || t('common.error')),
         message_en: '',
         showDetails: false,
         errorDetails: null
@@ -313,7 +313,7 @@ export default function Members() {
         show: true,
         type: 'success',
         title: `✅ ${t('members.forceLogoutSuccess')}`,
-        message_th: `บังคับออกจากระบบ ${resident.full_name} สำเร็จ\nลูกบ้านจะต้อง login ด้วย OTP ใหม่`,
+        message_th: `${t('members.forceLogout')} ${resident.full_name} ${t('common.success')}\n${t('members.forceLogoutEffect2')}`,
         message_en: '',
         showDetails: false,
         errorDetails: null
@@ -728,7 +728,7 @@ export default function Members() {
       <ConfirmModal
         open={confirmDeactivate.open}
         title={confirmDeactivate.resident?.is_active ? t('members.confirmDeactivate') : t('members.confirmReactivate')}
-        message={confirmDeactivate.resident ? `ต้องการ${confirmDeactivate.resident.is_active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'} ${confirmDeactivate.resident.full_name} ใช่หรือไม่?` : ''}
+        message={confirmDeactivate.resident ? `${confirmDeactivate.resident.is_active ? t('members.confirmDeactivate') : t('members.confirmReactivate')} ${confirmDeactivate.resident.full_name}?` : ''}
         variant={confirmDeactivate.resident?.is_active ? 'warning' : 'info'}
         confirmText={confirmDeactivate.resident?.is_active ? t('members.deactivate') : t('members.reactivate')}
         onConfirm={() => { if (confirmDeactivate.resident) handleDeactivate(confirmDeactivate.resident); }}

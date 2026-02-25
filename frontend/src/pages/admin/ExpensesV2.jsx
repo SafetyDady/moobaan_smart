@@ -24,20 +24,20 @@ import AdminPageWrapper from '../../components/AdminPageWrapper';
 
 // Fallback categories (replaced by API-loaded expense_categories from DB)
 const FALLBACK_EXPENSE_CATEGORIES = [
-  { value: 'MAINTENANCE', label: 'ค่าซ่อมบำรุง' },
-  { value: 'SECURITY', label: 'ค่ารักษาความปลอดภัย' },
-  { value: 'CLEANING', label: 'ค่าทำความสะอาด' },
-  { value: 'ELECTRICITY', label: 'ค่าไฟฟ้า' },
-  { value: 'WATER', label: 'ค่าน้ำประปา' },
-  { value: 'ADMIN', label: 'ค่าบริหารจัดการ' },
-  { value: 'OTHER', label: 'อื่นๆ' },
+  { value: 'MAINTENANCE', label: t('expenses.catMaintenance') },
+  { value: 'SECURITY', label: t('expenses.catSecurity') },
+  { value: 'CLEANING', label: t('expenses.catCleaning') },
+  { value: 'ELECTRICITY', label: t('expenses.catElectricity') },
+  { value: 'WATER', label: t('expenses.catWater') },
+  { value: 'ADMIN', label: t('expenses.catAdmin') },
+  { value: 'OTHER', label: t('common.other') },
 ];
 
 const PAYMENT_METHODS = [
-  { value: 'CASH', label: 'เงินสด' },
-  { value: 'TRANSFER', label: 'โอนเงิน' },
-  { value: 'CHECK', label: 'เช็ค' },
-  { value: 'OTHER', label: 'อื่นๆ' },
+  { value: 'CASH', label: t('expenses.payCash') },
+  { value: 'TRANSFER', label: t('expenses.payTransfer') },
+  { value: 'CHECK', label: t('expenses.payCheck') },
+  { value: 'OTHER', label: t('common.other') },
 ];
 
 export default function Expenses() {
@@ -487,7 +487,7 @@ export default function Expenses() {
           </div>
         </div>
         <div className="bg-slate-800 rounded-xl p-4 border border-gray-700">
-          <div className="text-gray-400 text-sm">ยกเลิก</div>
+          <div className="text-gray-400 text-sm">{t('expenses.cancelled')}</div>
           <div className="text-2xl font-bold text-gray-400">{summary.count_cancelled || 0}</div>
           <div className="text-xs text-gray-500">expenses</div>
         </div>
@@ -522,9 +522,9 @@ export default function Expenses() {
               className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
             >
               <option value="">{t('payins.allStatus')}</option>
-              <option value="PENDING">รอดำเนินการ</option>
-              <option value="PAID">ชำระแล้ว</option>
-              <option value="CANCELLED">ยกเลิก</option>
+              <option value="PENDING">{t('expenses.pending')}</option>
+              <option value="PAID">{t('expenses.paid')}</option>
+              <option value="CANCELLED">{t('expenses.cancelled')}</option>
             </select>
           </div>
           <div>
@@ -671,7 +671,7 @@ export default function Expenses() {
                           </button>
                         )}
                         {expense.status === 'CANCELLED' && (
-                          <span className="text-xs text-gray-500">ยกเลิก</span>
+                          <span className="text-xs text-gray-500">{t('expenses.cancelled')}</span>
                         )}
                       </div>
                     </td>
@@ -781,13 +781,13 @@ export default function Expenses() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">รหัสบัญชี</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.accountCode')}</label>
                   <select
                     value={formData.account_id}
                     onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">ไม่ได้กำหนด</option>
+                    <option value="">{t('expenses.notAssigned')}</option>
                     {expenseAccounts.map(acc => (
                       <option key={acc.id} value={acc.id}>{acc.account_code} - {acc.account_name}</option>
                     ))}
@@ -919,7 +919,7 @@ export default function Expenses() {
                     ))}
                   </select>
                   {formData.vendor_name && !formData.vendor_id && (
-                    <p className="text-xs text-yellow-400/70 mt-1">เดิม: {formData.vendor_name}</p>
+                    <p className="text-xs text-yellow-400/70 mt-1">{t('expenses.previous')}: {formData.vendor_name}</p>
                   )}
                 </div>
               </div>
@@ -939,13 +939,13 @@ export default function Expenses() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">รหัสบัญชี</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.accountCode')}</label>
                   <select
                     value={formData.account_id}
                     onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">ไม่ได้กำหนด</option>
+                    <option value="">{t('expenses.notAssigned')}</option>
                     {expenseAccounts.map(acc => (
                       <option key={acc.id} value={acc.id}>{acc.account_code} - {acc.account_name}</option>
                     ))}
@@ -1014,10 +1014,10 @@ export default function Expenses() {
 
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
               <p className="text-gray-300">
-                <strong>รายจ่าย:</strong> {selectedExpense.description}
+                <strong>{t('expenses.expense')}:</strong> {selectedExpense.description}
               </p>
               <p className="text-white text-lg font-bold mt-1">
-                Amount: ฿{selectedExpense.amount?.toLocaleString('th-TH')}
+                {t('expenses.amount')}: ฿{selectedExpense.amount?.toLocaleString('th-TH')}
               </p>
             </div>
 
@@ -1083,10 +1083,10 @@ export default function Expenses() {
 
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
               <p className="text-gray-300">
-                <strong>รายจ่าย:</strong> {selectedExpense.description}
+                <strong>{t('expenses.expenseLabel')}:</strong> {selectedExpense.description}
               </p>
               <p className="text-white text-lg font-bold mt-1">
-                Amount: ฿{selectedExpense.amount?.toLocaleString('th-TH')}
+                {t('expenses.amount')}: ฿{selectedExpense.amount?.toLocaleString('th-TH')}
               </p>
             </div>
 
@@ -1131,11 +1131,11 @@ export default function Expenses() {
             {/* Expense Summary */}
             <div className="mb-4 p-4 bg-slate-700 rounded-lg space-y-1">
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">รายละเอียด</span>
+                <span className="text-gray-400 text-sm">{t('common.description')}</span>
                 <span className="text-white text-sm font-medium">{selectedExpense.description}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">จำนวนเงิน</span>
+                <span className="text-gray-400 text-sm">{t('common.amount')}</span>
                 <span className="text-white text-sm font-bold">฿{selectedExpense.amount?.toLocaleString('th-TH')}</span>
               </div>
               <div className="flex justify-between">
@@ -1145,11 +1145,11 @@ export default function Expenses() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">ผู้รับเงิน</span>
+                <span className="text-gray-400 text-sm">{t('expenses.vendor')}</span>
                 <span className="text-gray-300 text-sm">{selectedExpense.vendor_name || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">วันที่</span>
+                <span className="text-gray-400 text-sm">{t('common.date')}</span>
                 <span className="text-gray-300 text-sm">{selectedExpense.expense_date}</span>
               </div>
             </div>
@@ -1185,9 +1185,9 @@ export default function Expenses() {
                       ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-600/50'
                       : 'bg-gray-600 cursor-not-allowed opacity-50'
                   }`}
-                  title={selectedExpense.status !== 'PAID' ? 'อัปโหลดใบเสร็จได้เมื่อสถานะเป็น ชำระแล้ว เท่านั้น' : ''}
+                  title={selectedExpense.status !== 'PAID' ? t('expenses.uploadOnlyPaid') : ''}
                 >
-                  {uploading ? '⏳ กำลังอัปโหลด...' : '🧾 อัปโหลดใบเสร็จ'}
+                  {uploading ? t('expenses.uploading') : t('expenses.uploadReceipt')}
                 </button>
                 <input
                   ref={receiptInputRef}
@@ -1217,9 +1217,9 @@ export default function Expenses() {
 
             {/* Attachment List */}
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-400">ไฟล์แนบ</h3>
+              <h3 className="text-sm font-medium text-gray-400">{t('expenses.attachments')}</h3>
               {attachLoading ? (
-                <p className="text-gray-500 text-sm py-4 text-center">กำลังโหลดไฟล์แนบ...</p>
+                <p className="text-gray-500 text-sm py-4 text-center">{t('expenses.loadingAttachments')}</p>
               ) : attachments.length === 0 ? (
                 <p className="text-gray-500 text-sm py-4 text-center border border-dashed border-gray-600 rounded-lg">
                   No attachments yet
@@ -1277,10 +1277,10 @@ export default function Expenses() {
       )}
       <ConfirmModal
         open={confirmDeleteAttach.open}
-        title="ลบไฟล์แนบ"
-        message="ต้องการลบไฟล์แนบนี้ใช่หรือไม่?"
+        title={t("expenses.deleteAttachment")}
+        message={t("expenses.deleteAttachmentConfirm")}
         variant="danger"
-        confirmText="ลบ"
+        confirmText={t("common.delete")}
         onConfirm={() => handleDeleteAttachment(confirmDeleteAttach.attachmentId, confirmDeleteAttach.expenseId)}
         onCancel={() => setConfirmDeleteAttach({ open: false, attachmentId: null, expenseId: null })}
       />

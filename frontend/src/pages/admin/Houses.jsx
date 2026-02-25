@@ -350,7 +350,7 @@ export default function Houses() {
                     type="text"
                     value={editForm.floor_area}
                     onChange={(e) => handleEditChange('floor_area', e.target.value)}
-                    placeholder="120 ตร.ม."
+                    placeholder={t('houses.areaPlaceholder')}
                     className="input w-full"
                     disabled={editLoading}
                   />
@@ -361,7 +361,7 @@ export default function Houses() {
                     type="text"
                     value={editForm.land_area}
                     onChange={(e) => handleEditChange('land_area', e.target.value)}
-                    placeholder="80 ตรว."
+                    placeholder={t('houses.landPlaceholder')}
                     className="input w-full"
                     disabled={editLoading}
                   />

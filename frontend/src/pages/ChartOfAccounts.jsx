@@ -17,6 +17,7 @@ import { accountsAPI } from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
 import AdminPageWrapper from '../components/AdminPageWrapper';
+import { t } from '../hooks/useLocale';
 
 
 // Account type badge colors
@@ -76,7 +77,7 @@ export default function ChartOfAccounts() {
       const response = await accountsAPI.list(params);
       setAccounts(response.data.accounts || []);
     } catch (err) {
-      setError('Failed to load accounts');
+      setError(t('chartOfAccounts.loadFailed'));
       console.error(err);
     } finally {
       setLoading(false);
@@ -118,12 +119,12 @@ export default function ChartOfAccounts() {
         account_type: formData.account_type,
       });
       
-      setSuccess('Account created successfully');
+      setSuccess(t('chartOfAccounts.createSuccess'));
       setShowCreateModal(false);
       resetForm();
       fetchAccounts();
     } catch (err) {
-      setFormError(err.response?.data?.detail || 'Failed to create account');
+      setFormError(err.response?.data?.detail || t('chartOfAccounts.createFailed'));
     } finally {
       setSaving(false);
     }
@@ -141,12 +142,12 @@ export default function ChartOfAccounts() {
         active: formData.active,
       });
       
-      setSuccess('Account updated successfully');
+      setSuccess(t('chartOfAccounts.updateSuccess'));
       setEditingAccount(null);
       resetForm();
       fetchAccounts();
     } catch (err) {
-      setFormError(err.response?.data?.detail || 'Failed to update account');
+      setFormError(err.response?.data?.detail || t('chartOfAccounts.updateFailed'));
     } finally {
       setSaving(false);
     }
@@ -158,10 +159,10 @@ export default function ChartOfAccounts() {
     
     try {
       await accountsAPI.delete(account.id);
-      setSuccess(`Account "${account.account_code}" disabled`);
+      setSuccess(`${t('chartOfAccounts.disableSuccess')} "${account.account_code}"`);
       fetchAccounts();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to disable account');
+      setError(err.response?.data?.detail || t('chartOfAccounts.disableFailed'));
     }
   };
 
@@ -176,9 +177,9 @@ export default function ChartOfAccounts() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      setSuccess('Export downloaded');
+      setSuccess(t('chartOfAccounts.exportSuccess'));
     } catch (err) {
-      setError('Failed to export CSV');
+      setError(t('chartOfAccounts.exportFailed'));
     }
   };
 
@@ -303,7 +304,7 @@ export default function ChartOfAccounts() {
           </div>
           
           <div className="ml-auto text-sm text-gray-500">
-            {accounts.length} account{accounts.length !== 1 ? 's' : ''}
+            {accounts.length} {t('chartOfAccounts.accountUnit')}
           </div>
         </div>
       </div>
@@ -394,14 +395,15 @@ export default function ChartOfAccounts() {
       )}
       <ConfirmModal
         open={confirmDisable.open}
-        title="ปิดการใช้งานบัญชี"
-        message={`ต้องการปิดการใช้งานบัญชี "${confirmDisable.account?.account_code || ''} - ${confirmDisable.account?.account_name || ''}" ใช่หรือไม่?`}
+        title={t('chartOfAccounts.disableTitle')}
+        message={`${t('chartOfAccounts.disableConfirm')} "${confirmDisable.account?.account_code || ''} - ${confirmDisable.account?.account_name || ''}"?`}
         variant="warning"
-        confirmText="ปิดการใช้งาน"
+        confirmText={t('chartOfAccounts.disableBtn')}
         onConfirm={() => handleDelete(confirmDisable.account)}
         onCancel={() => setConfirmDisable({ open: false, account: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }
 
@@ -466,14 +468,14 @@ function AccountTypeSection({ title, accounts, canEdit, canDelete, onEdit, onDel
                     onClick={() => onEdit(account)}
                     className="text-blue-600 hover:text-blue-800 text-sm mr-3"
                   >
-                    Edit
+                    {t('common.edit')}
                   </button>
                   {canDelete && account.expense_count === 0 && account.invoice_count === 0 && account.active && (
                     <button
                       onClick={() => onDelete(account)}
                       className="text-red-600 hover:text-red-800 text-sm"
                     >
-                      Disable
+                      {t('chartOfAccounts.disableBtn')}
                     </button>
                   )}
                 </td>
@@ -511,19 +513,19 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {isCreate && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Code <span className="text-red-500">*</span>
+                {t('chartOfAccounts.code')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.account_code}
                 onChange={(e) => setFormData({ ...formData, account_code: e.target.value })}
-                placeholder="e.g., 5101"
+                placeholder={t('chartOfAccounts.codePlaceholder')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono"
                 required
                 maxLength={20}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Convention: 1xxx=Asset, 2xxx=Liability, 4xxx=Revenue, 5xxx=Expense
+                {t('chartOfAccounts.codeConvention')}
               </p>
             </div>
           )}
@@ -532,7 +534,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {!isCreate && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Code
+                {t('chartOfAccounts.code')}
               </label>
               <input
                 type="text"
@@ -541,7 +543,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 font-mono text-gray-600"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Account code cannot be changed
+                {t('chartOfAccounts.codeImmutable')}
               </p>
             </div>
           )}
@@ -549,13 +551,13 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {/* Account Name */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Account Name <span className="text-red-500">*</span>
+              {t('chartOfAccounts.accountName')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.account_name}
               onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
-              placeholder="e.g., Office Supplies"
+              placeholder={t('chartOfAccounts.namePlaceholder')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               required
               maxLength={255}
@@ -566,7 +568,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {isCreate && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Type <span className="text-red-500">*</span>
+                {t('common.type')} <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.account_type}
@@ -586,7 +588,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {!isCreate && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Type
+                {t('common.type')}
               </label>
               <input
                 type="text"
@@ -595,7 +597,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Account type cannot be changed
+                {t('chartOfAccounts.typeImmutable')}
               </p>
             </div>
           )}
@@ -622,7 +624,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
               onClick={onCancel}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -635,6 +637,5 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
         </form>
       </div>
     </div>
-    </AdminPageWrapper>
   );
 }

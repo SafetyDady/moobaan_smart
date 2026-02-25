@@ -56,7 +56,7 @@ export default function UserManagement() {
       const res = await usersAPI.listStaff();
       setStaff(res.data.staff || []);
     } catch (err) {
-      setError('ไม่สามารถโหลดข้อมูลพนักงานได้');
+      setError(t('userManagement.loadStaffFailed'));
       console.error(err);
     } finally {
       setLoading(false);
@@ -86,13 +86,13 @@ export default function UserManagement() {
     setFormError('');
     try {
       await usersAPI.createStaff(staffForm);
-      showMsg(`สร้างบัญชีพนักงาน '${staffForm.email}' สำเร็จ`);
+      showMsg(`${t('userManagement.createStaffSuccess')} '${staffForm.email}'`);
       setShowCreateForm(false);
       setStaffForm({ email: '', password: '', full_name: '', role: 'accounting', phone: '' });
       loadStaff();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setFormError(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'ไม่สามารถสร้างได้');
+      setFormError(typeof detail === 'string' ? detail : JSON.stringify(detail) || t('userManagement.createStaffFailed'));
     } finally {
       setFormLoading(false);
     }
@@ -102,20 +102,20 @@ export default function UserManagement() {
     setConfirmDeactivate({ open: false, user: null });
     try {
       await usersAPI.deactivateStaff(user.id);
-      showMsg(`ระงับบัญชี ${user.email} สำเร็จ`);
+      showMsg(`${t('userManagement.suspendSuccess')} ${user.email}`);
       loadStaff();
     } catch (err) {
-      setError(err.response?.data?.detail || 'ไม่สามารถระงับบัญชีได้');
+      setError(err.response?.data?.detail || t('userManagement.suspendFailed'));
     }
   };
 
   const handleReactivateStaff = async (user) => {
     try {
       await usersAPI.reactivateStaff(user.id);
-      showMsg(`เปิดใช้งานบัญชี ${user.email} สำเร็จ`);
+      showMsg(`${t('userManagement.createStaffSuccess')} - ${user.email}`);
       loadStaff();
     } catch (err) {
-      setError(err.response?.data?.detail || 'ไม่สามารถเปิดใช้งานได้');
+      setError(err.response?.data?.detail || t('members.cannotActivate'));
     }
   };
 
@@ -133,10 +133,10 @@ export default function UserManagement() {
     setResetLoading(true);
     try {
       await usersAPI.resetStaffPassword(resetTarget.id, { new_password: newPassword });
-      showMsg(`รีเซ็ตรหัสผ่านสำหรับ ${resetTarget.email} สำเร็จ`);
+      showMsg(`${t('userManagement.resetPassword')} ${resetTarget.email} ${t('common.success')}`);
       setShowResetModal(false);
     } catch (err) {
-      setFormError(err.response?.data?.detail || 'ไม่สามารถรีเซ็ตรหัสผ่านได้');
+      setFormError(err.response?.data?.detail || t('common.error'));
     } finally {
       setResetLoading(false);
     }
@@ -244,7 +244,7 @@ export default function UserManagement() {
                     value={staffForm.full_name}
                     onChange={e => setStaffForm({ ...staffForm, full_name: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                    placeholder="ชื่อ-นามสกุล"
+                    placeholder={t('common.name')}
                   />
                 </div>
                 <div>
@@ -462,7 +462,7 @@ export default function UserManagement() {
               🔑 {t('userManagement.resetPassword')}
             </h3>
             <p className="text-gray-400 text-sm mb-4">
-              รีเซ็ตรหัสผ่านสำหรับ: <span className="text-white font-medium">{resetTarget.email}</span>
+              {t('userManagement.resetPassword')}: <span className="text-white font-medium">{resetTarget.email}</span>
             </p>
             {formError && (
               <div className="mb-3 p-2 bg-red-900/50 border border-red-500 rounded text-red-200 text-sm">
@@ -476,7 +476,7 @@ export default function UserManagement() {
                 value={newPassword}
                 onChange={e => { setNewPassword(e.target.value); setFormError(''); }}
                 className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                placeholder="ใส่รหัสผ่านใหม่"
+                placeholder={t('userManagement.newPassword')}
                 minLength={8}
               />
             </div>

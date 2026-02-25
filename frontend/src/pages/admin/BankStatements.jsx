@@ -4,6 +4,9 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { t } from '../../hooks/useLocale';
 import AdminPageWrapper from '../../components/AdminPageWrapper';
+import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
 
 
 const BankStatements = () => {
@@ -28,6 +31,10 @@ const BankStatements = () => {
   const [transactionsError, setTransactionsError] = useState(null);
   const [batchInfo, setBatchInfo] = useState(null);
   
+  // Pagination for transactions
+  const { sortConfig: txnSortConfig, requestSort: txnRequestSort, sortedData: sortedTransactions } = useSort(transactions);
+  const pagedTransactions = usePagination(sortedTransactions);
+
   // New bank account form
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccount, setNewAccount] = useState({
@@ -92,7 +99,7 @@ const BankStatements = () => {
       }
     } catch (err) {
       // Robust error message handling
-      let errorMessage = 'ไม่สามารถเพิ่มบัญชีธนาคารได้';
+      let errorMessage = t('bankStatements.addAccountFailed');
       
       if (err.response?.data?.detail) {
         const detail = err.response.data.detail;
@@ -151,15 +158,15 @@ const BankStatements = () => {
       // Handle 409 Conflict (duplicate batch)
       if (statusCode === 409) {
         if (typeof errorDetail === 'object' && errorDetail !== null) {
-          let errorMsg = errorDetail.message || 'ชุดข้อมูลนี้มีอยู่แล้ว';
-          errorMsg += '\n\n⚠️ รายละเอียดชุดข้อมูลซ้ำ:';
+          let errorMsg = errorDetail.message || t('bankStatements.batchDuplicate');
+          errorMsg += '\n\n⚠️ ' + t('bankStatements.duplicateDetail') + ':';
           if (errorDetail.batch_id) errorMsg += '\n• Batch ID: ' + errorDetail.batch_id;
           if (errorDetail.batch_status) errorMsg += '\n• Status: ' + errorDetail.batch_status;
           if (errorDetail.uploaded_at) errorMsg += '\n• Uploaded: ' + errorDetail.uploaded_at;
-          errorMsg += '\n\n💡 กรุณาเลือกเดือน/ปีอื่น หรือลบชุดข้อมูลเดิมก่อน';
+          errorMsg += '\n\n💡 ' + t('bankStatements.duplicateHint');
           setError(errorMsg);
         } else {
-          setError('ชุดข้อมูลสำหรับเดือนนี้มีอยู่แล้ว กรุณาเลือกเดือนอื่น');
+          setError(t('bankStatements.batchDuplicateShort'));
         }
         return;
       }
@@ -303,7 +310,7 @@ const BankStatements = () => {
       setLoading(true);
       setError(null);
       const res = await bankStatementsAPI.deleteBatch(batchId);
-      setSuccess(`ลบ batch สำเร็จ — ${res.data?.transactions_deleted || 0} transactions ถูกลบ`);
+      setSuccess(`${t('bankStatements.deleteBatchSuccess')} — ${res.data?.transactions_deleted || 0} ${t('bankStatements.transactionsDeleted')}`);
       // Close transactions view if this batch was open
       if (selectedBatchId === batchId) {
         handleCloseTransactions();
@@ -315,9 +322,9 @@ const BankStatements = () => {
       const detail = err.response?.data?.detail;
       const statusCode = err.response?.status;
       if (statusCode === 409) {
-        setError(`ไม่สามารถลบได้: ${detail}`);
+        setError(`${t('bankStatements.deleteFailed')}: ${detail}`);
       } else if (statusCode === 401) {
-        setError('Session หมดอายุ — กรุณา Login ใหม่');
+        setError(t('bankStatements.sessionExpired'));
       } else {
         setError(detail || 'Failed to delete batch');
       }
@@ -358,7 +365,7 @@ const BankStatements = () => {
       {/* Add Bank Account Form */}
       {showAddAccount && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">เพิ่มบัญชีธนาคารใหม่</h2>
+          <h2 className="text-xl font-semibold mb-4">{t('bankStatements.addNewAccount')}</h2>
           <form onSubmit={handleAddAccount} className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">{t('bankStatements.bankCode')}</label>
@@ -372,7 +379,7 @@ const BankStatements = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">เลขบัญชี (ปกปิด)</label>
+              <label className="block text-sm font-medium mb-1">{t('bankStatements.accountNumberLabel')}</label>
               <input
                 type="text"
                 value={newAccount.account_no_masked}
@@ -383,14 +390,14 @@ const BankStatements = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">ประเภทบัญชี</label>
+              <label className="block text-sm font-medium mb-1">{t('bankStatements.accountType')}</label>
               <select
                 value={newAccount.account_type}
                 onChange={(e) => setNewAccount({...newAccount, account_type: e.target.value})}
                 className="w-full border rounded px-3 py-2"
               >
-                <option value="CASHFLOW">กระแสเงินสด</option>
-                <option value="SAVINGS">ออมทรัพย์</option>
+                <option value="CASHFLOW">{t('bankStatements.cashflow')}</option>
+                <option value="SAVINGS">{t('bankStatements.savings')}</option>
               </select>
             </div>
             <button
@@ -429,7 +436,7 @@ const BankStatements = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">ปี</label>
+            <label className="block text-sm font-medium mb-1">{t('bankStatements.yearLabel')}</label>
             <input
               type="number"
               value={year}
@@ -441,7 +448,7 @@ const BankStatements = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">เดือน</label>
+            <label className="block text-sm font-medium mb-1">{t('bankStatements.monthLabel')}</label>
             <select
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value))}
@@ -511,7 +518,7 @@ const BankStatements = () => {
               <div className="text-xl font-bold">{preview.transaction_count}</div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">ช่วงวันที่</div>
+              <div className="text-gray-600">{t('bankStatements.dateRange')}</div>
               <div className="font-semibold">
                 {formatDate(preview.date_range_start)} - {formatDate(preview.date_range_end)}
               </div>
@@ -531,13 +538,13 @@ const BankStatements = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียด</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียดเพิ่มเติม</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">เดบิต</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">เครดิต</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">ยอดคงเหลือ</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ช่องทาง</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.dateCol')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.descriptionCol')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.descriptionExtra')}</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.debit')}</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.credit')}</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.balance')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.channelCol')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -577,22 +584,22 @@ const BankStatements = () => {
 
       {/* Existing Batches */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">ชุดข้อมูลที่นำเข้า</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('bankStatements.importedBatches')}</h2>
         
         {safeBatches.length === 0 ? (
-          <p className="text-gray-500">ยังไม่มีข้อมูลที่นำเข้า</p>
+          <p className="text-gray-500">{t('bankStatements.noImportedData')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">บัญชี</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ช่วงเวลา</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ไฟล์</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.date')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.account')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.period')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.file')}</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.transactions')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">จัดการ</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.status')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -623,14 +630,14 @@ const BankStatements = () => {
                           onClick={() => handleViewTransactions(batch.id)}
                           className="text-blue-600 hover:text-blue-800 font-medium mr-3"
                         >
-                          View
-                        </button>
+                        {t('common.view') || 'ดู'}
+                      </button>
                         <button
                           onClick={() => setConfirmDeleteBatch({ open: true, batchId: batch.id, filename: batch.original_filename })}
                           className="text-red-500 hover:text-red-700 font-medium"
                         >
-                          Delete
-                        </button>
+                        {t('common.delete')}
+                      </button>
                       </td>
                     </tr>
                   );
@@ -666,7 +673,7 @@ const BankStatements = () => {
 
           {transactionsLoading && (
             <div className="text-center py-8">
-              <p className="text-gray-600">กำลังโหลดรายการ...</p>
+              <p className="text-gray-600">{t('common.loading')}</p>
             </div>
           )}
 
@@ -683,24 +690,24 @@ const BankStatements = () => {
           {!transactionsLoading && !transactionsError && transactions.length > 0 && (
             <div>
               <p className="text-sm text-gray-600 mb-4">
-                Total: {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+                {t('common.total')}: {transactions.length} {t('bankStatements.transactions')}
               </p>
               
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียด</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียดเพิ่มเติม</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">เดบิต</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">เครดิต</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">ยอดคงเหลือ</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ช่องทาง</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.date')}</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.description')}</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.additionalDetail')}</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.debit')}</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.credit')}</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.balance')}</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.channel')}</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {transactions.map((txn) => (
+                    {pagedTransactions.currentItems.map((txn) => (
                       <tr key={txn.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-sm text-gray-900 font-medium whitespace-nowrap">
                           {formatDateTime(txn.effective_at)}
@@ -728,25 +735,26 @@ const BankStatements = () => {
                   </tbody>
                 </table>
               </div>
+              {transactions.length > 0 && <Pagination {...pagedTransactions} />}
             </div>
           )}
         </div>
       )}
       <ConfirmModal
         open={confirmImport}
-        title="ยืนยันการนำเข้า"
-        message="ต้องการนำเข้า Bank Statement นี้ใช่หรือไม่?"
+        title={t('bankStatements.confirmImportTitle')}
+        message={t('bankStatements.confirmImportMsg')}
         variant="info"
-        confirmText="นำเข้า"
+        confirmText={t('bankStatements.importBtn')}
         onConfirm={handleConfirmImport}
         onCancel={() => setConfirmImport(false)}
       />
       <ConfirmModal
         open={confirmDeleteBatch.open}
-        title="ลบ Batch"
-        message={`ลบ batch "${confirmDeleteBatch.filename}"? จะลบ transactions ทั้งหมดใน batch นี้อย่างถาวร`}
+        title={t('bankStatements.deleteBatchTitle')}
+        message={`${t('bankStatements.deleteBatchMsg')} "${confirmDeleteBatch.filename}"?`}
         variant="danger"
-        confirmText="ลบ"
+        confirmText={t('common.delete')}
         onConfirm={() => handleDeleteBatch(confirmDeleteBatch.batchId, confirmDeleteBatch.filename)}
         onCancel={() => setConfirmDeleteBatch({ open: false, batchId: null, filename: '' })}
       />

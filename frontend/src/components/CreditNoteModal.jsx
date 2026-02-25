@@ -9,9 +9,6 @@ import { t } from '../hooks/useLocale';
  * Credit notes are IMMUTABLE - cannot be edited/deleted after creation.
  * 
  * Phase D.4: If payinId is provided, evaluates promotions and shows suggestions.
- * ❌ Never auto-creates credit notes
- * ❌ Never auto-applies credit
- * ✅ Only SUGGESTS amounts - human decides
  */
 export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onSuccess }) {
   const [form, setForm] = useState({
@@ -23,11 +20,9 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   
-  // Phase D.4: Promotion suggestion state
   const [promotionSuggestion, setPromotionSuggestion] = useState(null);
   const [loadingPromotion, setLoadingPromotion] = useState(false);
 
-  // Reset form when modal opens
   useEffect(() => {
     if (isOpen && invoice) {
       setForm({
@@ -41,13 +36,11 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
     }
   }, [isOpen, invoice]);
 
-  // Phase D.4: Fetch promotion suggestions if payinId is provided
   useEffect(() => {
     if (isOpen && payinId) {
       setLoadingPromotion(true);
       promotionsAPI.evaluate(payinId)
         .then((res) => {
-          // Find first eligible promotion
           const eligible = res.data.suggestions?.find(s => s.eligible);
           if (eligible) {
             setPromotionSuggestion(eligible);
@@ -55,7 +48,6 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
         })
         .catch((err) => {
           console.error('Failed to evaluate promotions:', err);
-          // Silent fail - promotion suggestion is optional
         })
         .finally(() => {
           setLoadingPromotion(false);
@@ -63,7 +55,6 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
     }
   }, [isOpen, payinId]);
 
-  // Handle full credit checkbox - auto-fill amount
   useEffect(() => {
     if (form.is_full_credit && invoice) {
       setForm(prev => ({
@@ -77,14 +68,13 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
 
   const outstanding = invoice.outstanding ?? (invoice.total - (invoice.paid || 0));
 
-  // Phase D.4: Apply promotion suggestion to form
   const handleUseSuggestion = () => {
     if (!promotionSuggestion) return;
     const suggestedAmount = Math.min(promotionSuggestion.suggested_credit, outstanding);
     setForm(prev => ({
       ...prev,
       credit_amount: suggestedAmount.toString(),
-      reason: `โปรโมชัน: ${promotionSuggestion.promotion_name} (${promotionSuggestion.promotion_code})`,
+      reason: `${t('creditNote.promotion')}: ${promotionSuggestion.promotion_name} (${promotionSuggestion.promotion_code})`,
       is_full_credit: false
     }));
   };
@@ -93,25 +83,24 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
     e.preventDefault();
     setError('');
 
-    // Validate
     const amount = parseFloat(form.credit_amount);
     if (isNaN(amount) || amount <= 0) {
-      setError('กรุณาระบุจำนวนเงินที่ถูกต้อง');
+      setError(t('creditNote.invalidAmount'));
       return;
     }
 
     if (amount > outstanding) {
-      setError(`จำนวนเงินเกินยอดค้างชำระ (สูงสุด ฿${outstanding.toLocaleString()})`);
+      setError(`${t('creditNote.exceedsOutstanding')} (${t('creditNote.max')} ฿${outstanding.toLocaleString()})`);
       return;
     }
 
     if (!form.reason.trim()) {
-      setError('กรุณาระบุเหตุผล');
+      setError(t('creditNote.pleaseSpecifyReason'));
       return;
     }
 
     if (!form.confirm) {
-      setError('กรุณายืนยันการดำเนินการ');
+      setError(t('creditNote.pleaseConfirm'));
       return;
     }
 
@@ -124,23 +113,21 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
         is_full_credit: form.is_full_credit
       });
 
-      // Success
       onSuccess?.();
       onClose();
     } catch (err) {
       console.error('Create credit note error:', err);
       const detail = err.response?.data?.detail;
       if (typeof detail === 'string') {
-        // Map known error messages
         if (detail.includes('exceeds')) {
-          setError('Credit amount exceeds outstanding / จำนวนเงินเกินยอดค้าง');
+          setError(t('creditNote.exceedsOutstandingError'));
         } else if (detail.includes('fully credited')) {
-          setError('Invoice already fully credited / Invoice ถูก Credit เต็มจำนวนแล้ว');
+          setError(t('creditNote.alreadyFullyCredited'));
         } else {
           setError(detail);
         }
       } else {
-        setError('ไม่สามารถสร้าง Credit Note ได้');
+        setError(t('creditNote.createFailed'));
       }
     } finally {
       setSubmitting(false);
@@ -154,7 +141,7 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
         <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold text-white">{t('creditNote.title')}</h2>
-            <p className="text-gray-400 text-sm">ลดยอดค้างชำระ Invoice</p>
+            <p className="text-gray-400 text-sm">{t('creditNote.subtitle')}</p>
           </div>
           <button
             onClick={onClose}
@@ -191,11 +178,11 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
             </div>
           </div>
 
-          {/* Phase D.4: Promotion Suggestion Banner */}
+          {/* Promotion Suggestion Banner */}
           {loadingPromotion && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 flex items-center gap-2">
               <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
-              <span className="text-blue-300 text-sm">กำลังตรวจสอบโปรโมชัน...</span>
+              <span className="text-blue-300 text-sm">{t('creditNote.checkingPromotion')}</span>
             </div>
           )}
           
@@ -205,13 +192,13 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
                 <div className="text-2xl">🎁</div>
                 <div className="flex-1">
                   <p className="text-green-300 font-medium text-sm">
-                    โปรโมชัน: {promotionSuggestion.promotion_name}
+                    {t('creditNote.promotion')}: {promotionSuggestion.promotion_name}
                   </p>
                   <p className="text-green-400 text-xs mt-1">
-                    รหัส: {promotionSuggestion.promotion_code}
+                    {t('creditNote.promotionCode')}: {promotionSuggestion.promotion_code}
                   </p>
                   <p className="text-white mt-2">
-                    แนะนำ Credit: <span className="font-bold text-green-400">฿{promotionSuggestion.suggested_credit.toLocaleString()}</span>
+                    {t('creditNote.suggestedCredit')}: <span className="font-bold text-green-400">฿{promotionSuggestion.suggested_credit.toLocaleString()}</span>
                   </p>
                   <button
                     type="button"
@@ -219,7 +206,7 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
                     className="mt-3 px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm rounded-lg transition-colors"
                     disabled={submitting}
                   >
-                    ใช้จำนวนที่แนะนำ
+                    {t('creditNote.useSuggested')}
                   </button>
                 </div>
               </div>
@@ -237,14 +224,14 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
               disabled={submitting}
             />
             <label htmlFor="is_full_credit" className="text-gray-300">
-              Credit เต็มจำนวน (฿{outstanding.toLocaleString()})
+              {t('creditNote.fullCredit')} (฿{outstanding.toLocaleString()})
             </label>
           </div>
 
           {/* Credit Amount */}
           <div>
             <label className="block text-gray-300 text-sm font-medium mb-2">
-              Credit Amount (บาท) <span className="text-red-400">*</span>
+              {t('creditNote.creditAmount')} <span className="text-red-400">*</span>
             </label>
             <input
               type="number"
@@ -254,26 +241,26 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
               value={form.credit_amount}
               onChange={(e) => setForm({ ...form, credit_amount: e.target.value })}
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50"
-              placeholder={`สูงสุด ${outstanding.toLocaleString()}`}
+              placeholder={`${t('creditNote.max')} ${outstanding.toLocaleString()}`}
               required
               disabled={submitting || form.is_full_credit}
             />
             {parseFloat(form.credit_amount) > outstanding && (
-              <p className="text-red-400 text-xs mt-1">เกินยอดค้างชำระ</p>
+              <p className="text-red-400 text-xs mt-1">{t('creditNote.exceedsOutstanding')}</p>
             )}
           </div>
 
           {/* Reason */}
           <div>
             <label className="block text-gray-300 text-sm font-medium mb-2">
-              Reason / เหตุผล <span className="text-red-400">*</span>
+              {t('creditNote.reason')} <span className="text-red-400">*</span>
             </label>
             <textarea
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               rows={2}
-              placeholder="เช่น คิดค่าบริการผิด, ส่วนลดพิเศษ..."
+              placeholder={t('creditNote.reasonPlaceholder')}
               required
               disabled={submitting}
             />
@@ -291,7 +278,7 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
                 disabled={submitting}
               />
               <label htmlFor="confirm" className="text-orange-300 text-sm">
-                <span className="font-medium">ยืนยันการดำเนินการ:</span> การสร้าง Credit Note จะลดยอดค้างชำระและ <span className="text-orange-400 font-bold">ไม่สามารถย้อนกลับได้</span>
+                <span className="font-medium">{t('creditNote.confirmAction')}:</span> {t('creditNote.confirmWarning')} <span className="text-orange-400 font-bold">{t('creditNote.irreversible')}</span>
               </label>
             </div>
           </div>
@@ -311,7 +298,7 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
               disabled={submitting}
               className="flex-1 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"

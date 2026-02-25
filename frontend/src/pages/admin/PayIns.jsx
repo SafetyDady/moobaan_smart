@@ -74,7 +74,7 @@ export default function PayIns() {
       }
     } catch (error) {
       console.error('Failed to load candidate bank transactions:', error);
-      toast.error(error.response?.data?.detail || 'ไม่สามารถโหลดรายการธนาคารได้');
+      toast.error(error.response?.data?.detail || t('payins.loadBankFailed'));
     } finally {
       setLoadingTransactions(false);
     }
@@ -83,24 +83,24 @@ export default function PayIns() {
   const handleMatch = async (txnId) => {
     try {
       await bankReconciliationAPI.matchTransaction(txnId, selectedPayin.id);
-      toast.success('จับคู่กับรายการธนาคารสำเร็จ');
+      toast.success(t('payins.matchSuccess'));
       setShowMatchModal(false);
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to match:', error);
-      toast.error(error.response?.data?.detail || 'ไม่สามารถจับคู่รายการได้');
+      toast.error(error.response?.data?.detail || t('payins.matchFailed'));
     }
   };
 
   const handleUnmatch = async (payin) => {
     try {
       await bankReconciliationAPI.unmatchTransaction(payin.matched_statement_txn_id);
-      toast.success('ยกเลิกการจับคู่สำเร็จ');
+      toast.success(t('payins.unmatchSuccess'));
       loadPayins();
     } catch (error) {
       console.error('Failed to unmatch:', error);
-      toast.error(error.response?.data?.detail || 'ไม่สามารถยกเลิกการจับคู่ได้');
+      toast.error(error.response?.data?.detail || t('payins.unmatchFailed'));
     }
   };
 
@@ -113,19 +113,19 @@ export default function PayIns() {
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      toast.warning('กรุณาระบุเหตุผลในการปฏิเสธ');
+      toast.warning(t('payins.rejectReasonRequired'));
       return;
     }
     try {
       await payinsAPI.reject(selectedPayin.id, rejectReason);
-      toast.success('ปฏิเสธรายการสำเร็จ');
+      toast.success(t('payins.rejectSuccess'));
       setShowRejectModal(false);
       setRejectReason('');
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to reject:', error);
-      toast.error(error.response?.data?.detail || 'ไม่สามารถปฏิเสธรายการได้');
+      toast.error(error.response?.data?.detail || t('payins.rejectFailed'));
     }
   };
 
@@ -136,9 +136,9 @@ export default function PayIns() {
       const data = result.data;
       const allocCount = data.allocations?.length || 0;
       if (data.status === 'already_posted') {
-        toast.info('รายการนี้ถูกบันทึกไปแล้ว');
+        toast.info(t('payins.alreadyPosted'));
       } else {
-        toast.success(`บันทึกสำเร็จ! บัญชี #${data.income_transaction_id} / จัดสรร ${allocCount} ใบแจ้งหนี้`);
+        toast.success(`${t('payins.postSuccess')} #${data.income_transaction_id} / ${allocCount} ${t('payins.invoicesAllocated')}`);
       }
       loadPayins();
     } catch (error) {
@@ -147,7 +147,7 @@ export default function PayIns() {
       if (typeof detail === 'object' && detail.code === 'AMBIGUOUS') {
         toast.warning(detail.message);
       } else {
-        toast.error(typeof detail === 'string' ? detail : 'ไม่สามารถยืนยันและบันทึกได้');
+        toast.error(typeof detail === 'string' ? detail : t('payins.postFailed'));
       }
     } finally {
       setPosting(null);
@@ -156,7 +156,7 @@ export default function PayIns() {
 
   const handleReverse = async () => {
     if (!reverseReason.trim()) {
-      toast.warning('กรุณาระบุเหตุผลในการกลับรายการ');
+      toast.warning(t('payins.reverseReasonRequired'));
       return;
     }
     try {
@@ -164,32 +164,32 @@ export default function PayIns() {
         selectedPayin.matched_statement_txn_id,
         reverseReason
       );
-      toast.success(`กลับรายการสำเร็จ: ${result.data.message}`);
+      toast.success(`${t('payins.reverseSuccess')}: ${result.data.message}`);
       setShowReverseModal(false);
       setReverseReason('');
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to reverse:', error);
-      toast.error(error.response?.data?.detail || 'ไม่สามารถกลับรายการได้');
+      toast.error(error.response?.data?.detail || t('payins.reverseFailed'));
     }
   };
 
   const handleDeleteSubmission = async () => {
     if (!deleteReason.trim()) {
-      toast.warning('กรุณาระบุเหตุผลในการลบ');
+      toast.warning(t('payins.deleteReasonRequired'));
       return;
     }
     try {
       await payinsAPI.cancel(selectedPayin.id, deleteReason);
-      toast.success('ลบรายการส่งเงินสำเร็จ');
+      toast.success(t('payins.deleteSuccess'));
       setShowDeleteModal(false);
       setDeleteReason('');
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to delete submission:', error);
-      toast.error(error.response?.data?.detail || 'ไม่สามารถลบรายการส่งเงินได้');
+      toast.error(error.response?.data?.detail || t('payins.deleteFailed'));
     }
   };
 
@@ -277,7 +277,7 @@ export default function PayIns() {
                           onClick={() => window.open(payinsAPI.slipUrl(payin.id), '_blank')}
                           className="text-blue-400 hover:text-blue-300 text-sm"
                         >
-                          📎 ดูสลิป
+                          {t('payins.viewSlip')}
                         </button>
                       ) : (
                         <span className="text-gray-500 text-sm">{t('payins.noSlip')}</span>
@@ -285,16 +285,16 @@ export default function PayIns() {
                     </td>
                     <td>
                       {payin.is_matched ? (
-                        <span className="badge badge-success text-xs">✓ จับคู่แล้ว</span>
+                        <span className="badge badge-success text-xs">{t('payins.matchedBadge')}</span>
                       ) : (
-                        <span className="badge badge-warning text-xs">○ ยังไม่จับคู่</span>
+                        <span className="badge badge-warning text-xs">{t('payins.unmatchedBadge')}</span>
                       )}
                       {/* Posting status badge */}
                       {payin.posting_status === 'POSTED' && (
-                        <span className="badge bg-green-700 text-green-100 text-xs ml-1">📌 บันทึกแล้ว</span>
+                        <span className="badge bg-green-700 text-green-100 text-xs ml-1">{t('payins.postedBadge')}</span>
                       )}
                       {payin.posting_status === 'REVERSED' && (
-                        <span className="badge bg-red-700 text-red-100 text-xs ml-1">↩️ กลับรายการ</span>
+                        <span className="badge bg-red-700 text-red-100 text-xs ml-1">{t('payins.reversedBadge')}</span>
                       )}
                     </td>
                     <td>
@@ -318,7 +318,7 @@ export default function PayIns() {
                             onClick={() => window.open(payinsAPI.slipUrl(payin.id), '_blank')}
                             className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 border border-blue-400 rounded"
                           >
-                            👁️ ดูสลิป
+                            {t('payins.viewSlipFull')}
                           </button>
                         )}
                         
@@ -331,14 +331,14 @@ export default function PayIns() {
                                 onClick={() => openMatchModal(payin)}
                                 className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded"
                               >
-                                🔗 จับคู่
+                                {t('payins.matchBtn')}
                               </button>
                             ) : (
                               <button
                                 onClick={() => setConfirmUnmatch({ open: true, payin })}
                                 className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-3 py-1 rounded"
                               >
-                                🔓 ยกเลิกคู่
+                                {t('payins.unmatchBtn')}
                               </button>
                             )}
                             
@@ -351,9 +351,9 @@ export default function PayIns() {
                                   ? 'bg-green-600 hover:bg-green-700 text-white' 
                                   : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                               }`}
-                              title={!payin.is_matched ? 'ต้องจับคู่กับรายการธนาคารก่อน' : 'ยืนยันและบันทึก: บัญชี + จัดสรรใบแจ้งหนี้'}
+                              title={!payin.is_matched ? t('payins.mustMatchFirst') : t('payins.confirmAndPostTooltip')}
                             >
-                              {posting === payin.id ? '⏳ กำลังบันทึก...' : '✅ ยืนยันและบันทึก'}
+                              {posting === payin.id ? t('payins.posting') : t('payins.confirmAndPost')}
                             </button>
                             <button
                               onClick={() => {
@@ -362,7 +362,7 @@ export default function PayIns() {
                               }}
                               className="btn-danger text-sm px-3 py-1"
                             >
-                              ✗ ปฏิเสธ
+                              {t('payins.rejectBtn')}
                             </button>
                             <button
                               onClick={() => {
@@ -371,7 +371,7 @@ export default function PayIns() {
                               }}
                               className="btn-secondary text-sm px-3 py-1"
                             >
-                              🗑 ลบ
+                              {t('payins.deleteBtn')}
                             </button>
                           </>
                         )}
@@ -385,15 +385,15 @@ export default function PayIns() {
                             }}
                             className="btn-secondary text-sm px-3 py-1"
                           >
-                            🗑 ลบ
+                            {t('payins.deleteBtn')}
                           </button>
                         )}
 
                         {/* REJECTED_NEEDS_FIX - waiting for resident to fix and resubmit */}
                         {payin.status === 'REJECTED_NEEDS_FIX' && canManagePayins && (
                           <div className="flex items-center gap-2">
-                            <span className="text-orange-400 text-sm" title="ไม่สามารถจับคู่ได้จนกว่าลูกบ้านจะส่งใหม่">
-                              ⏳ รอลูกบ้านแก้ไข
+                            <span className="text-orange-400 text-sm" title={t('payins.waitingResidentFixTooltip')}>
+                              {t('payins.waitingResidentFix')}
                             </span>
                             <button
                               onClick={() => {
@@ -402,7 +402,7 @@ export default function PayIns() {
                               }}
                               className="btn-secondary text-sm px-3 py-1"
                             >
-                              🗑 ลบ
+                              {t('payins.deleteBtn')}
                             </button>
                           </div>
                         )}
@@ -410,7 +410,7 @@ export default function PayIns() {
                         {/* Status indicators */}
                         {payin.status === 'ACCEPTED' && (
                           <div className="flex items-center gap-2">
-                            <span className="text-green-400 text-sm">✓ บันทึกบัญชีแล้ว</span>
+                            <span className="text-green-400 text-sm">{t('payins.accountPosted')}</span>
                             {canManagePayins && payin.matched_statement_txn_id && (
                               <button
                                 onClick={() => {
@@ -420,13 +420,13 @@ export default function PayIns() {
                                 className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
                                 title={t("payins.reverse")}
                               >
-                                ↩️ กลับรายการ
+                                {t('payins.reverseBtn')}
                               </button>
                             )}
                           </div>
                         )}
                         {payin.status === 'REJECTED' && (
-                          <span className="text-red-400 text-sm">ลูกบ้านสามารถส่งใหม่ได้</span>
+                          <span className="text-red-400 text-sm">{t('payins.residentCanResubmit')}</span>
                         )}
                       </div>
                     </td>
@@ -445,32 +445,32 @@ export default function PayIns() {
       {showRejectModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">✗ ปฏิเสธรายการ</h2>
+            <h2 className="text-xl font-bold text-white mb-4">{t('payins.rejectModalTitle')}</h2>
             <p className="text-gray-300 mb-2">
-              บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
+              {t('payins.reverseHouse')}: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
+              {t('payins.reverseAmount')}: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
             </p>
             <div className="bg-orange-900 bg-opacity-30 border border-orange-600 rounded p-3 mb-4">
               <p className="text-orange-400 text-sm">
-                ⚠️ รายการจะถูกเปลี่ยนเป็น REJECTED — เก็บ record ไว้เพื่อ audit ไม่มีผลบัญชี
+                {t('payins.rejectWarning')}
               </p>
             </div>
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">
-                เหตุผลในการปฏิเสธ *
+                {t('payins.rejectReasonLabel')}
               </label>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 className="input w-full h-24 resize-none"
-                placeholder="เช่น ยอดเงินไม่ตรง, สลิปไม่ชัด, วันที่ไม่ถูกต้อง..."
+                placeholder={t('payins.rejectReasonPlaceholder')}
               />
             </div>
             <div className="flex gap-3">
               <button onClick={handleReject} className="btn-danger flex-1">
-                ✗ ปฏิเสธ
+                {t('payins.rejectBtn')}
               </button>
               <button
                 onClick={() => {
@@ -480,7 +480,7 @@ export default function PayIns() {
                 }}
                 className="btn-secondary flex-1"
               >
-                ยกเลิก
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -491,32 +491,32 @@ export default function PayIns() {
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">🗑 ลบรายการส่งเงิน</h2>
+            <h2 className="text-xl font-bold text-white mb-4">{t('payins.deleteModalTitle')}</h2>
             <p className="text-gray-300 mb-2">
-              บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
+              {t('payins.reverseHouse')}: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
+              {t('payins.reverseAmount')}: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
             </p>
             <div className="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded p-3 mb-4">
               <p className="text-yellow-400 text-sm">
-                ⚠️ ระบบจะลบรายการส่งเงินนี้ออก — ไม่มีผลต่อบัญชี เพราะยังไม่ได้ยืนยันและบันทึก
+                {t('payins.deleteWarning')}
               </p>
             </div>
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">
-                เหตุผลในการลบ *
+                {t('payins.deleteReasonLabel')}
               </label>
               <textarea
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}
                 className="input w-full h-24 resize-none"
-                placeholder="เช่น ข้อมูลทดสอบ, ส่งซ้ำ, ยอดไม่ตรง..."
+                placeholder={t('payins.deleteReasonPlaceholder')}
               />
             </div>
             <div className="flex gap-3">
               <button onClick={handleDeleteSubmission} className="btn-danger flex-1">
-                🗑 ลบ
+                {t('payins.deleteBtn')}
               </button>
               <button
                 onClick={() => {
@@ -526,7 +526,7 @@ export default function PayIns() {
                 }}
                 className="btn-secondary flex-1"
               >
-                ยกเลิก
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -558,10 +558,10 @@ export default function PayIns() {
             {/* Bank Transactions List */}
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-white mb-3">
-                เลือกรายการธนาคารที่ตรงกัน
+                {t('payins.selectBankTxn')}
                 {bankTransactions.length > 0 && (
                   <span className="text-sm text-gray-400 ml-2">
-                    ({bankTransactions.length} รายการ - ยอดตรง, เวลา ±1 นาที)
+                    ({bankTransactions.length} {t('payins.matchedItems')})
                   </span>
                 )}
               </h3>
@@ -570,24 +570,24 @@ export default function PayIns() {
                 <div className="text-center py-8 text-gray-400">{t('common.loading')}</div>
               ) : bankTransactions.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-yellow-400 mb-2">⚠️ ไม่พบรายการธนาคารที่ตรงกัน</p>
+                  <p className="text-yellow-400 mb-2">{t('payins.noMatchFound')}</p>
                   <p className="text-sm text-gray-400 mb-2">
-                    เงื่อนไขการจับคู่: ยอดตรง ฿{selectedPayin?.amount?.toLocaleString('th-TH')}, เวลาห่างไม่เกิน ±1 นาที
+                    {t('payins.matchConditionSummary')} ฿{selectedPayin?.amount?.toLocaleString('th-TH')}
                   </p>
                   <p className="text-xs text-gray-500">
-                    ตรวจสอบ: (1) นำเข้า Bank Statement แล้ว (2) ยอดตรงกัน (3) เวลาห่างไม่เกิน ±1 นาที
+                    {t('payins.matchConditionDetail')}
                   </p>
                   {/* Debug info for troubleshooting */}
                   {matchDebugInfo && (
                     <div className="mt-4 text-left bg-gray-800 rounded p-3 text-xs font-mono">
                       <p className="text-gray-300 mb-1">🔍 Debug Info:</p>
-                      <p className="text-gray-400">เวลาชำระ (UTC): {matchDebugInfo.payin_time_utc}</p>
-                      <p className="text-gray-400">โซนเวลา: {matchDebugInfo.payin_time_tzinfo}</p>
-                      <p className="text-gray-400">รายการเครดิตที่ยังไม่จับคู่: {matchDebugInfo.total_unmatched_credit}</p>
-                      <p className="text-gray-400">จำนวนที่ตรงกัน: {matchDebugInfo.amount_matches}</p>
+                      <p className="text-gray-400">{t('payins.payinTimeUtc')}: {matchDebugInfo.payin_time_utc}</p>
+                      <p className="text-gray-400">{t('payins.payinTimezone')}: {matchDebugInfo.payin_time_tzinfo}</p>
+                      <p className="text-gray-400">{t('payins.unmatchedCredits')}: {matchDebugInfo.total_unmatched_credit}</p>
+                      <p className="text-gray-400">{t('payins.amountMatches')}: {matchDebugInfo.amount_matches}</p>
                       {matchDebugInfo.near_misses?.length > 0 && (
                         <div className="mt-2">
-                          <p className="text-yellow-400">รายการใกล้เคียง (จำนวนตรง เวลาต่าง):</p>
+                          <p className="text-yellow-400">{t('payins.nearMisses')}</p>
                           {matchDebugInfo.near_misses.map((nm, i) => (
                             <p key={i} className="text-gray-400 ml-2">
                               txn {nm.txn_id}: bank_time={nm.bank_time_utc}, diff={nm.time_diff_seconds}s ({nm.time_diff_hours}h), reason={nm.reason}
@@ -597,7 +597,7 @@ export default function PayIns() {
                       )}
                       {matchDebugInfo.errors?.length > 0 && (
                         <div className="mt-2">
-                          <p className="text-red-400">ข้อผิดพลาด:</p>
+                          <p className="text-red-400">{t('payins.errorOccurred')}</p>
                           {matchDebugInfo.errors.map((e, i) => (
                             <p key={i} className="text-red-300 ml-2">txn {e.txn_id}: {e.error}</p>
                           ))}
@@ -627,22 +627,22 @@ export default function PayIns() {
                           <div className="flex-1">
                             <div className="text-white font-medium mb-1">
                               ฿{parseFloat(txn.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
-                              {isPerfectMatch && <span className="ml-2 text-green-400 text-xs font-semibold">✓ ตรงกันสมบูรณ์</span>}
-                              {amountDiff > 0 && <span className="ml-2 text-yellow-400 text-xs">ส่วนต่าง: ฿{amountDiff.toFixed(2)}</span>}
+                              {isPerfectMatch && <span className="ml-2 text-green-400 text-xs font-semibold">{t('payins.perfectMatch')}</span>}
+                              {amountDiff > 0 && <span className="ml-2 text-yellow-400 text-xs">{t('payins.amountDiff')}: ฿{amountDiff.toFixed(2)}</span>}
                             </div>
                             <div className="text-sm text-gray-400">
                               {txnDate.toLocaleDateString('th-TH')} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                               <span className="ml-2 text-green-300">
-                                ({timeDiffSeconds < 60 ? `${Math.floor(timeDiffSeconds)}s` : `${Math.floor(timeDiffSeconds / 60)}m ${Math.floor(timeDiffSeconds % 60)}s`} ห่างกัน)
+                                ({timeDiffSeconds < 60 ? `${Math.floor(timeDiffSeconds)}s` : `${Math.floor(timeDiffSeconds / 60)}m ${Math.floor(timeDiffSeconds % 60)}s`} {t('payins.timeDiff')})
                               </span>
                             </div>
                             {txn.description && (
                               <div className="text-xs text-gray-500 mt-1">{txn.description}</div>
                             )}
                             {txn.channel && (
-                              <div className="text-xs text-gray-600 mt-1">ช่องทาง: {txn.channel}</div>
+                              <div className="text-xs text-gray-600 mt-1">{t('payins.channelLabel')}: {txn.channel}</div>
                             )}
-                            <div className="text-xs text-gray-600 mt-1">รหัสรายการ: {txn.id.substring(0, 8)}...</div>
+                            <div className="text-xs text-gray-600 mt-1">{t('payins.txnId')}: {txn.id.substring(0, 8)}...</div>
                           </div>
                           <button
                             onClick={() => handleMatch(txn.id)}
@@ -651,9 +651,9 @@ export default function PayIns() {
                                 ? 'bg-green-600 hover:bg-green-700 text-white' 
                                 : 'bg-blue-600 hover:bg-blue-700 text-white'
                             }`}
-                            title={`จับคู่กับรายการธนาคาร (ห่างกัน ${Math.floor(timeDiffSeconds)} วินาที)`}
+                            title={`${t('payins.matchBtn')} (${Math.floor(timeDiffSeconds)}s)`}
                           >
-                            {isPerfectMatch ? '✓ จับคู่ (สมบูรณ์)' : '🔗 จับคู่'}
+                            {isPerfectMatch ? t('payins.matchPerfect') : t('payins.matchWithDiff')}
                           </button>
                         </div>
                       </div>
@@ -673,7 +673,7 @@ export default function PayIns() {
                 }}
                 className="btn-secondary px-6"
               >
-                ปิด
+                {t('common.close')}
               </button>
             </div>
           </div>
@@ -684,9 +684,9 @@ export default function PayIns() {
       <ConfirmModal
         open={confirmUnmatch.open}
         title={t("payins.unmatch")}
-        message="ต้องการยกเลิกการจับคู่กับรายการธนาคารใช่หรือไม่?"
+        message={t('payins.unmatchConfirmMsg')}
         variant="warning"
-        confirmText="ยกเลิกคู่"
+        confirmText={t('payins.unmatchConfirmBtn')}
         onConfirm={() => handleUnmatch(confirmUnmatch.payin)}
         onCancel={() => setConfirmUnmatch({ open: false, payin: null })}
       />
@@ -695,9 +695,9 @@ export default function PayIns() {
       <ConfirmModal
         open={confirmPost.open}
         title={t("payins.post")}
-        message={confirmPost.payin ? `ยืนยันและบันทึก ฿${confirmPost.payin.amount} จากบ้าน ${confirmPost.payin.house_number}?\n\nระบบจะสร้างบัญชี + จัดสรรยอดเข้าใบแจ้งหนี้อัตโนมัติ` : ''}
+        message={confirmPost.payin ? `${t('payins.confirmPostMsg')} ฿${confirmPost.payin.amount} ${t('payins.fromHouse')} ${confirmPost.payin.house_number}?\n\n${t('payins.confirmPostDetail')}` : ''}
         variant="info"
-        confirmText="ยืนยันและบันทึก"
+        confirmText={t('payins.confirmAndPostBtn')}
         onConfirm={() => { if (confirmPost.payin) handleConfirmAndPost(confirmPost.payin); }}
         onCancel={() => setConfirmPost({ open: false, payin: null })}
       />
@@ -706,33 +706,33 @@ export default function PayIns() {
       {showReverseModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">↩️ กลับรายการ</h2>
+            <h2 className="text-xl font-bold text-white mb-4">{t('payins.reverseTitle')}</h2>
             <p className="text-gray-300 mb-2">
-              บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
+              {t('payins.reverseHouse')}: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
+              {t('payins.reverseAmount')}: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
             </p>
             <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-3 mb-4">
               <p className="text-red-400 text-sm">
-                ⚠️ การกลับรายการจะยกเลิกบัญชี และคืนสถานะใบแจ้งหนี้ รายการจะยังอยู่ในระบบ (ไม่ถูกลบ)
+                {t('payins.reverseWarning')}
               </p>
             </div>
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">
-                เหตุผลในการกลับรายการ *
+                {t('payins.reverseReasonLabel')}
               </label>
               <textarea
                 value={reverseReason}
                 onChange={(e) => setReverseReason(e.target.value)}
                 className="input w-full h-24 resize-none"
-                placeholder="เช่น ยอดเงินไม่ตรง, จับคู่ผิดบ้าน, ทดสอบ..."
+                placeholder={t('payins.reverseReasonPlaceholder')}
               />
             </div>
             <div className="flex gap-3">
               <button onClick={handleReverse} className="btn-danger flex-1">
-↩️ กลับรายการ
-                </button>
+                {t('payins.reverseBtn')}
+              </button>
               <button
                 onClick={() => {
                   setShowReverseModal(false);
@@ -741,7 +741,7 @@ export default function PayIns() {
                 }}
                 className="btn-secondary flex-1"
               >
-                ยกเลิก
+                {t('common.cancel')}
               </button>
             </div>
           </div>

@@ -44,7 +44,7 @@ export default function ApplyPaymentModal({
       }
     } catch (err) {
       console.error('Failed to load ledgers:', err);
-      setError('ไม่สามารถโหลดรายการ Ledger ได้');
+      setError(t('applyPayment.loadLedgerFailed'));
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,6 @@ export default function ApplyPaymentModal({
 
   const handleLedgerSelect = (ledger) => {
     setSelectedLedger(ledger);
-    // Default amount = min(outstanding, ledger remaining)
     const maxAmount = Math.min(invoice.outstanding || invoice.total_amount, ledger.remaining);
     setAmount(maxAmount.toString());
     setError('');
@@ -64,17 +63,16 @@ export default function ApplyPaymentModal({
 
     const applyAmount = parseFloat(amount);
     
-    // Validate
     if (applyAmount <= 0) {
-      setError('จำนวนเงินต้องมากกว่า 0');
+      setError(t('applyPayment.amountMustBePositive'));
       return;
     }
     if (applyAmount > selectedLedger.remaining) {
-      setError(`จำนวนเงินเกินยอดคงเหลือของ Ledger (฿${selectedLedger.remaining.toLocaleString()})`);
+      setError(`${t('applyPayment.exceedsLedgerRemaining')} (฿${selectedLedger.remaining.toLocaleString()})`);
       return;
     }
     if (applyAmount > (invoice.outstanding || invoice.total_amount)) {
-      setError(`จำนวนเงินเกินยอดค้างชำระ (฿${(invoice.outstanding || invoice.total_amount).toLocaleString()})`);
+      setError(`${t('applyPayment.exceedsOutstanding')} (฿${(invoice.outstanding || invoice.total_amount).toLocaleString()})`);
       return;
     }
 
@@ -92,7 +90,7 @@ export default function ApplyPaymentModal({
       onClose();
     } catch (err) {
       console.error('Failed to apply payment:', err);
-      setError(err.response?.data?.detail || 'ไม่สามารถบันทึกการชำระเงินได้');
+      setError(err.response?.data?.detail || t('applyPayment.saveFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -109,7 +107,7 @@ export default function ApplyPaymentModal({
         <div className="px-6 py-4 border-b border-slate-700">
           <h2 className="text-xl font-bold text-white">{t('applyPayment.title')}</h2>
           <p className="text-gray-400 text-sm mt-1">
-            Invoice #{invoice?.id} - {invoice?.house_code}
+            {t('invoices.invoiceNumber')} #{invoice?.id} - {invoice?.house_code}
           </p>
         </div>
 
@@ -147,8 +145,8 @@ export default function ApplyPaymentModal({
               <SkeletonCard />
             ) : ledgers.length === 0 ? (
               <div className="text-center py-8 text-gray-400 bg-slate-700/30 rounded-lg">
-                <p>ไม่มี Ledger ที่สามารถใช้ชำระได้</p>
-                <p className="text-sm mt-1">บ้านนี้ยังไม่มีรายการรับเงินที่ผ่านการยืนยัน</p>
+                <p>{t('applyPayment.noLedgers')}</p>
+                <p className="text-sm mt-1">{t('applyPayment.noLedgersDesc')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -168,7 +166,7 @@ export default function ApplyPaymentModal({
                           Ledger #{ledger.id} - Pay-in #{ledger.payin_id}
                         </div>
                         <div className="text-gray-400 text-sm mt-1">
-                          Received: {ledger.received_at ? new Date(ledger.received_at).toLocaleDateString('th-TH') : '-'}
+                          {t('applyPayment.received')}: {ledger.received_at ? new Date(ledger.received_at).toLocaleDateString('th-TH') : '-'}
                         </div>
                       </div>
                       <div className="text-right">
@@ -177,7 +175,7 @@ export default function ApplyPaymentModal({
                           ฿{ledger.remaining.toLocaleString()}
                         </div>
                         <div className="text-gray-500 text-xs">
-                          of ฿{ledger.amount.toLocaleString()}
+                          {t('applyPayment.ofTotal')} ฿{ledger.amount.toLocaleString()}
                         </div>
                       </div>
                     </div>
@@ -192,7 +190,7 @@ export default function ApplyPaymentModal({
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-gray-300 text-sm mb-2">
-                  Amount to Apply / จำนวนเงินที่ต้องการชำระ
+                  {t('applyPayment.amountToApply')}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">฿</span>
@@ -210,28 +208,28 @@ export default function ApplyPaymentModal({
                 </div>
                 <div className="flex justify-between text-sm mt-1">
                   <span className="text-gray-400">
-                    Max: ฿{Math.min(outstanding, selectedLedger.remaining).toLocaleString()}
+                    {t('applyPayment.max')}: ฿{Math.min(outstanding, selectedLedger.remaining).toLocaleString()}
                   </span>
                   <button
                     type="button"
                     onClick={() => setAmount(Math.min(outstanding, selectedLedger.remaining).toString())}
                     className="text-primary-400 hover:text-primary-300"
                   >
-                    Apply Max
+                    {t('applyPayment.applyMax')}
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-gray-300 text-sm mb-2">
-                  Note (Optional) / หมายเหตุ
+                  {t('applyPayment.noteOptional')}
                 </label>
                 <input
                   type="text"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                  placeholder="Optional note..."
+                  placeholder={t('applyPayment.notePlaceholder')}
                 />
               </div>
 
@@ -251,7 +249,7 @@ export default function ApplyPaymentModal({
             className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors"
             disabled={submitting}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
