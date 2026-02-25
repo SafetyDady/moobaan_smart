@@ -157,10 +157,11 @@ body {
     @apply px-3 py-2 text-xs;
   }
 
-  /* Stack cards vertically */
-  .grid.grid-cols-2,
-  .grid.grid-cols-3,
-  .grid.grid-cols-4 {
+  /* Stack cards vertically — ONLY inside admin panel (flex.h-screen layout) */
+  /* Exclude resident/mobile pages which use their own grid layouts */
+  .flex.h-screen .grid.grid-cols-2,
+  .flex.h-screen .grid.grid-cols-3,
+  .flex.h-screen .grid.grid-cols-4 {
     grid-template-columns: 1fr;
   }
 }
