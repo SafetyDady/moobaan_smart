@@ -2,26 +2,17 @@ import { useState, useEffect } from 'react';
 import { usersAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
-
-/**
- * User Management Dashboard — Super Admin Only
- * 
- * 2 tabs:
- * - Staff Users: list/create/deactivate/reactivate/reset-password (accounting, admin)
- * - Residents: list with search (read-only view, actions via Members page)
- */
+import { t } from '../../hooks/useLocale';
 
 export default function UserManagement() {
   const [activeTab, setActiveTab] = useState('staff');
 
-  // Staff state
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [confirmDeactivate, setConfirmDeactivate] = useState({ open: false, user: null });
 
-  // Create staff form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
@@ -33,18 +24,15 @@ export default function UserManagement() {
     phone: '',
   });
 
-  // Reset password modal
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetTarget, setResetTarget] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
-  // Residents state
   const [residents, setResidents] = useState([]);
   const [residentsLoading, setResidentsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // ========== Load Data ==========
   useEffect(() => {
     if (activeTab === 'staff') loadStaff();
     else loadResidents();
@@ -57,7 +45,7 @@ export default function UserManagement() {
       const res = await usersAPI.listStaff();
       setStaff(res.data.staff || []);
     } catch (err) {
-      setError('Failed to load staff users');
+      setError('ไม่สามารถโหลดข้อมูลพนักงานได้');
       console.error(err);
     } finally {
       setLoading(false);
@@ -81,20 +69,19 @@ export default function UserManagement() {
     setTimeout(() => setSuccess(''), 4000);
   };
 
-  // ========== Staff CRUD ==========
   const handleCreateStaff = async (e) => {
     e.preventDefault();
     setFormLoading(true);
     setFormError('');
     try {
       await usersAPI.createStaff(staffForm);
-      showMsg(`Staff user '${staffForm.email}' created`);
+      showMsg(`สร้างบัญชีพนักงาน '${staffForm.email}' สำเร็จ`);
       setShowCreateForm(false);
       setStaffForm({ email: '', password: '', full_name: '', role: 'accounting', phone: '' });
       loadStaff();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setFormError(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Failed to create');
+      setFormError(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'ไม่สามารถสร้างได้');
     } finally {
       setFormLoading(false);
     }
@@ -104,20 +91,20 @@ export default function UserManagement() {
     setConfirmDeactivate({ open: false, user: null });
     try {
       await usersAPI.deactivateStaff(user.id);
-      showMsg(`${user.email} deactivated`);
+      showMsg(`ระงับบัญชี ${user.email} สำเร็จ`);
       loadStaff();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to deactivate');
+      setError(err.response?.data?.detail || 'ไม่สามารถระงับบัญชีได้');
     }
   };
 
   const handleReactivateStaff = async (user) => {
     try {
       await usersAPI.reactivateStaff(user.id);
-      showMsg(`${user.email} reactivated`);
+      showMsg(`เปิดใช้งานบัญชี ${user.email} สำเร็จ`);
       loadStaff();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to reactivate');
+      setError(err.response?.data?.detail || 'ไม่สามารถเปิดใช้งานได้');
     }
   };
 
@@ -129,38 +116,41 @@ export default function UserManagement() {
 
   const handleResetPassword = async () => {
     if (newPassword.length < 8) {
-      setFormError('Password must be at least 8 characters');
+      setFormError(t('userManagement.passwordMinLength'));
       return;
     }
     setResetLoading(true);
     try {
       await usersAPI.resetStaffPassword(resetTarget.id, { new_password: newPassword });
-      showMsg(`Password reset for ${resetTarget.email}`);
+      showMsg(`รีเซ็ตรหัสผ่านสำหรับ ${resetTarget.email} สำเร็จ`);
       setShowResetModal(false);
     } catch (err) {
-      setFormError(err.response?.data?.detail || 'Failed to reset password');
+      setFormError(err.response?.data?.detail || 'ไม่สามารถรีเซ็ตรหัสผ่านได้');
     } finally {
       setResetLoading(false);
     }
   };
 
-  // ========== Render ==========
+  const getRoleLabel = (role) => {
+    return t(`roles.${role}`, role);
+  };
+
   const tabs = [
-    { key: 'staff', label: `Staff Users (${staff.length})`, icon: '👤' },
-    { key: 'residents', label: `Residents (${residents.length})`, icon: '🏠' },
+    { key: 'staff', label: `${t('userManagement.staffTab')} (${staff.length})`, icon: '👤' },
+    { key: 'residents', label: `${t('userManagement.residentsTab')} (${residents.length})`, icon: '🏠' },
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          👥 User Management
+        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
+          {t('userManagement.title')}
         </h1>
-        <p className="text-gray-400 mt-1">Manage staff accounts and view residents</p>
+        <p className="text-gray-400 mt-1">{t('userManagement.subtitle')}</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6">
         {tabs.map(tab => (
           <button
             key={tab.key}
@@ -192,20 +182,20 @@ export default function UserManagement() {
       {/* ========== Staff Tab ========== */}
       {activeTab === 'staff' && (
         <div>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-white">Staff Accounts</h2>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-white">{t('userManagement.staffAccounts')}</h2>
             <button
               onClick={() => { setShowCreateForm(!showCreateForm); setFormError(''); }}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm whitespace-nowrap"
             >
-              + Add Staff
+              + {t('userManagement.addStaff')}
             </button>
           </div>
 
           {/* Create Form */}
           {showCreateForm && (
             <div className="mb-6 p-4 bg-slate-800 border border-gray-700 rounded-xl">
-              <h3 className="text-white font-medium mb-3">Create New Staff User</h3>
+              <h3 className="text-white font-medium mb-3">{t('userManagement.createStaff')}</h3>
               {formError && (
                 <div className="mb-3 p-2 bg-red-900/50 border border-red-500 rounded text-red-200 text-sm">
                   {formError}
@@ -213,7 +203,7 @@ export default function UserManagement() {
               )}
               <form onSubmit={handleCreateStaff} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Email *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.email')} *</label>
                   <input
                     type="email"
                     required
@@ -224,7 +214,7 @@ export default function UserManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Password * (min 8 chars)</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('userManagement.newPassword')} *</label>
                   <input
                     type="password"
                     required
@@ -235,29 +225,29 @@ export default function UserManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Full Name *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.name')} *</label>
                   <input
                     type="text"
                     required
                     value={staffForm.full_name}
                     onChange={e => setStaffForm({ ...staffForm, full_name: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                    placeholder="John Doe"
+                    placeholder="ชื่อ-นามสกุล"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Role *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.role')} *</label>
                   <select
                     value={staffForm.role}
                     onChange={e => setStaffForm({ ...staffForm, role: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="accounting">Accounting</option>
-                    <option value="admin">Admin</option>
+                    <option value="accounting">{t('roles.accounting')}</option>
+                    <option value="admin">{t('roles.admin')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Phone</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.phone')}</label>
                   <input
                     type="text"
                     value={staffForm.phone}
@@ -272,14 +262,14 @@ export default function UserManagement() {
                     disabled={formLoading}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50"
                   >
-                    {formLoading ? 'Creating...' : 'Create'}
+                    {formLoading ? t('common.creating') : t('common.create')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowCreateForm(false)}
                     className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                 </div>
               </form>
@@ -288,85 +278,87 @@ export default function UserManagement() {
 
           {/* Staff Table */}
           <div className="bg-slate-800 rounded-xl border border-gray-700 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-700">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Name</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Email</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Role</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Created</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {loading ? (
-                  <SkeletonTable rows={5} cols={6} />
-                ) : staff.length === 0 ? (
-                  <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">No staff users found</td></tr>
-                ) : (
-                  staff.map(u => (
-                    <tr key={u.id} className="hover:bg-slate-700/50">
-                      <td className="px-4 py-3 text-white font-medium">{u.full_name}</td>
-                      <td className="px-4 py-3 text-gray-300">{u.email}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          u.role === 'super_admin'
-                            ? 'bg-purple-900/50 text-purple-300 border border-purple-500'
-                            : u.role === 'accounting'
-                            ? 'bg-blue-900/50 text-blue-300 border border-blue-500'
-                            : 'bg-gray-700 text-gray-300 border border-gray-500'
-                        }`}>
-                          {u.role}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          u.is_active
-                            ? 'bg-green-900/50 text-green-300'
-                            : 'bg-red-900/50 text-red-300'
-                        }`}>
-                          {u.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-400 text-sm">
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => openResetPassword(u)}
-                            className="px-2 py-1 text-xs bg-yellow-600 hover:bg-yellow-700 text-white rounded"
-                            title="Reset Password"
-                          >
-                            🔑
-                          </button>
-                          {u.role !== 'super_admin' && (
-                            u.is_active ? (
-                              <button
-                                onClick={() => setConfirmDeactivate({ open: true, user: u })}
-                                className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
-                                title="Deactivate"
-                              >
-                                🚫
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleReactivateStaff(u)}
-                                className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
-                                title="Reactivate"
-                              >
-                                ✅
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            <div className="table-container">
+              <table className="w-full">
+                <thead className="bg-slate-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.email')}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.role')}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.createdAt')}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {loading ? (
+                    <SkeletonTable rows={5} cols={6} />
+                  ) : staff.length === 0 ? (
+                    <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">{t('userManagement.noStaffFound')}</td></tr>
+                  ) : (
+                    staff.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-700/50">
+                        <td className="px-4 py-3 text-white font-medium">{u.full_name}</td>
+                        <td className="px-4 py-3 text-gray-300">{u.email}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            u.role === 'super_admin'
+                              ? 'bg-purple-900/50 text-purple-300 border border-purple-500'
+                              : u.role === 'accounting'
+                              ? 'bg-blue-900/50 text-blue-300 border border-blue-500'
+                              : 'bg-gray-700 text-gray-300 border border-gray-500'
+                          }`}>
+                            {getRoleLabel(u.role)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            u.is_active
+                              ? 'bg-green-900/50 text-green-300'
+                              : 'bg-red-900/50 text-red-300'
+                          }`}>
+                            {u.is_active ? t('common.active') : t('common.inactive')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 text-sm">
+                          {u.created_at ? new Date(u.created_at).toLocaleDateString('th-TH') : '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => openResetPassword(u)}
+                              className="px-2 py-1 text-xs bg-yellow-600 hover:bg-yellow-700 text-white rounded"
+                              title={t('userManagement.resetPassword')}
+                            >
+                              🔑
+                            </button>
+                            {u.role !== 'super_admin' && (
+                              u.is_active ? (
+                                <button
+                                  onClick={() => setConfirmDeactivate({ open: true, user: u })}
+                                  className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
+                                  title={t('userManagement.suspend')}
+                                >
+                                  🚫
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleReactivateStaff(u)}
+                                  className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
+                                  title={t('members.reactivate')}
+                                >
+                                  ✅
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -374,85 +366,87 @@ export default function UserManagement() {
       {/* ========== Residents Tab ========== */}
       {activeTab === 'residents' && (
         <div>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-white">Resident Users</h2>
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-white">{t('userManagement.residentUsers')}</h2>
+            <div className="flex gap-2 w-full sm:w-auto">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && loadResidents()}
-                className="px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white text-sm"
-                placeholder="Search by name or email..."
+                className="flex-1 sm:flex-initial px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white text-sm"
+                placeholder={t('userManagement.searchPlaceholder')}
               />
               <button
                 onClick={loadResidents}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm whitespace-nowrap"
               >
-                Search
+                {t('common.search')}
               </button>
             </div>
           </div>
 
           <div className="bg-slate-800 rounded-xl border border-gray-700 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-700">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Name</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Email</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Phone</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">House</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Role</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {residentsLoading ? (
-                  <SkeletonTable rows={5} cols={6} />
-                ) : residents.length === 0 ? (
-                  <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">No residents found</td></tr>
-                ) : (
-                  residents.map(r => (
-                    <tr key={r.user_id || r.id} className="hover:bg-slate-700/50">
-                      <td className="px-4 py-3 text-white">{r.full_name || r.user?.full_name || '-'}</td>
-                      <td className="px-4 py-3 text-gray-300">{r.email || r.user?.email || '-'}</td>
-                      <td className="px-4 py-3 text-gray-300">{r.phone || r.user?.phone || '-'}</td>
-                      <td className="px-4 py-3 text-gray-300">{r.house_code || r.house?.house_code || '-'}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="px-2 py-1 text-xs rounded-full bg-cyan-900/50 text-cyan-300 border border-cyan-500">
-                          {r.role || r.member_role || r.user?.role || '-'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          (r.is_active !== undefined ? r.is_active : r.user?.is_active)
-                            ? 'bg-green-900/50 text-green-300'
-                            : 'bg-red-900/50 text-red-300'
-                        }`}>
-                          {(r.is_active !== undefined ? r.is_active : r.user?.is_active) ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            <div className="table-container">
+              <table className="w-full">
+                <thead className="bg-slate-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.email')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.phone')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('members.house')}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.role')}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {residentsLoading ? (
+                    <SkeletonTable rows={5} cols={6} />
+                  ) : residents.length === 0 ? (
+                    <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">{t('userManagement.noResidentsFound')}</td></tr>
+                  ) : (
+                    residents.map(r => (
+                      <tr key={r.user_id || r.id} className="hover:bg-slate-700/50">
+                        <td className="px-4 py-3 text-white">{r.full_name || r.user?.full_name || '-'}</td>
+                        <td className="px-4 py-3 text-gray-300">{r.email || r.user?.email || '-'}</td>
+                        <td className="px-4 py-3 text-gray-300">{r.phone || r.user?.phone || '-'}</td>
+                        <td className="px-4 py-3 text-gray-300">{r.house_code || r.house?.house_code || '-'}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="px-2 py-1 text-xs rounded-full bg-cyan-900/50 text-cyan-300 border border-cyan-500">
+                            {getRoleLabel(r.role || r.member_role || r.user?.role || '-')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            (r.is_active !== undefined ? r.is_active : r.user?.is_active)
+                              ? 'bg-green-900/50 text-green-300'
+                              : 'bg-red-900/50 text-red-300'
+                          }`}>
+                            {(r.is_active !== undefined ? r.is_active : r.user?.is_active) ? t('common.active') : t('common.inactive')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
           <p className="text-gray-500 text-xs mt-2">
-            * Resident accounts are managed via the Members page. This is a read-only overview.
+            * {t('userManagement.residentReadOnly')}
           </p>
         </div>
       )}
 
       {/* ========== Reset Password Modal ========== */}
       {showResetModal && resetTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowResetModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowResetModal(false)}>
           <div className="bg-slate-800 rounded-xl border border-gray-700 p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-white mb-4">
-              🔑 Reset Password
+              🔑 {t('userManagement.resetPassword')}
             </h3>
             <p className="text-gray-400 text-sm mb-4">
-              Resetting password for: <span className="text-white font-medium">{resetTarget.email}</span>
+              รีเซ็ตรหัสผ่านสำหรับ: <span className="text-white font-medium">{resetTarget.email}</span>
             </p>
             {formError && (
               <div className="mb-3 p-2 bg-red-900/50 border border-red-500 rounded text-red-200 text-sm">
@@ -460,13 +454,13 @@ export default function UserManagement() {
               </div>
             )}
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">New Password (min 8 chars)</label>
+              <label className="block text-sm text-gray-400 mb-1">{t('userManagement.newPassword')}</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={e => { setNewPassword(e.target.value); setFormError(''); }}
                 className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                placeholder="Enter new password"
+                placeholder="ใส่รหัสผ่านใหม่"
                 minLength={8}
               />
             </div>
@@ -475,14 +469,14 @@ export default function UserManagement() {
                 onClick={() => setShowResetModal(false)}
                 className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleResetPassword}
                 disabled={resetLoading || newPassword.length < 8}
                 className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm disabled:opacity-50"
               >
-                {resetLoading ? 'Resetting...' : 'Reset Password'}
+                {resetLoading ? t('userManagement.resettingPassword') : t('userManagement.resetPassword')}
               </button>
             </div>
           </div>
@@ -490,10 +484,10 @@ export default function UserManagement() {
       )}
       <ConfirmModal
         open={confirmDeactivate.open}
-        title="ระงับบัญชีผู้ใช้"
-        message={`ต้องการระงับบัญชี "${confirmDeactivate.user?.email || ''}" ใช่หรือไม่? ผู้ใช้จะไม่สามารถเข้าสู่ระบบได้`}
+        title={t('userManagement.suspendAccount')}
+        message={t('userManagement.suspendConfirm')}
         variant="danger"
-        confirmText="ระงับ"
+        confirmText={t('userManagement.suspend')}
         onConfirm={() => handleDeactivateStaff(confirmDeactivate.user)}
         onCancel={() => setConfirmDeactivate({ open: false, user: null })}
       />

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { vendorsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonPage } from '../../components/Skeleton';
+import { t } from '../../hooks/useLocale';
 
 /**
  * Phase H.1.1: Vendor & Category Management
@@ -229,11 +230,11 @@ export default function Vendors() {
   ];
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">🏢 Vendor & Category Management</h1>
-        <p className="text-gray-400">Manage vendors, vendor categories, and expense categories</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">🏢 Vendor & Category Management</h1>
+        <p className="text-gray-400">{t('vendors.subtitle')}</p>
       </div>
 
       {/* Success/Error Messages */}
@@ -287,7 +288,7 @@ export default function Vendors() {
           {activeTab === 'vendors' && (
             <div>
               <div className="mb-4 flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-white">Vendors ({vendors.length})</h2>
+                <h2 className="text-lg font-semibold text-white">ผู้รับเงิน ({vendors.length})</h2>
                 <button
                   onClick={openCreateVendor}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center gap-2"
@@ -300,12 +301,12 @@ export default function Vendors() {
                 <table className="w-full">
                   <thead className="bg-slate-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Name</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Category</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Phone</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Bank Account</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Actions</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.category')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.phone')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('vendors.bankAccount')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
@@ -324,9 +325,9 @@ export default function Vendors() {
                           <td className="px-4 py-3 text-gray-300">{vendor.bank_account || '-'}</td>
                           <td className="px-4 py-3 text-center">
                             {vendor.is_active ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Active</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">{t('common.active')}</span>
                             ) : (
-                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Inactive</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('common.inactive')}</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -370,7 +371,7 @@ export default function Vendors() {
           {/* ========== VENDOR CATEGORIES TAB ========== */}
           {activeTab === 'vendor-categories' && (
             <div>
-              <h2 className="text-lg font-semibold text-white mb-4">Vendor Categories</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">{t('vendors.vendorCategories')}</h2>
 
               {/* Add Form */}
               <div className="mb-4 flex gap-2">
@@ -395,15 +396,15 @@ export default function Vendors() {
                 <table className="w-full">
                   <thead className="bg-slate-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Name</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Actions</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
                     {vendorCategories.length === 0 ? (
                       <tr>
-                        <td colSpan="3" className="px-4 py-8 text-center text-gray-400">No vendor categories</td>
+                        <td colSpan="3" className="px-4 py-8 text-center text-gray-400">{t('vendors.noVendorCategories')}</td>
                       </tr>
                     ) : (
                       vendorCategories.map(cat => (
@@ -411,9 +412,9 @@ export default function Vendors() {
                           <td className="px-4 py-3 text-white">{cat.name}</td>
                           <td className="px-4 py-3 text-center">
                             {cat.is_active ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Active</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">{t('common.active')}</span>
                             ) : (
-                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Inactive</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('common.inactive')}</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -440,7 +441,7 @@ export default function Vendors() {
           {/* ========== EXPENSE CATEGORIES TAB ========== */}
           {activeTab === 'expense-categories' && (
             <div>
-              <h2 className="text-lg font-semibold text-white mb-4">Expense Categories</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">{t('vendors.expenseCategories')}</h2>
               <p className="text-sm text-gray-400 mb-4">
                 These categories replace the hardcoded list. Used in expense creation dropdown.
               </p>
@@ -468,15 +469,15 @@ export default function Vendors() {
                 <table className="w-full">
                   <thead className="bg-slate-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Name</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Actions</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
                     {expenseCategories.length === 0 ? (
                       <tr>
-                        <td colSpan="3" className="px-4 py-8 text-center text-gray-400">No expense categories</td>
+                        <td colSpan="3" className="px-4 py-8 text-center text-gray-400">{t('vendors.noExpenseCategories')}</td>
                       </tr>
                     ) : (
                       expenseCategories.map(cat => (
@@ -484,9 +485,9 @@ export default function Vendors() {
                           <td className="px-4 py-3 text-white">{cat.name}</td>
                           <td className="px-4 py-3 text-center">
                             {cat.is_active ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Active</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">{t('common.active')}</span>
                             ) : (
-                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Inactive</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('common.inactive')}</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -542,18 +543,18 @@ export default function Vendors() {
                   disabled={!!editingVendor}
                 />
                 {editingVendor && (
-                  <p className="text-xs text-yellow-400/70 mt-1">Name cannot be changed after creation</p>
+                  <p className="text-xs text-yellow-400/70 mt-1">ไม่สามารถเปลี่ยนชื่อได้หลังสร้าง</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Vendor Category</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('vendors.vendorCategory')}</label>
                 <select
                   value={vendorForm.vendor_category_id}
                   onChange={(e) => setVendorForm({ ...vendorForm, vendor_category_id: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                 >
-                  <option value="">Not categorized</option>
+                  <option value="">ไม่มีหมวดหมู่</option>
                   {activeVendorCategories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
@@ -562,7 +563,7 @@ export default function Vendors() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Phone</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.phone')}</label>
                   <input
                     type="text"
                     value={vendorForm.phone}
@@ -572,7 +573,7 @@ export default function Vendors() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Bank Account</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('vendors.bankAccount')}</label>
                   <input
                     type="text"
                     value={vendorForm.bank_account}

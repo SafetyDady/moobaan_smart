@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usersAPI, housesAPI } from '../../api/client';
 import { useToast } from '../../components/Toast';
+import { t } from '../../hooks/useLocale';
 
 export default function AddResident() {
   const navigate = useNavigate();
@@ -28,9 +29,9 @@ export default function AddResident() {
   });
 
   const memberRoles = [
-    { value: 'owner', label: 'Owner / เจ้าของ' },
-    { value: 'resident', label: 'Resident / ผู้อาศัย' },
-    { value: 'tenant', label: 'Tenant / ผู้เช่า' }
+    { value: 'owner', label: t('roles.owner') },
+    { value: 'resident', label: t('roles.resident') },
+    { value: 'tenant', label: t('roles.tenant') }
   ];
 
   useEffect(() => {
@@ -197,16 +198,16 @@ export default function AddResident() {
   const hasSearched = searchResult !== null;
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
           <button onClick={() => navigate('/admin/members')} className="text-primary-400 hover:text-primary-300">
-            ← Back to Members
+            ← {t('common.back')}
           </button>
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">เพิ่มลูกบ้าน / Add Resident</h1>
-        <p className="text-gray-400">ค้นหาด้วยเบอร์โทรก่อน — ถ้ามีอยู่แล้วจะเพิ่มบ้านให้คนเดิม</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('addResident.title')}</h1>
+        <p className="text-gray-400">{t('addResident.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -282,7 +283,7 @@ export default function AddResident() {
                         <div className="mt-1 space-y-1 ml-6">
                           {searchResult.user.memberships.map((m, i) => (
                             <div key={i} className={`text-sm ${m.status === 'ACTIVE' ? 'text-green-300' : 'text-gray-500'}`}>
-                              • {m.house_code} ({m.role}, {m.status === 'ACTIVE' ? '✅ Active' : '⛔ Inactive'})
+                              • {m.house_code} ({m.role}, {m.status === 'ACTIVE' ? '✅ ใช้งาน' : '⛔ ไม่ใช้งาน'})
                             </div>
                           ))}
                         </div>

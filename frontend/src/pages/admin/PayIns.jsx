@@ -4,6 +4,7 @@ import { useRole } from '../../contexts/RoleContext';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
+import { t } from '../../hooks/useLocale';
 
 export default function PayIns() {
   const { isAdmin, isAccounting, currentRole, loading: roleLoading } = useRole();
@@ -195,28 +196,28 @@ export default function PayIns() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Pay-in Review Queue</h1>
-        <p className="text-gray-400">Review and process resident payment submissions</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('payins.title')}</h1>
+        <p className="text-gray-400">{t('payins.subtitle')}</p>
       </div>
 
       {/* Filter */}
       <div className="card p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Filter by Status</label>
+            <label className="block text-sm text-gray-400 mb-2">{t('payins.statusFilter')}</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="input w-full"
             >
-              <option value="">All Status</option>
-              <option value="SUBMITTED">Needs Review (SUBMITTED)</option>
-              <option value="PENDING">Pending Review (Legacy)</option>
-              <option value="REJECTED_NEEDS_FIX">Rejected - Needs Fix</option>
-              <option value="ACCEPTED">Accepted</option>
-              <option value="REJECTED">Rejected (Legacy)</option>
+              <option value="">{t('payins.allStatus')}</option>
+              <option value="SUBMITTED">{t('payins.needsReview')}</option>
+              <option value="PENDING">{t('payins.pendingReview')}</option>
+              <option value="REJECTED_NEEDS_FIX">{t('payins.rejectedNeedsFix')}</option>
+              <option value="ACCEPTED">{t('payins.accepted')}</option>
+              <option value="REJECTED">{t('payins.rejected')}</option>
             </select>
           </div>
         </div>
@@ -228,14 +229,14 @@ export default function PayIns() {
           <table className="table">
             <thead>
               <tr>
-                <th>House</th>
-                <th>Amount</th>
-                <th>Transfer Date/Time</th>
-                <th>Slip</th>
-                <th>Match Status</th>
-                <th>Status</th>
-                <th>Submitted</th>
-                <th>Actions</th>
+                <th>{t('payins.house')}</th>
+                <th>{t('payins.amount')}</th>
+                <th>{t('payins.transferDate')}</th>
+                <th>{t('payins.slip')}</th>
+                <th>{t('payins.matchBank')}</th>
+                <th>{t('common.status')}</th>
+                <th>{t('common.createdAt')}</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -249,7 +250,7 @@ export default function PayIns() {
                 payins.map((payin) => (
                   <tr key={payin.id}>
                     <td className="font-medium text-white">{payin.house_number}</td>
-                    <td className="text-primary-400 font-semibold">฿{payin.amount.toLocaleString()}</td>
+                    <td className="text-primary-400 font-semibold">฿{payin.amount.toLocaleString('th-TH')}</td>
                     <td className="text-gray-300">
                       {new Date(payin.transfer_date).toLocaleDateString('th-TH')}
                       <br />
@@ -266,7 +267,7 @@ export default function PayIns() {
                           📎 View
                         </button>
                       ) : (
-                        <span className="text-gray-500 text-sm">No slip</span>
+                        <span className="text-gray-500 text-sm">{t('payins.noSlip')}</span>
                       )}
                     </td>
                     <td>
@@ -378,7 +379,7 @@ export default function PayIns() {
                         {/* REJECTED_NEEDS_FIX - waiting for resident to fix and resubmit */}
                         {payin.status === 'REJECTED_NEEDS_FIX' && canManagePayins && (
                           <div className="flex items-center gap-2">
-                            <span className="text-orange-400 text-sm" title="Cannot match until resident resubmits">
+                            <span className="text-orange-400 text-sm" title="ไม่สามารถจับคู่ได้จนกว่าลูกบ้านจะส่งใหม่">
                               ⏳ รอลูกบ้านแก้ไข
                             </span>
                             <button
@@ -404,7 +405,7 @@ export default function PayIns() {
                                   setShowReverseModal(true);
                                 }}
                                 className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
-                                title="Reverse this posting (undo ledger and invoice allocation)"
+                                title={t("payins.reverse")}
                               >
                                 ↩️ Reverse
                               </button>
@@ -412,7 +413,7 @@ export default function PayIns() {
                           </div>
                         )}
                         {payin.status === 'REJECTED' && (
-                          <span className="text-red-400 text-sm">Resident can resubmit</span>
+                          <span className="text-red-400 text-sm">ลูกบ้านสามารถส่งใหม่ได้</span>
                         )}
                       </div>
                     </td>
@@ -433,7 +434,7 @@ export default function PayIns() {
               บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString()}</span>
+              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
             </p>
             <div className="bg-orange-900 bg-opacity-30 border border-orange-600 rounded p-3 mb-4">
               <p className="text-orange-400 text-sm">
@@ -479,7 +480,7 @@ export default function PayIns() {
               บ้าน: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString()}</span>
+              ยอด: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
             </p>
             <div className="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded p-3 mb-4">
               <p className="text-yellow-400 text-sm">
@@ -520,17 +521,17 @@ export default function PayIns() {
       {showMatchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="card p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-white mb-4">Match Pay-in with Bank Transaction</h2>
+            <h2 className="text-xl font-bold text-white mb-4">{t('payins.matchBank')}</h2>
             
             {/* Pay-in Details */}
             <div className="bg-blue-900 bg-opacity-20 border border-blue-600 rounded p-4 mb-4">
-              <h3 className="text-lg font-semibold text-blue-400 mb-2">Pay-in Details</h3>
+              <h3 className="text-lg font-semibold text-blue-400 mb-2">{t('payins.payinDetails')}</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-gray-400">House:</div>
+                <div className="text-gray-400">{t('payins.house')}:</div>
                 <div className="text-white font-medium">{selectedPayin?.house_number}</div>
-                <div className="text-gray-400">Amount:</div>
-                <div className="text-primary-400 font-semibold">฿{selectedPayin?.amount?.toLocaleString()}</div>
-                <div className="text-gray-400">Transfer Time:</div>
+                <div className="text-gray-400">{t('payins.amount')}:</div>
+                <div className="text-primary-400 font-semibold">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</div>
+                <div className="text-gray-400">{t('payins.transferTime')}:</div>
                 <div className="text-white">
                   {selectedPayin && new Date(selectedPayin.transfer_date).toLocaleDateString('th-TH')} {' '}
                   {selectedPayin && String(selectedPayin.transfer_hour).padStart(2, '0')}:{String(selectedPayin.transfer_minute).padStart(2, '0')}
@@ -550,12 +551,12 @@ export default function PayIns() {
               </h3>
               
               {loadingTransactions ? (
-                <div className="text-center py-8 text-gray-400">Loading candidate transactions...</div>
+                <div className="text-center py-8 text-gray-400">{t('common.loading')}</div>
               ) : bankTransactions.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-yellow-400 mb-2">⚠️ No matching bank transactions found</p>
                   <p className="text-sm text-gray-400 mb-2">
-                    Matching criteria: Amount exactly ฿{selectedPayin?.amount?.toLocaleString()}, Time within ±1 minute
+                    Matching criteria: Amount exactly ฿{selectedPayin?.amount?.toLocaleString('th-TH')}, Time within ±1 minute
                   </p>
                   <p className="text-xs text-gray-500">
                     Check if: (1) Bank statement imported, (2) Amount matches exactly, (3) Time within ±1 minute of transfer_datetime
@@ -564,13 +565,13 @@ export default function PayIns() {
                   {matchDebugInfo && (
                     <div className="mt-4 text-left bg-gray-800 rounded p-3 text-xs font-mono">
                       <p className="text-gray-300 mb-1">🔍 Debug Info:</p>
-                      <p className="text-gray-400">Pay-in time (UTC): {matchDebugInfo.payin_time_utc}</p>
-                      <p className="text-gray-400">Pay-in tzinfo: {matchDebugInfo.payin_time_tzinfo}</p>
-                      <p className="text-gray-400">Unmatched credit txns: {matchDebugInfo.total_unmatched_credit}</p>
-                      <p className="text-gray-400">Amount matches: {matchDebugInfo.amount_matches}</p>
+                      <p className="text-gray-400">เวลาชำระ (UTC): {matchDebugInfo.payin_time_utc}</p>
+                      <p className="text-gray-400">โซนเวลา: {matchDebugInfo.payin_time_tzinfo}</p>
+                      <p className="text-gray-400">รายการเครดิตที่ยังไม่จับคู่: {matchDebugInfo.total_unmatched_credit}</p>
+                      <p className="text-gray-400">จำนวนที่ตรงกัน: {matchDebugInfo.amount_matches}</p>
                       {matchDebugInfo.near_misses?.length > 0 && (
                         <div className="mt-2">
-                          <p className="text-yellow-400">Near misses (amount OK, time off):</p>
+                          <p className="text-yellow-400">รายการใกล้เคียง (จำนวนตรง เวลาต่าง):</p>
                           {matchDebugInfo.near_misses.map((nm, i) => (
                             <p key={i} className="text-gray-400 ml-2">
                               txn {nm.txn_id}: bank_time={nm.bank_time_utc}, diff={nm.time_diff_seconds}s ({nm.time_diff_hours}h), reason={nm.reason}
@@ -580,7 +581,7 @@ export default function PayIns() {
                       )}
                       {matchDebugInfo.errors?.length > 0 && (
                         <div className="mt-2">
-                          <p className="text-red-400">Errors:</p>
+                          <p className="text-red-400">ข้อผิดพลาด:</p>
                           {matchDebugInfo.errors.map((e, i) => (
                             <p key={i} className="text-red-300 ml-2">txn {e.txn_id}: {e.error}</p>
                           ))}
@@ -611,7 +612,7 @@ export default function PayIns() {
                             <div className="text-white font-medium mb-1">
                               ฿{parseFloat(txn.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
                               {isPerfectMatch && <span className="ml-2 text-green-400 text-xs font-semibold">✓ Perfect Match</span>}
-                              {amountDiff > 0 && <span className="ml-2 text-yellow-400 text-xs">Amount diff: ฿{amountDiff.toFixed(2)}</span>}
+                              {amountDiff > 0 && <span className="ml-2 text-yellow-400 text-xs">ส่วนต่าง: ฿{amountDiff.toFixed(2)}</span>}
                             </div>
                             <div className="text-sm text-gray-400">
                               {txnDate.toLocaleDateString('th-TH')} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -623,9 +624,9 @@ export default function PayIns() {
                               <div className="text-xs text-gray-500 mt-1">{txn.description}</div>
                             )}
                             {txn.channel && (
-                              <div className="text-xs text-gray-600 mt-1">Channel: {txn.channel}</div>
+                              <div className="text-xs text-gray-600 mt-1">ช่องทาง: {txn.channel}</div>
                             )}
-                            <div className="text-xs text-gray-600 mt-1">Txn ID: {txn.id.substring(0, 8)}...</div>
+                            <div className="text-xs text-gray-600 mt-1">รหัสรายการ: {txn.id.substring(0, 8)}...</div>
                           </div>
                           <button
                             onClick={() => handleMatch(txn.id)}
@@ -666,7 +667,7 @@ export default function PayIns() {
       {/* Unmatch Confirm Modal */}
       <ConfirmModal
         open={confirmUnmatch.open}
-        title="Unmatch Pay-in"
+        title={t("payins.unmatch")}
         message="ต้องการยกเลิกการจับคู่กับรายการธนาคารใช่หรือไม่?"
         variant="warning"
         confirmText="Unmatch"
@@ -677,7 +678,7 @@ export default function PayIns() {
       {/* Confirm & Post Modal */}
       <ConfirmModal
         open={confirmPost.open}
-        title="Confirm & Post"
+        title={t("payins.post")}
         message={confirmPost.payin ? `Confirm & Post ฿${confirmPost.payin.amount} จากบ้าน ${confirmPost.payin.house_number}?\n\nระบบจะสร้าง Ledger + จัดสรรยอดเข้าใบแจ้งหนี้อัตโนมัติ` : ''}
         variant="info"
         confirmText="Confirm & Post"
@@ -694,7 +695,7 @@ export default function PayIns() {
               House: <span className="font-medium text-primary-400">{selectedPayin?.house_number}</span>
             </p>
             <p className="text-gray-300 mb-4">
-              Amount: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString()}</span>
+              Amount: <span className="font-medium text-primary-400">฿{selectedPayin?.amount?.toLocaleString('th-TH')}</span>
             </p>
             <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded p-3 mb-4">
               <p className="text-red-400 text-sm">

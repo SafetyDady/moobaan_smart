@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { creditNotesAPI, promotionsAPI } from '../api/client';
+import { t } from '../hooks/useLocale';
 
 /**
  * Credit Note Modal (Phase D.2-UI + D.4 Promotion Suggestions)
@@ -152,7 +153,7 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-bold text-white">Create Credit Note</h2>
+            <h2 className="text-xl font-bold text-white">{t('creditNote.title')}</h2>
             <p className="text-gray-400 text-sm">ลดยอดค้างชำระ Invoice</p>
           </div>
           <button
@@ -169,23 +170,23 @@ export default function CreditNoteModal({ isOpen, onClose, invoice, payinId, onS
           {/* Invoice Reference (readonly) */}
           <div className="bg-slate-700/50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Invoice</span>
+              <span className="text-gray-400">{t('creditNote.invoice')}</span>
               <span className="text-white font-medium">#{invoice.id}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-400">House</span>
+              <span className="text-gray-400">{t('invoices.house')}</span>
               <span className="text-white">{invoice.house_number || invoice.house_code}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Cycle/Description</span>
+              <span className="text-gray-400">{t('applyPayment.cycleDesc')}</span>
               <span className="text-white">{invoice.cycle || invoice.manual_reason || '-'}</span>
             </div>
             <div className="flex justify-between text-sm border-t border-slate-600 pt-2 mt-2">
-              <span className="text-gray-400">Total Amount</span>
+              <span className="text-gray-400">{t('invoices.total')}</span>
               <span className="text-white">฿{invoice.total.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-yellow-400 font-medium">Outstanding</span>
+              <span className="text-yellow-400 font-medium">{t('creditNote.outstanding')}</span>
               <span className="text-yellow-400 font-bold">฿{outstanding.toLocaleString()}</span>
             </div>
           </div>

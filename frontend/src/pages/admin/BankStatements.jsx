@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { bankStatementsAPI, bankAccountsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
+import { t } from '../../hooks/useLocale';
 
 const BankStatements = () => {
   const { user } = useAuth();
@@ -328,9 +329,9 @@ const BankStatements = () => {
   const safeBatches = Array.isArray(batches) ? batches : (batches?.items ?? []);
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Bank Statement Import</h1>
+        <h1 className="text-2xl font-bold">{t('bankStatements.title')}</h1>
         <button
           onClick={() => setShowAddAccount(!showAddAccount)}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
@@ -354,10 +355,10 @@ const BankStatements = () => {
       {/* Add Bank Account Form */}
       {showAddAccount && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Add New Bank Account</h2>
+          <h2 className="text-xl font-semibold mb-4">เพิ่มบัญชีธนาคารใหม่</h2>
           <form onSubmit={handleAddAccount} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Bank Code</label>
+              <label className="block text-sm font-medium mb-1">{t('bankStatements.bankCode')}</label>
               <input
                 type="text"
                 value={newAccount.bank_code}
@@ -368,7 +369,7 @@ const BankStatements = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Account Number (Masked)</label>
+              <label className="block text-sm font-medium mb-1">เลขบัญชี (ปกปิด)</label>
               <input
                 type="text"
                 value={newAccount.account_no_masked}
@@ -379,14 +380,14 @@ const BankStatements = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Account Type</label>
+              <label className="block text-sm font-medium mb-1">ประเภทบัญชี</label>
               <select
                 value={newAccount.account_type}
                 onChange={(e) => setNewAccount({...newAccount, account_type: e.target.value})}
                 className="w-full border rounded px-3 py-2"
               >
-                <option value="CASHFLOW">Cash Flow</option>
-                <option value="SAVINGS">Savings</option>
+                <option value="CASHFLOW">กระแสเงินสด</option>
+                <option value="SAVINGS">ออมทรัพย์</option>
               </select>
             </div>
             <button
@@ -402,11 +403,11 @@ const BankStatements = () => {
 
       {/* Upload Form */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Upload Bank Statement (CSV)</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('bankStatements.uploadCsv')}</h2>
         
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Bank Account</label>
+            <label className="block text-sm font-medium mb-1">{t('vendors.bankAccount')}</label>
             <select
               value={selectedAccount}
               onChange={(e) => setSelectedAccount(e.target.value)}
@@ -425,7 +426,7 @@ const BankStatements = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Year</label>
+            <label className="block text-sm font-medium mb-1">ปี</label>
             <input
               type="number"
               value={year}
@@ -437,7 +438,7 @@ const BankStatements = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Month</label>
+            <label className="block text-sm font-medium mb-1">เดือน</label>
             <select
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value))}
@@ -475,7 +476,7 @@ const BankStatements = () => {
       {/* Preview Section */}
       {preview && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Preview</h2>
+          <h2 className="text-xl font-semibold mb-4">{t('common.preview')}</h2>
 
           {/* Validation Messages */}
           {preview.validation?.errors?.length > 0 && (
@@ -503,21 +504,21 @@ const BankStatements = () => {
           {/* Summary */}
           <div className="grid grid-cols-4 gap-4 mb-4 text-sm">
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">Transactions</div>
+              <div className="text-gray-600">{t('bankStatements.transactions')}</div>
               <div className="text-xl font-bold">{preview.transaction_count}</div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">Date Range</div>
+              <div className="text-gray-600">ช่วงวันที่</div>
               <div className="font-semibold">
                 {formatDate(preview.date_range_start)} - {formatDate(preview.date_range_end)}
               </div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">Opening Balance</div>
+              <div className="text-gray-600">{t('bankStatements.openingBalance')}</div>
               <div className="font-semibold">{formatCurrency(preview.opening_balance)}</div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">Closing Balance</div>
+              <div className="text-gray-600">{t('bankStatements.closingBalance')}</div>
               <div className="font-semibold">{formatCurrency(preview.closing_balance)}</div>
             </div>
           </div>
@@ -527,13 +528,13 @@ const BankStatements = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Debit</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Credit</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Channel</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียด</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียดเพิ่มเติม</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">เดบิต</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">เครดิต</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">ยอดคงเหลือ</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ช่องทาง</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -573,22 +574,22 @@ const BankStatements = () => {
 
       {/* Existing Batches */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Imported Batches</h2>
+        <h2 className="text-xl font-semibold mb-4">ชุดข้อมูลที่นำเข้า</h2>
         
         {safeBatches.length === 0 ? (
-          <p className="text-gray-500">No batches imported yet</p>
+          <p className="text-gray-500">ยังไม่มีข้อมูลที่นำเข้า</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Account</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">File</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Transactions</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">บัญชี</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ช่วงเวลา</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ไฟล์</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.transactions')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">จัดการ</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -642,7 +643,7 @@ const BankStatements = () => {
         <div className="bg-white rounded-lg shadow p-6 mt-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 className="text-xl font-semibold">Batch Transactions</h2>
+              <h2 className="text-xl font-semibold">{t('bankStatements.batchTransactions')}</h2>
               {batchInfo && (
                 <p className="text-sm text-gray-600 mt-1">
                   {batchInfo.filename} • {batchInfo.year}-{String(batchInfo.month).padStart(2, '0')}
@@ -662,7 +663,7 @@ const BankStatements = () => {
 
           {transactionsLoading && (
             <div className="text-center py-8">
-              <p className="text-gray-600">Loading transactions...</p>
+              <p className="text-gray-600">กำลังโหลดรายการ...</p>
             </div>
           )}
 
@@ -673,7 +674,7 @@ const BankStatements = () => {
           )}
 
           {!transactionsLoading && !transactionsError && transactions.length === 0 && (
-            <p className="text-gray-500 text-center py-8">No transactions found</p>
+            <p className="text-gray-500 text-center py-8">{t('bankStatements.noTransactions')}</p>
           )}
 
           {!transactionsLoading && !transactionsError && transactions.length > 0 && (
@@ -686,13 +687,13 @@ const BankStatements = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Debit</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Credit</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Channel</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียด</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายละเอียดเพิ่มเติม</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">เดบิต</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">เครดิต</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">ยอดคงเหลือ</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ช่องทาง</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">

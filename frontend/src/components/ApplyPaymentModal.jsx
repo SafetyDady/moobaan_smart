@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoicesAPI } from '../api/client';
 import { SkeletonCard } from './Skeleton';
+import { t } from '../hooks/useLocale';
 
 export default function ApplyPaymentModal({ 
   isOpen, 
@@ -106,7 +107,7 @@ export default function ApplyPaymentModal({
       <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-700">
-          <h2 className="text-xl font-bold text-white">Apply Payment / ชำระเงิน</h2>
+          <h2 className="text-xl font-bold text-white">{t('applyPayment.title')}</h2>
           <p className="text-gray-400 text-sm mt-1">
             Invoice #{invoice?.id} - {invoice?.house_code}
           </p>
@@ -118,19 +119,19 @@ export default function ApplyPaymentModal({
           <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-gray-400 text-sm">Total Amount</div>
+                <div className="text-gray-400 text-sm">{t('invoices.total')}</div>
                 <div className="text-white font-bold text-lg">
                   ฿{(invoice?.total_amount || 0).toLocaleString()}
                 </div>
               </div>
               <div>
-                <div className="text-gray-400 text-sm">Paid</div>
+                <div className="text-gray-400 text-sm">{t('invoices.paid')}</div>
                 <div className="text-green-400 font-bold text-lg">
                   ฿{((invoice?.total_amount || 0) - outstanding).toLocaleString()}
                 </div>
               </div>
               <div>
-                <div className="text-gray-400 text-sm">Outstanding</div>
+                <div className="text-gray-400 text-sm">{t('invoices.outstanding')}</div>
                 <div className="text-yellow-400 font-bold text-lg">
                   ฿{outstanding.toLocaleString()}
                 </div>
@@ -140,7 +141,7 @@ export default function ApplyPaymentModal({
 
           {/* Ledger Selection */}
           <div className="mb-6">
-            <h3 className="text-white font-medium mb-3">Select Ledger Entry / เลือกรายการรับเงิน</h3>
+            <h3 className="text-white font-medium mb-3">{t('applyPayment.selectLedger')}</h3>
             
             {loading ? (
               <SkeletonCard />
@@ -171,7 +172,7 @@ export default function ApplyPaymentModal({
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-gray-400 text-sm">Remaining</div>
+                        <div className="text-gray-400 text-sm">{t('applyPayment.remaining')}</div>
                         <div className="text-green-400 font-bold">
                           ฿{ledger.remaining.toLocaleString()}
                         </div>

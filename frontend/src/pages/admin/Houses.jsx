@@ -4,13 +4,14 @@ import { housesAPI } from '../../api/client';
 import { SkeletonTable } from '../../components/Skeleton';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
+import { t } from '../../hooks/useLocale';
 
 const HOUSE_STATUSES = [
-  { value: 'ACTIVE', label: 'Active / ใช้งานอยู่', color: 'badge-success' },
-  { value: 'VACANT', label: 'Vacant / ว่าง', color: 'badge-gray' },
-  { value: 'BANK_OWNED', label: 'Bank Owned / ธนาคารเจ้าของ', color: 'badge-gray' },
-  { value: 'SUSPENDED', label: 'Suspended / ระงับ', color: 'badge-gray' },
-  { value: 'ARCHIVED', label: 'Archived / เก็บถาวร', color: 'badge-gray' },
+  { value: 'ACTIVE', label: t('houses.statusActive') },
+  { value: 'VACANT', label: t('houses.statusVacant') },
+  { value: 'BANK_OWNED', label: t('houses.statusBankOwned') },
+  { value: 'SUSPENDED', label: t('houses.statusSuspended') },
+  { value: 'ARCHIVED', label: t('houses.statusArchived') },
 ];
 
 export default function Houses() {
@@ -52,11 +53,11 @@ export default function Houses() {
   const handleDelete = async (id) => {
     try {
       await housesAPI.delete(id);
-      toast.success('ลบบ้านสำเร็จ');
+      toast.success(t('houses.deleteSuccess'));
       loadHouses();
     } catch (error) {
       console.error('Failed to delete house:', error);
-      toast.error('ไม่สามารถลบบ้านได้');
+      toast.error(t('houses.deleteFailed'));
     }
   };
 
@@ -86,7 +87,7 @@ export default function Houses() {
 
   const handleEditSave = async () => {
     if (!editForm.owner_name?.trim()) {
-      setEditError('ชื่อเจ้าของจำเป็นต้องระบุ');
+      setEditError(t('houses.ownerRequired'));
       return;
     }
     setEditLoading(true);
@@ -98,7 +99,7 @@ export default function Houses() {
     } catch (error) {
       console.error('Failed to update house:', error);
       const detail = error.response?.data?.detail;
-      setEditError(typeof detail === 'string' ? detail : 'ไม่สามารถอัปเดตข้อมูลบ้านได้');
+      setEditError(typeof detail === 'string' ? detail : t('houses.updateFailed'));
     } finally {
       setEditLoading(false);
     }
@@ -107,15 +108,12 @@ export default function Houses() {
   const downloadStatement = async (houseId, format = 'pdf') => {
     setDownloadingStatements(prev => new Set([...prev, `${houseId}-${format}`]));
     try {
-      // Get current month/year
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
 
-      // Use apiClient to get correct baseURL
       const response = await housesAPI.downloadStatement(houseId, year, month, format);
 
-      // Create blob and download
       const url = window.URL.createObjectURL(response);
       const a = document.createElement('a');
       a.style.display = 'none';
@@ -128,7 +126,7 @@ export default function Houses() {
 
     } catch (error) {
       console.error('Download failed:', error);
-      toast.error(`ดาวน์โหลดไม่สำเร็จ: ${error.message}`);
+      toast.error(`${t('houses.downloadFailed')}: ${error.message}`);
     } finally {
       setDownloadingStatements(prev => {
         const newSet = new Set(prev);
@@ -138,57 +136,60 @@ export default function Houses() {
     }
   };
 
+  const getStatusLabel = (status) => {
+    const found = HOUSE_STATUSES.find(s => s.value === status);
+    return found ? found.label : status;
+  };
+
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Houses Management</h1>
-            <p className="text-gray-400">Manage village houses and their status</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('houses.title')}</h1>
+            <p className="text-gray-400">{t('houses.subtitle')}</p>
           </div>
-          <div className="flex gap-3">
-            <Link to="/admin/add-house" className="btn-primary">
-              🏠 Add House / เพิ่มบ้าน
+          <div className="flex gap-3 flex-wrap">
+            <Link to="/admin/add-house" className="btn-primary whitespace-nowrap">
+              🏠 {t('houses.addHouse')}
             </Link>
-            <Link to="/admin/add-resident" className="btn-secondary">
-              👤 Add Resident / เพิ่มผู้อาศัย
+            <Link to="/admin/add-resident" className="btn-secondary whitespace-nowrap">
+              👤 {t('houses.addResident')}
             </Link>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="card p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="card p-4 sm:p-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Search</label>
+            <label className="block text-sm text-gray-400 mb-2">{t('common.search')}</label>
             <input
               type="text"
-              placeholder="House code or owner name..."
+              placeholder={t('houses.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input w-full"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Status</label>
+            <label className="block text-sm text-gray-400 mb-2">{t('common.status')}</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="input w-full"
             >
-              <option value="">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="VACANT">Vacant</option>
-              <option value="BANK_OWNED">Bank Owned</option>
-              <option value="SUSPENDED">Suspended</option>
-              <option value="ARCHIVED">Archived</option>
+              <option value="">{t('houses.allStatuses')}</option>
+              {HOUSE_STATUSES.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
             </select>
           </div>
           <div className="flex items-end">
             <button onClick={loadHouses} className="btn-secondary w-full">
-              🔄 Refresh
+              🔄 {t('common.refresh')}
             </button>
           </div>
         </div>
@@ -200,12 +201,12 @@ export default function Houses() {
           <table className="table">
             <thead>
               <tr>
-                <th>House Code</th>
-                <th>Owner Name</th>
-                <th>Status</th>
-                <th>Zone</th>
-                <th>Created At</th>
-                <th>Actions</th>
+                <th>{t('houses.houseCode')}</th>
+                <th>{t('houses.ownerName')}</th>
+                <th>{t('common.status')}</th>
+                <th>{t('houses.zone')}</th>
+                <th>{t('common.createdAt')}</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -214,7 +215,7 @@ export default function Houses() {
               ) : houses.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="text-center py-8 text-gray-400">
-                    No houses found
+                    {t('houses.noHousesFound')}
                   </td>
                 </tr>
               ) : (
@@ -224,12 +225,12 @@ export default function Houses() {
                     <td className="text-gray-300">{house.owner_name}</td>
                     <td>
                       <span className={`badge ${house.house_status === 'ACTIVE' ? 'badge-success' : 'badge-gray'}`}>
-                        {house.house_status}
+                        {getStatusLabel(house.house_status)}
                       </span>
                     </td>
                     <td className="text-gray-300">{house.zone || '-'}</td>
                     <td className="text-gray-400">
-                      {new Date(house.created_at).toLocaleDateString()}
+                      {new Date(house.created_at).toLocaleDateString('th-TH')}
                     </td>
                     <td>
                       <div className="flex gap-2 flex-wrap">
@@ -237,14 +238,14 @@ export default function Houses() {
                           onClick={() => openEdit(house)}
                           className="text-yellow-400 hover:text-yellow-300 text-sm"
                         >
-                          ✏️ Edit
+                          ✏️ {t('common.edit')}
                         </button>
                         <Link
                           to="/admin/add-resident"
                           state={{ house_id: house.id }}
                           className="text-purple-400 hover:text-purple-300 text-sm"
                         >
-                          +Resident
+                          +{t('houses.addResident')}
                         </Link>
                         <button
                           onClick={() => downloadStatement(house.id, 'pdf')}
@@ -264,7 +265,7 @@ export default function Houses() {
                           onClick={() => setConfirmState({ open: true, houseId: house.id })}
                           className="text-red-400 hover:text-red-300 text-sm"
                         >
-                          Delete
+                          {t('common.delete')}
                         </button>
                       </div>
                     </td>
@@ -286,8 +287,8 @@ export default function Houses() {
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
               <div>
-                <h2 className="text-xl font-bold text-white">แก้ไขข้อมูลบ้าน</h2>
-                <p className="text-gray-400 text-sm mt-1">บ้านเลขที่ {editingHouse.house_code}</p>
+                <h2 className="text-xl font-bold text-white">{t('houses.editHouse')}</h2>
+                <p className="text-gray-400 text-sm mt-1">{t('houses.houseNumber')} {editingHouse.house_code}</p>
               </div>
               <button onClick={closeEdit} className="text-gray-400 hover:text-white text-2xl">✕</button>
             </div>
@@ -302,7 +303,7 @@ export default function Houses() {
 
               {/* Owner Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">ชื่อเจ้าของ *</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('houses.ownerName')} *</label>
                 <input
                   type="text"
                   value={editForm.owner_name}
@@ -314,7 +315,7 @@ export default function Houses() {
 
               {/* Status */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">สถานะบ้าน</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('houses.houseStatus')}</label>
                 <select
                   value={editForm.house_status}
                   onChange={(e) => handleEditChange('house_status', e.target.value)}
@@ -330,7 +331,7 @@ export default function Houses() {
               {/* Optional: floor_area, land_area, zone */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">พื้นที่ใช้สอย</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('houses.floorArea')}</label>
                   <input
                     type="text"
                     value={editForm.floor_area}
@@ -341,7 +342,7 @@ export default function Houses() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">พื้นที่ดิน</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('houses.landArea')}</label>
                   <input
                     type="text"
                     value={editForm.land_area}
@@ -352,7 +353,7 @@ export default function Houses() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">โซน</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('houses.zone')}</label>
                   <input
                     type="text"
                     value={editForm.zone}
@@ -366,7 +367,7 @@ export default function Houses() {
 
               {/* Notes */}
               <div>
-                <label className="block text-sm text-gray-400 mb-1">หมายเหตุ</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('common.notes')}</label>
                 <textarea
                   value={editForm.notes}
                   onChange={(e) => handleEditChange('notes', e.target.value)}
@@ -384,14 +385,14 @@ export default function Houses() {
                 disabled={editLoading}
                 className="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600"
               >
-                ยกเลิก
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleEditSave}
                 disabled={editLoading}
                 className="px-6 py-2 rounded-lg bg-yellow-500 text-black font-semibold hover:bg-yellow-400 disabled:opacity-50"
               >
-                {editLoading ? 'กำลังบันทึก...' : '💾 บันทึก'}
+                {editLoading ? t('common.saving') : `💾 ${t('common.save')}`}
               </button>
             </div>
           </div>
@@ -401,10 +402,10 @@ export default function Houses() {
       {/* Delete Confirm Modal */}
       <ConfirmModal
         open={confirmState.open}
-        title="ยืนยันการลบบ้าน"
-        message="คุณต้องการลบบ้านนี้ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+        title={t('houses.confirmDelete')}
+        message={t('houses.confirmDeleteMsg')}
         variant="danger"
-        confirmText="ลบ"
+        confirmText={t('common.delete')}
         onConfirm={() => handleDelete(confirmState.houseId)}
         onCancel={() => setConfirmState({ open: false, houseId: null })}
       />

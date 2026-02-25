@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
+import { t } from '../../hooks/useLocale';
 
 export default function Members() {
   const [residents, setResidents] = useState([]);
@@ -12,12 +13,11 @@ export default function Members() {
   const [houseFilter, setHouseFilter] = useState('');
   const [confirmDeactivate, setConfirmDeactivate] = useState({ open: false, resident: null });
   const toast = useToast();
-  // NOTE: Reset Password removed - Residents are OTP-only
   
   // Error/Warning modal state
   const [messageModal, setMessageModal] = useState({
     show: false,
-    type: 'warning', // 'warning' or 'error'
+    type: 'warning',
     title: '',
     message_th: '',
     message_en: '',
@@ -66,29 +66,22 @@ export default function Members() {
   };
 
   const getMemberCount = (houseId) => {
-    // Count only active members
     return residents.filter(r => r.house && r.house.id === houseId && r.is_active).length;
   };
 
   const canReactivateResident = (resident) => {
-    // Can reactivate if resident is inactive AND house has less than 3 active members
-    if (resident.is_active) return true; // Already active, show deactivate
-    if (!resident.house) return false; // No house mapping
-    
+    if (resident.is_active) return true;
+    if (!resident.house) return false;
     const activeCount = getMemberCount(resident.house.id);
     return activeCount < 3;
   };
 
   const getReactivateTooltip = (resident) => {
     if (resident.is_active) return null;
-    if (!resident.house) return 'No house assigned';
-    
+    if (!resident.house) return t('members.noHouseAssigned');
     const activeCount = getMemberCount(resident.house.id);
     if (activeCount >= 3) {
-      return {
-        th: 'บ้านนี้มีสมาชิกใช้งานครบ 3 คนแล้ว',
-        en: 'This house already has 3 active members'
-      };
+      return t('members.houseFull');
     }
     return null;
   };
@@ -110,24 +103,21 @@ export default function Members() {
   const updateResident = async (id, data) => {
     try {
       const response = await usersAPI.updateResident(id, data);
-      loadData(); // Refresh list
-      
+      loadData();
       if (response.data.success) {
-        toast.success('อัปเดตข้อมูลสมาชิกสำเร็จ');
+        toast.success(t('members.updateSuccess'));
       }
     } catch (error) {
       console.error('Failed to update resident:', error);
-      
-      // Handle error messages from backend
       if (error.response?.data?.detail) {
         const detail = error.response.data.detail;
         if (typeof detail === 'object') {
-          toast.error(detail.error_en || detail.error_th || 'Failed to update resident');
+          toast.error(detail.error_en || detail.error_th || t('members.updateFailed'));
         } else {
           toast.error(detail);
         }
       } else {
-        toast.error('Failed to update resident');
+        toast.error(t('members.updateFailed'));
       }
     }
   };
@@ -136,27 +126,22 @@ export default function Members() {
     e.preventDefault();
     const { resident, formData } = editModal;
     
-    // Basic validation
     if (!formData.full_name.trim()) {
-      toast.warning('กรุณาระบุชื่อ-นามสกุล');
+      toast.warning(t('members.nameRequired'));
       return;
     }
     if (!formData.email.trim()) {
-      toast.warning('กรุณาระบุอีเมล');
+      toast.warning(t('members.emailRequired'));
       return;
     }
 
     await updateResident(resident.id, formData);
     setEditModal({ show: false, resident: null, formData: {} });
-    // Refresh data to show updated counts
     loadData();
   };
 
   const handleDeactivate = async (resident) => {
     const action = resident.is_active ? 'deactivate' : 'reactivate';
-    const actionText = resident.is_active ? 'deactivate (soft delete)' : 'reactivate';
-    
-    // Confirm is handled by ConfirmModal before calling this function
     
     try {
       if (resident.is_active) {
@@ -164,9 +149,9 @@ export default function Members() {
         setMessageModal({
           show: true,
           type: 'success',
-          title: '✅ Success',
-          message_th: 'ปิดใช้งานสมาชิกเรียบร้อยแล้ว',
-          message_en: 'Resident deactivated successfully',
+          title: '✅ สำเร็จ',
+          message_th: t('members.deactivateSuccess'),
+          message_en: '',
           showDetails: false,
           errorDetails: null
         });
@@ -175,37 +160,33 @@ export default function Members() {
         setMessageModal({
           show: true,
           type: 'success',
-          title: '✅ Success',
-          message_th: 'เปิดใช้งานสมาชิกเรียบร้อยแล้ว',
-          message_en: 'Resident reactivated successfully',
+          title: '✅ สำเร็จ',
+          message_th: t('members.reactivateSuccess'),
+          message_en: '',
           showDetails: false,
           errorDetails: null
         });
       }
-      loadData(); // Refresh list
+      loadData();
     } catch (error) {
-      // CRITICAL: Handle 409 as warning (not error) - member limit reached
       if (error.response?.status === 409) {
         const detail = error.response.data?.detail;
         
-        // Handle HOUSE_MEMBER_LIMIT_REACHED as warning
         if (detail?.code === 'HOUSE_MEMBER_LIMIT_REACHED') {
-          // Show bilingual warning modal (not alert)
           setMessageModal({
             show: true,
             type: 'warning',
-            title: '⚠️ Cannot Reactivate',
-            message_th: detail.message_th || 'บ้านนี้มีสมาชิกใช้งานครบ 3 คนแล้ว',
-            message_en: detail.message_en || 'This house already has 3 active members',
+            title: '⚠️ ไม่สามารถเปิดใช้งานได้',
+            message_th: detail.message_th || t('members.houseFull'),
+            message_en: '',
             showDetails: false,
             errorDetails: null
           });
-          return; // Return early - no console.error
+          return;
         }
         
-        // Handle other 409 cases
         if (detail?.error_th || detail?.error_en) {
-          toast.error(`${detail.error_th || detail.error_en}\n${detail.error_en || detail.error_th}`);
+          toast.error(detail.error_th || detail.error_en);
           return;
         }
         
@@ -214,45 +195,36 @@ export default function Members() {
           return;
         }
         
-        // Fallback for unhandled 409
-        toast.error('Operation cannot be completed due to current state');
+        toast.error('ไม่สามารถดำเนินการได้เนื่องจากสถานะปัจจุบัน');
         return;
       }
       
-      // Handle all other errors (500, network, etc.) normally with console.error
       console.error(`Failed to ${action} resident:`, error);
       
-      // Handle error messages from backend for non-409 errors
       if (error.response?.data?.detail) {
         const detail = error.response.data.detail;
         
-        // Handle other structured error responses
         if (typeof detail === 'object' && detail.code && detail.code !== 'HOUSE_MEMBER_LIMIT_REACHED') {
-          if (detail.message_th && detail.message_en) {
-            toast.error(`${detail.message_th}\n${detail.message_en}`);
+          if (detail.message_th) {
+            toast.error(detail.message_th);
             return;
           }
         }
         
-        // Legacy error format handling
-        if (detail.error_en || detail.error_th) {
-          toast.error(`${detail.error_th || detail.error_en}\n${detail.error_en || detail.error_th}`);
+        if (detail.error_th) {
+          toast.error(detail.error_th);
           return;
         }
         
-        // String error message
         if (typeof detail === 'string') {
           toast.error(detail);
           return;
         }
       }
       
-      // Generic error message for unexpected errors
-      toast.error(`Failed to ${action} resident. Please try again.`);
+      toast.error(`ไม่สามารถ${resident.is_active ? 'ปิด' : 'เปิด'}ใช้งานสมาชิกได้ กรุณาลองใหม่`);
     }
   };
-
-  // NOTE: handleResetPassword removed - Residents are OTP-only
 
   // Handle Remove from House
   const handleRemoveFromHouse = (resident) => {
@@ -277,9 +249,9 @@ export default function Members() {
       setMessageModal({
         show: true,
         type: 'success',
-        title: '✅ ถอดออกจากบ้านสำเร็จ',
+        title: `✅ ${t('members.removeSuccess')}`,
         message_th: response.data.message_th || `ถอด ${resident.full_name} ออกจากบ้าน ${resident.house.house_code} แล้ว`,
-        message_en: response.data.message || 'Removed from house successfully',
+        message_en: '',
         showDetails: false,
         errorDetails: null
       });
@@ -288,7 +260,6 @@ export default function Members() {
         setMessageModal(prev => ({
           ...prev,
           message_th: prev.message_th + '\n⚠️ ผู้ใช้ไม่มีบ้านเหลือ — ถูก deactivate อัตโนมัติ',
-          message_en: prev.message_en + '\nUser had no remaining houses and was deactivated.'
         }));
       }
 
@@ -300,9 +271,9 @@ export default function Members() {
       setMessageModal({
         show: true,
         type: 'error',
-        title: '❌ ไม่สำเร็จ',
+        title: `❌ ${t('members.removeFailed')}`,
         message_th: typeof detail === 'object' ? (detail.error_th || 'เกิดข้อผิดพลาด') : (detail || 'เกิดข้อผิดพลาด'),
-        message_en: typeof detail === 'object' ? (detail.error_en || 'Failed') : (detail || 'Failed to remove from house'),
+        message_en: '',
         showDetails: false,
         errorDetails: null
       });
@@ -332,9 +303,9 @@ export default function Members() {
       setMessageModal({
         show: true,
         type: 'success',
-        title: '✅ Force Logout Successful',
+        title: `✅ ${t('members.forceLogoutSuccess')}`,
         message_th: `บังคับออกจากระบบ ${resident.full_name} สำเร็จ\nลูกบ้านจะต้อง login ด้วย OTP ใหม่`,
-        message_en: `Successfully forced logout for ${resident.full_name}\nResident will need to login again with OTP`,
+        message_en: '',
         showDetails: false,
         errorDetails: null
       });
@@ -346,45 +317,49 @@ export default function Members() {
       setMessageModal({
         show: true,
         type: 'error',
-        title: '❌ Force Logout Failed',
-        message_th: detail?.message_th || 'ไม่สามารถบังคับออกจากระบบได้',
-        message_en: detail?.message_en || detail || 'Failed to force logout',
+        title: `❌ ${t('members.forceLogoutFailed')}`,
+        message_th: detail?.message_th || t('members.forceLogoutFailed'),
+        message_en: '',
         showDetails: false,
         errorDetails: null
       });
     }
   };
 
+  const getRoleLabel = (role) => {
+    return t(`roles.${role}`, role);
+  };
+
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Residents Directory</h1>
-          <p className="text-gray-400">จัดการลูกบ้านทั้งหมด (สูงสุด 3 คนต่อบ้าน)</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('members.title')}</h1>
+          <p className="text-gray-400">{t('members.subtitle')}</p>
         </div>
         <Link
           to="/admin/add-resident"
-          className="btn-primary flex items-center gap-2"
+          className="btn-primary flex items-center gap-2 whitespace-nowrap self-start"
         >
-          <span className="text-lg">+</span> เพิ่มลูกบ้าน
+          <span className="text-lg">+</span> {t('members.addResident')}
         </Link>
       </div>
 
       {/* Filters */}
-      <div className="card p-6 mb-6">
+      <div className="card p-4 sm:p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Filter by House</label>
+            <label className="block text-sm text-gray-400 mb-2">{t('members.filterByHouse')}</label>
             <select
               value={houseFilter}
               onChange={(e) => setHouseFilter(e.target.value)}
               className="input w-full"
             >
-              <option value="">All Houses</option>
+              <option value="">{t('members.allHouses')}</option>
               {houses.map((house) => (
                 <option key={house.id} value={house.id}>
-                  {house.house_code} ({getMemberCount(house.id)}/3 members)
+                  {house.house_code} ({getMemberCount(house.id)}/3 {t('members.members')})
                 </option>
               ))}
             </select>
@@ -398,14 +373,14 @@ export default function Members() {
           <table className="table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>House</th>
-                <th>Phone</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Created At</th>
-                <th>Actions</th>
+                <th>{t('common.name')}</th>
+                <th>{t('members.house')}</th>
+                <th>{t('common.phone')}</th>
+                <th>{t('common.email')}</th>
+                <th>{t('common.role')}</th>
+                <th>{t('common.status')}</th>
+                <th>{t('common.createdAt')}</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -414,7 +389,7 @@ export default function Members() {
               ) : residents.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center py-8 text-gray-400">
-                    No residents found
+                    {t('members.noResidentsFound')}
                   </td>
                 </tr>
               ) : (
@@ -426,52 +401,49 @@ export default function Members() {
                     <td className="text-gray-300">{resident.email || '-'}</td>
                     <td>
                       <span className={`badge ${resident.role === 'owner' ? 'badge-info' : 'badge-gray'}`}>
-                        {resident.role}
+                        {getRoleLabel(resident.role)}
                       </span>
                     </td>
                     <td>
                       <span className={`badge ${resident.is_active ? 'badge-success' : 'badge-warning'}`}>
-                        {resident.is_active ? 'Active' : 'Inactive'}
+                        {resident.is_active ? t('common.active') : t('common.inactive')}
                       </span>
                     </td>
                     <td className="text-gray-400">
-                      {new Date(resident.created_at).toLocaleDateString()}
+                      {new Date(resident.created_at).toLocaleDateString('th-TH')}
                     </td>
                     <td>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={() => handleEdit(resident)}
                           className="text-primary-400 hover:text-primary-300 text-sm"
                         >
-                          Edit
+                          {t('common.edit')}
                         </button>
-                        {/* Phase D.2: Force Logout button (only for active residents) */}
                         {resident.is_active && (
                           <button
                             onClick={() => handleForceLogout(resident)}
                             className="text-red-400 hover:text-red-300 text-sm"
-                            title="Force logout all devices"
+                            title={t('members.forceLogout')}
                           >
-                            Force Logout
+                            {t('members.forceLogout')}
                           </button>
                         )}
-                        {/* Remove from House */}
                         {resident.is_active && resident.house && (
                           <button
                             onClick={() => handleRemoveFromHouse(resident)}
                             className="text-purple-400 hover:text-purple-300 text-sm"
-                            title="Remove from this house"
+                            title={t('members.removeFromHouse')}
                           >
-                            ถอดบ้าน
+                            {t('members.removeFromHouse')}
                           </button>
                         )}
-                        {/* NOTE: Reset Password button removed - Residents are OTP-only */}
                         {resident.is_active ? (
                           <button
                             onClick={() => setConfirmDeactivate({ open: true, resident })}
                             className="text-orange-400 hover:text-orange-300 text-sm"
                           >
-                            Deactivate
+                            {t('members.deactivate')}
                           </button>
                         ) : (
                           <div className="relative group">
@@ -484,12 +456,11 @@ export default function Members() {
                                   : "text-gray-500 cursor-not-allowed"
                               }`}
                             >
-                              Reactivate
+                              {t('members.reactivate')}
                             </button>
                             {!canReactivateResident(resident) && getReactivateTooltip(resident) && (
                               <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10 pointer-events-none">
-                                <div>{getReactivateTooltip(resident).th}</div>
-                                <div className="text-gray-300">{getReactivateTooltip(resident).en}</div>
+                                <div>{getReactivateTooltip(resident)}</div>
                               </div>
                             )}
                           </div>
@@ -504,33 +475,31 @@ export default function Members() {
         </div>
       </div>
 
-      {/* NOTE: Reset Password Modal removed - Residents are OTP-only */}
-
       {/* Remove from House Confirmation Modal */}
       {removeHouseModal.show && removeHouseModal.resident && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold text-white mb-4">⚠️ ถอดออกจากบ้าน</h3>
+            <h3 className="text-xl font-bold text-white mb-4">⚠️ {t('members.removeFromHouse')}</h3>
 
             <div className="space-y-3 mb-6">
               <p className="text-gray-300">
-                ต้องการถอดสมาชิกออกจากบ้านนี้?
+                {t('members.confirmRemoveHouse')}
               </p>
               <div className="bg-gray-700 p-3 rounded">
                 <p className="text-white font-medium">{removeHouseModal.resident.full_name}</p>
                 <p className="text-gray-400 text-sm">
-                  🏠 บ้าน: {removeHouseModal.resident.house?.house_code || '-'}
+                  🏠 {t('members.house')}: {removeHouseModal.resident.house?.house_code || '-'}
                 </p>
                 <p className="text-gray-400 text-sm">
-                  📱 โทร: {removeHouseModal.resident.phone || '-'}
+                  📱 {t('common.phone')}: {removeHouseModal.resident.phone || '-'}
                 </p>
               </div>
               <div className="text-yellow-400 text-sm">
-                <p>⚠️ การดำเนินการนี้จะ:</p>
+                <p>⚠️ {t('members.forceLogoutWarning')}</p>
                 <ul className="list-disc list-inside ml-2 mt-1 text-gray-300">
-                  <li>ถอดสมาชิกออกจากบ้าน {removeHouseModal.resident.house?.house_code}</li>
-                  <li>Membership จะเปลี่ยนเป็น INACTIVE</li>
-                  <li>ถ้าไม่มีบ้านเหลือ จะ deactivate user อัตโนมัติ</li>
+                  <li>{t('members.removeEffect1')} {removeHouseModal.resident.house?.house_code}</li>
+                  <li>{t('members.removeEffect2')}</li>
+                  <li>{t('members.removeEffect3')}</li>
                 </ul>
               </div>
             </div>
@@ -542,7 +511,7 @@ export default function Members() {
                 disabled={removeHouseModal.loading}
                 className="btn-outline flex-1"
               >
-                ยกเลิก
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -550,7 +519,7 @@ export default function Members() {
                 disabled={removeHouseModal.loading}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded flex-1 disabled:opacity-50"
               >
-                {removeHouseModal.loading ? 'กำลังดำเนินการ...' : 'ถอดออกจากบ้าน'}
+                {removeHouseModal.loading ? t('common.processing') : t('members.removeFromHouse')}
               </button>
             </div>
           </div>
@@ -559,28 +528,28 @@ export default function Members() {
 
       {/* Phase D.2: Force Logout Confirmation Modal */}
       {forceLogoutModal.show && forceLogoutModal.resident && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold text-white mb-4">⚠️ Confirm Force Logout</h3>
+            <h3 className="text-xl font-bold text-white mb-4">⚠️ {t('members.confirmForceLogout')}</h3>
             
             <div className="space-y-3 mb-6">
               <p className="text-gray-300">
-                คุณต้องการบังคับออกจากระบบสำหรับ:
+                {t('members.forceLogoutDesc')}
               </p>
               <div className="bg-gray-700 p-3 rounded">
                 <p className="text-white font-medium">{forceLogoutModal.resident.full_name}</p>
                 <p className="text-gray-400 text-sm">
-                  บ้าน: {forceLogoutModal.resident.house?.house_code || '-'}
+                  {t('members.house')}: {forceLogoutModal.resident.house?.house_code || '-'}
                 </p>
                 <p className="text-gray-400 text-sm">
-                  โทร: {forceLogoutModal.resident.phone || '-'}
+                  {t('common.phone')}: {forceLogoutModal.resident.phone || '-'}
                 </p>
               </div>
               <div className="text-yellow-400 text-sm">
-                <p>⚠️ การดำเนินการนี้จะ:</p>
+                <p>⚠️ {t('members.forceLogoutWarning')}</p>
                 <ul className="list-disc list-inside ml-2 mt-1 text-gray-300">
-                  <li>ทำให้ session ทุกอุปกรณ์หมดอายุทันที</li>
-                  <li>ลูกบ้านต้อง login ใหม่ด้วย OTP</li>
+                  <li>{t('members.forceLogoutEffect1')}</li>
+                  <li>{t('members.forceLogoutEffect2')}</li>
                 </ul>
               </div>
             </div>
@@ -592,7 +561,7 @@ export default function Members() {
                 disabled={forceLogoutModal.loading}
                 className="btn-outline flex-1"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -600,7 +569,7 @@ export default function Members() {
                 disabled={forceLogoutModal.loading}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex-1 disabled:opacity-50"
               >
-                {forceLogoutModal.loading ? 'Processing...' : 'Force Logout'}
+                {forceLogoutModal.loading ? t('common.processing') : t('members.forceLogout')}
               </button>
             </div>
           </div>
@@ -609,13 +578,13 @@ export default function Members() {
 
       {/* Edit Resident Modal */}
       {editModal.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold text-white mb-4">Edit Resident</h3>
+            <h3 className="text-xl font-bold text-white mb-4">{t('members.editResident')}</h3>
             
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Full Name *</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('members.fullName')} *</label>
                 <input
                   type="text"
                   value={editModal.formData.full_name}
@@ -629,7 +598,7 @@ export default function Members() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Email *</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('common.email')} *</label>
                 <input
                   type="email"
                   value={editModal.formData.email}
@@ -643,7 +612,7 @@ export default function Members() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Phone</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('common.phone')}</label>
                 <input
                   type="tel"
                   value={editModal.formData.phone}
@@ -656,7 +625,7 @@ export default function Members() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Role *</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('common.role')} *</label>
                 <select
                   value={editModal.formData.role}
                   onChange={(e) => setEditModal(prev => ({
@@ -666,14 +635,14 @@ export default function Members() {
                   className="input w-full"
                   required
                 >
-                  <option value="owner">Owner</option>
-                  <option value="resident">Resident</option>
-                  <option value="tenant">Tenant</option>
+                  <option value="owner">{t('roles.owner')}</option>
+                  <option value="resident">{t('roles.resident')}</option>
+                  <option value="tenant">{t('roles.tenant')}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">House</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('members.house')}</label>
                 <select
                   value={editModal.formData.house_id}
                   onChange={(e) => setEditModal(prev => ({
@@ -682,10 +651,10 @@ export default function Members() {
                   }))}
                   className="input w-full"
                 >
-                  <option value="">Select House</option>
+                  <option value="">{t('members.selectHouse')}</option>
                   {houses.map((house) => (
                     <option key={house.id} value={house.id}>
-                      {house.house_code} ({getMemberCount(house.id)}/3 active members)
+                      {house.house_code} ({getMemberCount(house.id)}/3 {t('members.activeMembers')})
                     </option>
                   ))}
                 </select>
@@ -697,13 +666,13 @@ export default function Members() {
                   onClick={() => setEditModal({ show: false, resident: null, formData: {} })}
                   className="btn-outline flex-1"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="btn-primary flex-1"
                 >
-                  Save Changes
+                  {t('members.saveChanges')}
                 </button>
               </div>
             </form>
@@ -713,7 +682,7 @@ export default function Members() {
 
       {/* Message Modal (Success/Warning/Error) */}
       {messageModal.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className={`rounded-lg p-6 w-full max-w-md ${
             messageModal.type === 'success' ? 'bg-green-800' :
             messageModal.type === 'warning' ? 'bg-yellow-800' : 
@@ -722,37 +691,19 @@ export default function Members() {
             <div className="mb-4">
               <h3 className="text-xl font-bold text-white mb-2">{messageModal.title}</h3>
               <div className="space-y-2">
-                <p className="text-gray-100">{messageModal.message_th}</p>
-                <p className="text-gray-300 text-sm">{messageModal.message_en}</p>
-              </div>
-            </div>
-
-            {messageModal.showDetails && messageModal.errorDetails && (
-              <div className="mb-4">
-                <button
-                  onClick={() => setMessageModal(prev => ({ ...prev, showDetails: !prev.showDetails }))}
-                  className="text-sm text-gray-300 hover:text-white mb-2"
-                >
-                  🔍 Show Technical Details
-                </button>
-                {messageModal.showDetails && (
-                  <div className="bg-gray-900 p-3 rounded text-xs text-gray-300 max-h-32 overflow-y-auto">
-                    <div>Status: {messageModal.errorDetails.status}</div>
-                    <div>Message: {messageModal.errorDetails.message}</div>
-                    {messageModal.errorDetails.detail && (
-                      <div>Detail: {messageModal.errorDetails.detail}</div>
-                    )}
-                  </div>
+                <p className="text-gray-100 whitespace-pre-line">{messageModal.message_th}</p>
+                {messageModal.message_en && (
+                  <p className="text-gray-300 text-sm">{messageModal.message_en}</p>
                 )}
               </div>
-            )}
+            </div>
 
             <div className="flex gap-3">
               <button 
                 onClick={() => setMessageModal({ show: false, type: 'warning', title: '', message_th: '', message_en: '', showDetails: false, errorDetails: null })}
                 className="btn-primary flex-1"
               >
-                OK
+                {t('common.ok')}
               </button>
             </div>
           </div>
@@ -762,10 +713,10 @@ export default function Members() {
       {/* Deactivate/Reactivate Confirm Modal */}
       <ConfirmModal
         open={confirmDeactivate.open}
-        title={confirmDeactivate.resident?.is_active ? 'ยืนยันการปิดใช้งาน' : 'ยืนยันการเปิดใช้งาน'}
+        title={confirmDeactivate.resident?.is_active ? t('members.confirmDeactivate') : t('members.confirmReactivate')}
         message={confirmDeactivate.resident ? `ต้องการ${confirmDeactivate.resident.is_active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'} ${confirmDeactivate.resident.full_name} ใช่หรือไม่?` : ''}
         variant={confirmDeactivate.resident?.is_active ? 'warning' : 'info'}
-        confirmText={confirmDeactivate.resident?.is_active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+        confirmText={confirmDeactivate.resident?.is_active ? t('members.deactivate') : t('members.reactivate')}
         onConfirm={() => { if (confirmDeactivate.resident) handleDeactivate(confirmDeactivate.resident); }}
         onCancel={() => setConfirmDeactivate({ open: false, resident: null })}
       />

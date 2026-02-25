@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { reportsAPI, housesAPI } from '../../api/client';
+import { t } from '../../hooks/useLocale';
 
 /**
  * Phase E.2: Cash Flow vs AR Report
@@ -113,10 +114,10 @@ export default function CashFlowReport() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Cash Flow vs AR Report</h1>
+        <h1 className="text-2xl font-bold text-white">{t('reports.cashFlowTitle')}</h1>
         <p className="text-gray-400 mt-1">เปรียบเทียบยอดค้างรับ (AR) vs เงินสดรับจริง</p>
       </div>
 
@@ -208,25 +209,25 @@ export default function CashFlowReport() {
           <div className="bg-slate-800 rounded-lg p-4">
             <p className="text-gray-400 text-xs">AR (Accrual)</p>
             <p className="text-2xl font-bold text-blue-400">
-              ฿{report.summary.total_ar.toLocaleString()}
+              ฿{report.summary.total_ar.toLocaleString('th-TH')}
             </p>
             <p className="text-xs text-gray-500 mt-1">{report.invoice_count} invoices</p>
           </div>
           
           {/* Cash Total */}
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-gray-400 text-xs">Cash Received</p>
+            <p className="text-gray-400 text-xs">{t('reports.cashReceived')}</p>
             <p className="text-2xl font-bold text-green-400">
-              ฿{report.summary.total_cash.toLocaleString()}
+              ฿{report.summary.total_cash.toLocaleString('th-TH')}
             </p>
             <p className="text-xs text-gray-500 mt-1">{report.payin_count} pay-ins</p>
           </div>
           
           {/* Gap */}
           <div className={`rounded-lg p-4 ${getGapBgColor(report.summary.total_gap)}`}>
-            <p className="text-gray-400 text-xs">Gap (AR - Cash)</p>
+            <p className="text-gray-400 text-xs">{t('reports.gapArCash')}</p>
             <p className={`text-2xl font-bold ${getGapColor(report.summary.total_gap)}`}>
-              {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString()}
+              {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString('th-TH')}
             </p>
             <p className="text-xs text-gray-500 mt-1">
               {report.summary.total_gap > 0 ? 'Under-collected' : 
@@ -236,7 +237,7 @@ export default function CashFlowReport() {
           
           {/* Gap Percent */}
           <div className="bg-slate-800 rounded-lg p-4 border-l-4 border-primary-500">
-            <p className="text-gray-400 text-xs">Gap %</p>
+            <p className="text-gray-400 text-xs">{t('reports.gapPercent')}</p>
             <p className={`text-2xl font-bold ${getGapColor(report.summary.total_gap)}`}>
               {report.summary.gap_percent !== null 
                 ? `${report.summary.gap_percent >= 0 ? '+' : ''}${report.summary.gap_percent}%`
@@ -270,12 +271,12 @@ export default function CashFlowReport() {
             <table className="w-full">
               <thead className="bg-slate-700">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Period</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">งวด</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">AR (Accrual)</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">Cash Received</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">Gap</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">Gap %</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">{t('reports.cashReceived')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">{t('reports.gap')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">{t('reports.gapPercent')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">สถานะ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
@@ -291,13 +292,13 @@ export default function CashFlowReport() {
                       <tr key={row.period} className={`hover:bg-slate-700/50 ${getGapBgColor(row.gap)}`}>
                         <td className="px-4 py-3 text-white font-medium">{row.period}</td>
                         <td className="px-4 py-3 text-right text-blue-400">
-                          ฿{row.ar_amount.toLocaleString()}
+                          ฿{row.ar_amount.toLocaleString('th-TH')}
                         </td>
                         <td className="px-4 py-3 text-right text-green-400">
-                          ฿{row.cash_amount.toLocaleString()}
+                          ฿{row.cash_amount.toLocaleString('th-TH')}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${getGapColor(row.gap)}`}>
-                          {row.gap >= 0 ? '+' : ''}฿{row.gap.toLocaleString()}
+                          {row.gap >= 0 ? '+' : ''}฿{row.gap.toLocaleString('th-TH')}
                         </td>
                         <td className={`px-4 py-3 text-right ${getGapColor(row.gap)}`}>
                           {row.gap_percent !== null 
@@ -325,13 +326,13 @@ export default function CashFlowReport() {
                     <tr className="bg-slate-700 font-bold">
                       <td className="px-4 py-3 text-white">TOTAL</td>
                       <td className="px-4 py-3 text-right text-blue-300">
-                        ฿{report.summary.total_ar.toLocaleString()}
+                        ฿{report.summary.total_ar.toLocaleString('th-TH')}
                       </td>
                       <td className="px-4 py-3 text-right text-green-300">
-                        ฿{report.summary.total_cash.toLocaleString()}
+                        ฿{report.summary.total_cash.toLocaleString('th-TH')}
                       </td>
                       <td className={`px-4 py-3 text-right ${getGapColor(report.summary.total_gap)}`}>
-                        {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString()}
+                        {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString('th-TH')}
                       </td>
                       <td className={`px-4 py-3 text-right ${getGapColor(report.summary.total_gap)}`}>
                         {report.summary.gap_percent !== null 

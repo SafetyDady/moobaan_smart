@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { useToast } from '../../components/Toast';
 import { SkeletonPage } from '../../components/Skeleton';
 import { safeParseDate, formatThaiDate, formatThaiTime } from '../../utils/payinStatus';
+import { t } from '../../hooks/useLocale';
 
 export default function UnidentifiedReceipts() {
   const toast = useToast();
@@ -132,13 +133,13 @@ export default function UnidentifiedReceipts() {
   };
 
   if (loading) {
-    return <div className="p-8"><SkeletonPage /></div>;
+    return <div className="p-4 sm:p-6 lg:p-8"><SkeletonPage /></div>;
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">รายการเงินเข้าที่ยังไม่ระบุ</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">รายการเงินเข้าที่ยังไม่ระบุ</h1>
         <p className="text-gray-400">
           รายการ CREDIT จาก Bank Statement ที่ยังไม่ได้จับคู่กับ Pay-in ใดๆ
         </p>
@@ -180,7 +181,7 @@ export default function UnidentifiedReceipts() {
                         {tx.description || '-'}
                       </td>
                       <td className="font-medium text-green-400">
-                        +฿{tx.amount?.toLocaleString() ?? tx.credit?.toLocaleString() ?? '0'}
+                        +฿{tx.amount?.toLocaleString('th-TH') ?? tx.credit?.toLocaleString('th-TH') ?? '0'}
                       </td>
                       <td className="text-gray-400">{tx.bank_name || '-'}</td>
                       <td>
@@ -211,7 +212,7 @@ export default function UnidentifiedReceipts() {
                 <strong>วันที่:</strong> {formatThaiDate(selectedTx.effective_at)} {formatThaiTime(selectedTx.effective_at)}
               </p>
               <p className="text-gray-300 text-sm">
-                <strong>จำนวนเงิน:</strong> ฿{selectedTx.amount?.toLocaleString() ?? selectedTx.credit?.toLocaleString() ?? '0'}
+                <strong>จำนวนเงิน:</strong> ฿{selectedTx.amount?.toLocaleString('th-TH') ?? selectedTx.credit?.toLocaleString('th-TH') ?? '0'}
               </p>
               <p className="text-gray-300 text-sm truncate">
                 <strong>รายละเอียด:</strong> {selectedTx.description || '-'}
