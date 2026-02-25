@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Form, File, UploadFile, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File, Form, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -20,15 +20,18 @@ from app.core.deps import (
 )
 from app.core.uploads import save_slip_file, get_slip_download_url
 from app.core.period_lock import validate_period_not_locked
+from app.core.pagination import paginate_list
 
 router = APIRouter(prefix="/api/payin-reports", tags=["payin-reports"])
 
 
-@router.get("", response_model=List[dict])
+@router.get("")
 async def list_payin_reports(
     request: Request,
     house_id: Optional[int] = None,
     status: Optional[str] = None,
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-indexed). Omit for all results."),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_user),
     token_house_id: Optional[int] = Depends(get_house_id_from_token)
@@ -64,7 +67,7 @@ async def list_payin_reports(
     
     payins = query.order_by(PayinReportModel.created_at.desc()).all()
     
-    return [{
+    result = [{
         "id": payin.id,
         "house_id": payin.house_id,
         "house_number": payin.house.house_code,
@@ -87,6 +90,79 @@ async def list_payin_reports(
         "created_at": payin.created_at,
         "updated_at": payin.updated_at
     } for payin in payins]
+    
+    return paginate_list(result, page=page, page_size=page_size)
+
+
+@router.get("/blocking-check")
+async def check_blocking_payin(
+    house_id: int = Query(..., description="House ID to check for blocking pay-ins"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_user),
+    token_house_id: Optional[int] = Depends(get_house_id_from_token)
+):
+    """
+    Phase 4.3: Check if a house has any blocking pay-in.
+    
+    Blocking statuses: DRAFT, PENDING, SUBMITTED, REJECTED_NEEDS_FIX, REJECTED
+    Only ACCEPTED pay-ins do NOT block.
+    
+    Returns:
+        {
+            "has_blocking": true/false,
+            "blocking_payin": { id, status, amount, created_at } | null
+        }
+    """
+    # Security: Residents can only check their own house
+    if current_user.role == "resident":
+        if token_house_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error_code": "HOUSE_NOT_SELECTED",
+                    "message": "กรุณาเลือกบ้านก่อนใช้งาน"
+                }
+            )
+        if house_id != token_house_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot check blocking status for another house"
+            )
+    
+    # Blocking statuses — mirrors frontend BLOCKING_STATUSES
+    blocking_statuses = [
+        PayinStatusEnum.DRAFT,
+        PayinStatusEnum.PENDING,
+        PayinStatusEnum.SUBMITTED,
+        PayinStatusEnum.REJECTED_NEEDS_FIX,
+        PayinStatusEnum.REJECTED,
+    ]
+    
+    blocking_payin = (
+        db.query(PayinReportModel)
+        .filter(
+            PayinReportModel.house_id == house_id,
+            PayinReportModel.status.in_(blocking_statuses)
+        )
+        .order_by(PayinReportModel.created_at.desc())
+        .first()
+    )
+    
+    if blocking_payin:
+        return {
+            "has_blocking": True,
+            "blocking_payin": {
+                "id": blocking_payin.id,
+                "status": blocking_payin.status.value if hasattr(blocking_payin.status, 'value') else blocking_payin.status,
+                "amount": float(blocking_payin.amount),
+                "created_at": blocking_payin.created_at,
+            }
+        }
+    
+    return {
+        "has_blocking": False,
+        "blocking_payin": None
+    }
 
 
 @router.get("/{payin_id}", response_model=dict)

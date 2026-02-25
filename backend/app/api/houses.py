@@ -1,17 +1,25 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.db.models.house import House as HouseModel, HouseStatus
 from app.db.models.user import User
 from app.db.session import get_db
 from app.core.deps import require_admin_or_accounting
+from app.core.pagination import paginate_query
 
 router = APIRouter(prefix="/api/houses", tags=["houses"])
 
 
-@router.get("", response_model=List[dict])
-async def list_houses(status: Optional[str] = None, search: Optional[str] = None, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_accounting)):
-    """List all houses with optional filters"""
+@router.get("")
+async def list_houses(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-indexed). Omit for all results."),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting),
+):
+    """List all houses with optional filters. Supports server-side pagination."""
     query = db.query(HouseModel)
     
     if status:
@@ -30,8 +38,7 @@ async def list_houses(status: Optional[str] = None, search: Optional[str] = None
             (HouseModel.notes.ilike(f"%{search_lower}%"))
         )
     
-    houses = query.all()
-    return [house.to_dict() for house in houses]
+    return paginate_query(query, page=page, page_size=page_size, transform_fn=lambda h: h.to_dict())
 
 
 @router.get("/{house_id}", response_model=dict)

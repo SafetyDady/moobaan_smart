@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
@@ -19,6 +19,7 @@ from app.db.models.house import HouseStatus
 from app.core.deps import get_db, require_admin_or_accounting, get_current_user
 from app.db.models.user import User
 from app.core.period_lock import validate_period_not_locked
+from app.core.pagination import paginate_list
 from decimal import Decimal
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
@@ -104,14 +105,16 @@ async def create_manual_invoice(
     }
 
 
-@router.get("", response_model=List[InvoiceSchema])
+@router.get("")
 async def list_invoices(
     db: Session = Depends(get_db),
     house_id: int = None,
     status: str = None,
-    is_manual: bool = None
+    is_manual: bool = None,
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-indexed). Omit for all results."),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
 ):
-    """List all invoices with optional filters"""
+    """List all invoices with optional filters. Supports server-side pagination."""
     query = db.query(InvoiceDB)
     
     if house_id:
@@ -183,7 +186,7 @@ async def list_invoices(
             is_fully_credited=is_fully_credited
         ))
     
-    return result
+    return paginate_list(result, page=page, page_size=page_size)
 
 
 @router.get("/allocatable-ledgers")

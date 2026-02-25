@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from app.models import Member as MemberSchema, MemberCreate
@@ -7,13 +7,20 @@ from app.db.models.house import House as HouseModel
 from app.db.models.user import User as UserModel
 from app.db.session import get_db
 from app.core.deps import require_admin_or_accounting
+from app.core.pagination import paginate_list
 
 router = APIRouter(prefix="/api/members", tags=["members"])
 
 
-@router.get("", response_model=List[dict])
-async def list_members(house_id: Optional[int] = None, db: Session = Depends(get_db), current_user: UserModel = Depends(require_admin_or_accounting)):
-    """List all members with optional house filter"""
+@router.get("")
+async def list_members(
+    house_id: Optional[int] = None,
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-indexed). Omit for all results."),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin_or_accounting),
+):
+    """List all members with optional house filter. Supports server-side pagination."""
     query = db.query(HouseMemberModel).options(
         joinedload(HouseMemberModel.house),
         joinedload(HouseMemberModel.user)
@@ -24,7 +31,7 @@ async def list_members(house_id: Optional[int] = None, db: Session = Depends(get
     
     house_members = query.all()
     
-    return [{
+    result = [{
         "id": hm.user.id,
         "house_id": hm.house_id,
         "house_number": hm.house.house_no,
@@ -34,6 +41,8 @@ async def list_members(house_id: Optional[int] = None, db: Session = Depends(get
         "role": hm.member_role,
         "created_at": hm.created_at
     } for hm in house_members]
+    
+    return paginate_list(result, page=page, page_size=page_size)
 
 
 @router.get("/{member_id}", response_model=dict)
