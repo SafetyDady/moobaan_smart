@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { vendorsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
+import { SkeletonPage } from '../../components/Skeleton';
 
 /**
  * Phase H.1.1: Vendor & Category Management
@@ -279,7 +280,7 @@ export default function Vendors() {
       </div>
 
       {loading ? (
-        <div className="text-center text-gray-400 py-12">Loading...</div>
+        <SkeletonPage />
       ) : (
         <>
           {/* ========== VENDORS TAB ========== */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoicesAPI } from '../api/client';
+import { SkeletonCard } from './Skeleton';
 
 export default function ApplyPaymentModal({ 
   isOpen, 
@@ -142,7 +143,7 @@ export default function ApplyPaymentModal({
             <h3 className="text-white font-medium mb-3">Select Ledger Entry / เลือกรายการรับเงิน</h3>
             
             {loading ? (
-              <div className="text-center py-8 text-gray-400">Loading...</div>
+              <SkeletonCard />
             ) : ledgers.length === 0 ? (
               <div className="text-center py-8 text-gray-400 bg-slate-700/30 rounded-lg">
                 <p>ไม่มี Ledger ที่สามารถใช้ชำระได้</p>

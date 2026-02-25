@@ -3,6 +3,7 @@ import { payinsAPI, bankReconciliationAPI } from '../../api/client';
 import { useRole } from '../../contexts/RoleContext';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
+import { SkeletonTable } from '../../components/Skeleton';
 
 export default function PayIns() {
   const { isAdmin, isAccounting, currentRole, loading: roleLoading } = useRole();
@@ -239,7 +240,7 @@ export default function PayIns() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="8" className="text-center py-8">Loading...</td></tr>
+                <SkeletonTable rows={5} cols={8} />
               ) : payins.length === 0 ? (
                 <tr><td colSpan="8" className="text-center py-8 text-gray-400">
                   {(statusFilter === 'PENDING' || statusFilter === 'SUBMITTED') ? 'No pay-ins pending review' : 'No pay-ins found'}

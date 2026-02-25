@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { expensesAPI } from '../../api/client';
+import { SkeletonTable } from '../../components/Skeleton';
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
@@ -51,7 +52,7 @@ export default function Expenses() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="6" className="text-center py-8">Loading...</td></tr>
+                <SkeletonTable rows={5} cols={6} />
               ) : expenses.length === 0 ? (
                 <tr><td colSpan="6" className="text-center py-8 text-gray-400">No expenses found</td></tr>
               ) : (

@@ -468,7 +468,7 @@ const BankStatements = () => {
           disabled={loading || !file || !selectedAccount}
           className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
         >
-          {loading ? 'Loading...' : 'Preview CSV'}
+          {loading ? '⏳ Processing...' : 'Preview CSV'}
         </button>
       </div>
 

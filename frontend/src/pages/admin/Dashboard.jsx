@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboardAPI } from '../../api/client';
+import { SkeletonDashboard } from '../../components/Skeleton';
 import { 
   DollarSign, TrendingUp, TrendingDown, Home, 
   FileText, AlertTriangle, Users, CheckCircle 
@@ -26,11 +27,7 @@ export default function AdminDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="p-8">
-        <div className="animate-pulse text-white">Loading...</div>
-      </div>
-    );
+    return <SkeletonDashboard />;
   }
 
   const stats = [

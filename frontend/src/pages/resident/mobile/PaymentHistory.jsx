@@ -3,6 +3,7 @@ import { ChevronLeft, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoicesAPI, payinsAPI } from '../../../api/client';
 import { useToast } from '../../../components/Toast';
+import { SkeletonMobileList } from '../../../components/Skeleton';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import PayinDetailModal from './PayinDetailModal';
@@ -95,7 +96,7 @@ export default function PaymentHistory() {
     return (
       <MobileLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-400">กำลังโหลด...</div>
+          <SkeletonMobileList />
         </div>
       </MobileLayout>
     );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usersAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
+import { SkeletonTable } from '../../components/Skeleton';
 
 /**
  * User Management Dashboard — Super Admin Only
@@ -300,7 +301,7 @@ export default function UserManagement() {
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {loading ? (
-                  <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                  <SkeletonTable rows={5} cols={6} />
                 ) : staff.length === 0 ? (
                   <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">No staff users found</td></tr>
                 ) : (
@@ -407,7 +408,7 @@ export default function UserManagement() {
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {residentsLoading ? (
-                  <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+                  <SkeletonTable rows={5} cols={6} />
                 ) : residents.length === 0 ? (
                   <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">No residents found</td></tr>
                 ) : (

@@ -12,6 +12,7 @@
 import React, { useState, useEffect } from 'react';
 import { periodsAPI, exportAPI } from '../api/client';
 import { useToast } from '../components/Toast';
+import { SkeletonCard } from '../components/Skeleton';
 import { useAuth } from '../contexts/AuthContext';
 
 // Month names in Thai
@@ -281,9 +282,8 @@ function PeriodClosing() {
           </div>
           
           {detailLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-500">กำลังโหลด...</p>
+            <div className="py-8">
+              <SkeletonCard />
             </div>
           ) : periodDetail ? (
             <div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { expensesAPI, housesAPI, accountsAPI, vendorsAPI, attachmentsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
+import { SkeletonTable } from '../../components/Skeleton';
 
 /**
  * Phase F.1: Expense Core (Cash Out)
@@ -578,11 +579,7 @@ export default function Expenses() {
             </thead>
             <tbody className="divide-y divide-gray-700">
               {loading ? (
-                <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center text-gray-400">
-                    Loading...
-                  </td>
-                </tr>
+                <SkeletonTable rows={5} cols={9} />
               ) : expenses.length === 0 ? (
                 <tr>
                   <td colSpan="9" className="px-4 py-8 text-center text-gray-400">

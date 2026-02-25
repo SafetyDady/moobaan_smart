@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { invoicesAPI, payinsAPI, api } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
+import { SkeletonPage } from '../../components/Skeleton';
 import { useRole } from '../../contexts/RoleContext';
 
 export default function ResidentDashboard() {
@@ -149,7 +150,7 @@ export default function ResidentDashboard() {
   };
 
   if (loading) {
-    return <div className="p-8">Loading...</div>;
+    return <div className="p-8"><SkeletonPage /></div>;
   }
 
   return (

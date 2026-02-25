@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { expenseReconciliationAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
+import { SkeletonPage, SkeletonBlock } from '../../components/Skeleton';
 
 export default function ExpenseReconciliation() {
   // State
@@ -190,7 +191,7 @@ export default function ExpenseReconciliation() {
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading...</div>
+        <SkeletonPage />
       ) : viewMode === 'match' ? (
         <>
           {/* Allocation Panel (shown when both selected) */}
@@ -439,7 +440,7 @@ function AllocationHistory() {
     return new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
+  if (loading) return <SkeletonPage />;
 
   return (
     <div className="bg-white rounded-lg shadow">

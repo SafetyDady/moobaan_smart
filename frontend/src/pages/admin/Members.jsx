@@ -3,6 +3,7 @@ import { usersAPI, housesAPI } from '../../api/client';
 import { Link } from 'react-router-dom';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
+import { SkeletonTable } from '../../components/Skeleton';
 
 export default function Members() {
   const [residents, setResidents] = useState([]);
@@ -409,11 +410,7 @@ export default function Members() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan="8" className="text-center py-8">
-                    Loading...
-                  </td>
-                </tr>
+                <SkeletonTable rows={5} cols={8} />
               ) : residents.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center py-8 text-gray-400">

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToast } from '../../components/Toast';
+import { SkeletonPage } from '../../components/Skeleton';
 import { safeParseDate, formatThaiDate, formatThaiTime } from '../../utils/payinStatus';
 
 export default function UnidentifiedReceipts() {
@@ -131,7 +132,7 @@ export default function UnidentifiedReceipts() {
   };
 
   if (loading) {
-    return <div className="p-8 text-gray-400">Loading...</div>;
+    return <div className="p-8"><SkeletonPage /></div>;
   }
 
   return (

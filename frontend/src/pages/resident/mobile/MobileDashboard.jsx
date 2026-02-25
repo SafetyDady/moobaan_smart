@@ -5,6 +5,7 @@ import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import InvoiceTable from './InvoiceTable';
 import { Home, Loader2, CreditCard } from 'lucide-react';
+import { SkeletonMobileList } from '../../../components/Skeleton';
 import { isBlockingPayin } from '../../../utils/payinStatus';
 
 export default function MobileDashboard() {
@@ -59,10 +60,7 @@ export default function MobileDashboard() {
     return (
       <MobileLayout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <Home className="mx-auto text-emerald-500 mb-2" size={48} />
-            <p className="text-gray-400">กำลังโหลดข้อมูลบ้าน...</p>
-          </div>
+          <SkeletonMobileList />
         </div>
       </MobileLayout>
     );
@@ -72,10 +70,7 @@ export default function MobileDashboard() {
     return (
       <MobileLayout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <Loader2 className="mx-auto text-emerald-500 mb-2 animate-spin" size={48} />
-            <p className="text-gray-400">กำลังโหลด...</p>
-          </div>
+          <SkeletonMobileList />
         </div>
       </MobileLayout>
     );
