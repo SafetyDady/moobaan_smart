@@ -5,6 +5,7 @@ import { subDays, startOfDay } from 'date-fns';
 import { th } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
 import { payinsAPI } from '../../../api/client';
+import compressImage from '../../../utils/compressImage';
 import { useRole } from '../../../contexts/RoleContext';
 import { isIOS } from '../../../utils/deviceDetect';
 import MobileLayout from './MobileLayout';
@@ -35,7 +36,9 @@ export default function MobileSubmitPayment() {
   const minDate = subDays(today, 90);
   const maxDate = today;
 
-  const handleCameraCapture = (e) => {
+  const [compressing, setCompressing] = useState(false);
+
+  const handleCameraCapture = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -52,12 +55,27 @@ export default function MobileSubmitPayment() {
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    setFormData({ 
-      ...formData, 
-      slip_image: file,
-      slip_preview: previewUrl
-    });
+    // Compress image before setting state
+    setCompressing(true);
+    try {
+      const compressed = await compressImage(file);
+      const previewUrl = URL.createObjectURL(compressed);
+      setFormData({ 
+        ...formData, 
+        slip_image: compressed,
+        slip_preview: previewUrl
+      });
+    } catch (err) {
+      console.warn('Compression failed, using original:', err);
+      const previewUrl = URL.createObjectURL(file);
+      setFormData({ 
+        ...formData, 
+        slip_image: file,
+        slip_preview: previewUrl
+      });
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -378,7 +396,14 @@ export default function MobileSubmitPayment() {
                 id="camera-input"
               />
               
-              {formData.slip_preview ? (
+              {compressing ? (
+                <div className="block w-full bg-gray-800 border-2 border-dashed border-primary-600 rounded-lg p-6 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                    <span className="text-primary-400 font-medium text-sm">กำลังบีบอัดรูป...</span>
+                  </div>
+                </div>
+              ) : formData.slip_preview ? (
                 <div className="relative">
                   <img 
                     src={formData.slip_preview} 
@@ -417,10 +442,12 @@ export default function MobileSubmitPayment() {
         <button
           type="submit"
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || compressing}
           className="w-full bg-primary-600 active:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg text-lg transition-colors min-h-[56px] shadow-lg"
         >
-          {submitting ? (
+          {compressing ? (
+            <span>กำลังบีบอัดรูป...</span>
+          ) : submitting ? (
             <span>⏳ กำลังส่ง...</span>
           ) : editPayin ? (
             <span>✅ แก้ไขและส่งใหม่</span>

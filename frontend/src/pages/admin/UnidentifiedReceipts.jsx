@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../api/client';
+import compressImage from '../../utils/compressImage';
 import { useToast } from '../../components/Toast';
 import { SkeletonPage } from '../../components/Skeleton';
 import { safeParseDate, formatThaiDate, formatThaiTime } from '../../utils/payinStatus';
@@ -66,7 +67,7 @@ export default function UnidentifiedReceipts() {
     setShowModal(true);
   };
 
-  const handleSlipChange = (e) => {
+  const handleSlipChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
@@ -79,11 +80,13 @@ export default function UnidentifiedReceipts() {
         toast.warning(t('unidentified.maxFileSize'));
         return;
       }
-      setSlipFile(file);
+      // Compress image before storing
+      const compressed = await compressImage(file);
+      setSlipFile(compressed);
       // Create preview
       const reader = new FileReader();
       reader.onload = (e) => setSlipPreview(e.target.result);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressed);
     }
   };
 
