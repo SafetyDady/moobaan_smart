@@ -360,13 +360,15 @@ export default function VillageDashboard() {
                               <span className="text-[10px] text-gray-300 w-14 text-right shrink-0">
                                 ฿{m.total >= 1000 ? `${(m.total / 1000).toFixed(1)}k` : m.total.toLocaleString('th-TH')}
                               </span>
-                              {pctChange !== null && (
-                                <span className={`text-[9px] w-10 text-right shrink-0 ${
-                                  pctChange > 0 ? 'text-red-400' : pctChange < 0 ? 'text-emerald-400' : 'text-gray-500'
-                                }`}>
-                                  {pctChange > 0 ? '↑' : pctChange < 0 ? '↓' : '—'}{Math.abs(pctChange).toFixed(0)}%
-                                </span>
-                              )}
+                              {/* Always render w-10 slot so flex-1 bar container is equal width on every row */}
+                              <span className={`text-[9px] w-10 text-right shrink-0 ${
+                                pctChange === null ? 'invisible' :
+                                pctChange > 0 ? 'text-red-400' : pctChange < 0 ? 'text-emerald-400' : 'text-gray-500'
+                              }`}>
+                                {pctChange !== null
+                                  ? `${pctChange > 0 ? '↑' : pctChange < 0 ? '↓' : '—'}${Math.abs(pctChange).toFixed(0)}%`
+                                  : '\u00A0'}
+                              </span>
                             </div>
                           );
                         })}
