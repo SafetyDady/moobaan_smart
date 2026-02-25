@@ -5,23 +5,26 @@ import CreditNoteModal from '../../components/CreditNoteModal';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { SkeletonTable, SkeletonBlock } from '../../components/Skeleton';
+import { t } from '../../hooks/useLocale';
+import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('auto'); // 'auto' or 'manual'
+  const [activeTab, setActiveTab] = useState('auto');
   
-  // Apply Payment Modal state
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   
-  // Invoice Detail Modal state
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [invoiceDetail, setInvoiceDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [payments, setPayments] = useState([]);
 
-  // Manual Invoice Modal state (Phase D.1)
   const [showManualModal, setShowManualModal] = useState(false);
   const [houses, setHouses] = useState([]);
   const [manualForm, setManualForm] = useState({
@@ -33,20 +36,20 @@ export default function Invoices() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Credit Note Modal state (Phase D.2)
   const [showCreditNoteModal, setShowCreditNoteModal] = useState(false);
   const [creditNoteInvoice, setCreditNoteInvoice] = useState(null);
 
   const toast = useToast();
 
-  // Confirm modal state
+  // Pagination
+  const { sortConfig, requestSort, sortedData: sortedInvoices } = useSort(invoices);
+  const paged = usePagination(sortedInvoices);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
 
   useEffect(() => {
     loadInvoices();
   }, [activeTab]);
 
-  // Load houses for manual invoice form
   useEffect(() => {
     loadHouses();
   }, []);
@@ -76,11 +79,11 @@ export default function Invoices() {
   const handleGenerateMonthly = async () => {
     try {
       await invoicesAPI.generateMonthly();
-      toast.success('สร้างใบแจ้งหนี้รายเดือนสำเร็จ');
+      toast.success(t('invoices.generateSuccess'));
       loadInvoices();
     } catch (error) {
       console.error('Failed to generate invoices:', error);
-      toast.error('ไม่สามารถสร้างใบแจ้งหนี้ได้');
+      toast.error(t('invoices.generateFailed'));
     }
   };
 
@@ -117,21 +120,16 @@ export default function Invoices() {
 
   const handleApplySuccess = () => {
     loadInvoices();
-    // Refresh detail if open
     if (showDetailModal && selectedInvoice) {
       handleRowClick(selectedInvoice);
     }
   };
 
   const getStatusBadge = (status, outstanding, total) => {
-    // Phase D.2: Credit Note status badges
-    // Priority: Check outstanding-based credit status first
     if (outstanding === 0 && total > 0) {
-      // Fully credited/paid
       return 'bg-gray-500/20 text-gray-400';
     }
     if (outstanding > 0 && outstanding < total) {
-      // Partially credited/paid
       return 'bg-orange-500/20 text-orange-400';
     }
     
@@ -149,28 +147,26 @@ export default function Invoices() {
   };
 
   const formatStatus = (status, outstanding, total) => {
-    // Phase D.2: Dynamic status based on outstanding
     if (outstanding === 0 && total > 0) {
-      return 'Credited';
+      return t('status.credited');
     }
     if (outstanding > 0 && outstanding < total) {
-      return 'Partial';
+      return t('status.partial');
     }
     
     const labels = {
-      pending: 'Pending',
-      ISSUED: 'Pending',
-      paid: 'Paid',
-      PAID: 'Paid',
-      PARTIALLY_PAID: 'Partial',
-      CREDITED: 'Credited',
-      PARTIALLY_CREDITED: 'Partial',
-      overdue: 'Overdue',
+      pending: t('status.pending'),
+      ISSUED: t('status.pending'),
+      paid: t('status.paid'),
+      PAID: t('status.paid'),
+      PARTIALLY_PAID: t('status.partial'),
+      CREDITED: t('status.credited'),
+      PARTIALLY_CREDITED: t('status.partial'),
+      overdue: t('status.overdue'),
     };
     return labels[status] || status;
   };
 
-  // Credit Note handler (Phase D.2)
   const handleOpenCreditNote = (invoice, e) => {
     e?.stopPropagation();
     setCreditNoteInvoice({
@@ -182,15 +178,12 @@ export default function Invoices() {
 
   const handleCreditNoteSuccess = () => {
     loadInvoices();
-    // Refresh detail if open
     if (showDetailModal && selectedInvoice) {
       handleRowClick(selectedInvoice);
     }
   };
 
-  // Manual Invoice Handlers (Phase D.1)
   const openManualModal = () => {
-    // Set default due date to 15 days from now
     const defaultDue = new Date();
     defaultDue.setDate(defaultDue.getDate() + 15);
     setManualForm({
@@ -207,12 +200,12 @@ export default function Invoices() {
     e.preventDefault();
     
     if (!manualForm.house_id || !manualForm.amount || !manualForm.description || !manualForm.due_date) {
-      toast.warning('กรุณากรอกข้อมูลให้ครบ');
+      toast.warning(t('invoices.fillRequired'));
       return;
     }
     
     if (parseFloat(manualForm.amount) <= 0) {
-      toast.warning('จำนวนเงินต้องมากกว่า 0');
+      toast.warning(t('invoices.amountPositive'));
       return;
     }
     
@@ -225,58 +218,58 @@ export default function Invoices() {
         due_date: manualForm.due_date,
         note: manualForm.note || null
       });
-      toast.success('สร้าง Manual Invoice สำเร็จ');
+      toast.success(t('invoices.manualSuccess'));
       setShowManualModal(false);
-      setActiveTab('manual'); // Switch to manual tab
+      setActiveTab('manual');
       loadInvoices();
     } catch (error) {
       console.error('Failed to create manual invoice:', error);
-      toast.error(error.response?.data?.detail || 'ไม่สามารถสร้าง Invoice ได้');
+      toast.error(error.response?.data?.detail || t('invoices.manualFailed'));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="p-8">
+    <AdminPageWrapper>
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Invoices Management</h1>
-        <p className="text-gray-400">Manage auto-generated and manual invoices</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('invoices.title')}</h1>
+        <p className="text-gray-400">{t('invoices.subtitle')}</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6">
         <button
           onClick={() => setActiveTab('auto')}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+          className={`px-4 sm:px-6 py-3 rounded-lg font-medium transition-colors ${
             activeTab === 'auto'
               ? 'bg-primary-600 text-white'
               : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
           }`}
         >
-          Auto Monthly
+          {t('invoices.autoMonthly')}
         </button>
         <button
           onClick={() => setActiveTab('manual')}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+          className={`px-4 sm:px-6 py-3 rounded-lg font-medium transition-colors ${
             activeTab === 'manual'
               ? 'bg-primary-600 text-white'
               : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
           }`}
         >
-          Manual
+          {t('invoices.manual')}
         </button>
         
-        {/* Action buttons based on tab */}
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 flex-wrap">
           {activeTab === 'auto' && (
-            <button onClick={() => setConfirmGenerate(true)} className="btn-primary">
-              Generate Monthly Invoices
+            <button onClick={() => setConfirmGenerate(true)} className="btn-primary whitespace-nowrap">
+              {t('invoices.generateMonthly')}
             </button>
           )}
           {activeTab === 'manual' && (
-            <button onClick={openManualModal} className="btn-primary">
-              + Create Manual Invoice
+            <button onClick={openManualModal} className="btn-primary whitespace-nowrap">
+              + {t('invoices.createManual')}
             </button>
           )}
         </div>
@@ -288,23 +281,23 @@ export default function Invoices() {
           <table className="table">
             <thead>
               <tr>
-                <th>House</th>
-                <th>Cycle</th>
-                <th>Total</th>
-                <th>Paid</th>
-                <th>Outstanding</th>
-                <th>Status</th>
-                <th>Due Date</th>
-                <th>Actions</th>
+                <SortableHeader label={t('invoices.house')} sortKey="house_code" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.cycle')} sortKey="billing_month" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.total')} sortKey="total" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.paid')} sortKey="paid" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.outstanding')} sortKey="outstanding" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('common.status')} sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.dueDate')} sortKey="due_date" sortConfig={sortConfig} onSort={requestSort} />
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <SkeletonTable rows={5} cols={8} />
               ) : invoices.length === 0 ? (
-                <tr><td colSpan="8" className="text-center py-8 text-gray-400">No invoices found</td></tr>
+                <EmptyState icon="📄" colSpan={8} />
               ) : (
-                invoices.map((inv) => {
+                paged.currentItems.map((inv) => {
                   const paid = inv.paid || 0;
                   const outstanding = inv.outstanding ?? (inv.total - paid);
                   const canApply = outstanding > 0;
@@ -319,14 +312,14 @@ export default function Invoices() {
                         {inv.house_number}
                         {inv.is_manual && (
                           <span className="ml-2 px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full">
-                            Manual
+                            {t('invoices.manual')}
                           </span>
                         )}
                       </td>
                       <td className="text-gray-300">
                         {inv.is_manual ? (
                           <span className="text-purple-400" title={inv.manual_reason}>
-                            {inv.manual_reason?.substring(0, 30) || 'Manual'}{inv.manual_reason?.length > 30 ? '...' : ''}
+                            {inv.manual_reason?.substring(0, 30) || t('invoices.manual')}{inv.manual_reason?.length > 30 ? '...' : ''}
                           </span>
                         ) : (
                           inv.cycle || '-'
@@ -342,25 +335,23 @@ export default function Invoices() {
                           {formatStatus(inv.status, outstanding, inv.total)}
                         </span>
                       </td>
-                      <td className="text-gray-300">{new Date(inv.due_date).toLocaleDateString()}</td>
+                      <td className="text-gray-300">{new Date(inv.due_date).toLocaleDateString('th-TH')}</td>
                       <td className="space-x-1">
-                        {/* Apply Payment Button */}
                         {canApply && (
                           <button
                             onClick={(e) => handleApplyPayment(inv, e)}
                             className="px-3 py-1 bg-primary-600 text-white text-sm rounded hover:bg-primary-500 transition-colors"
                           >
-                            Apply
+                            {t('invoices.applyPayment')}
                           </button>
                         )}
-                        {/* Credit Note Button - Phase D.2 */}
                         {outstanding > 0 && (
                           <button
                             onClick={(e) => handleOpenCreditNote(inv, e)}
                             className="px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-500 transition-colors"
-                            title="Create Credit Note / ลดยอดค้าง"
+                            title={t('invoices.creditNote')}
                           >
-                            + Credit
+                            + {t('invoices.creditNote')}
                           </button>
                         )}
                       </td>
@@ -373,6 +364,9 @@ export default function Invoices() {
         </div>
       </div>
 
+      {/* Pagination */}
+      {!loading && invoices.length > 0 && <Pagination {...paged} />}
+
       {/* Apply Payment Modal */}
       <ApplyPaymentModal
         isOpen={showApplyModal}
@@ -383,12 +377,11 @@ export default function Invoices() {
 
       {/* Invoice Detail Modal */}
       {showDetailModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-hidden">
-            {/* Header */}
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-white">Invoice Detail</h2>
+                <h2 className="text-xl font-bold text-white">{t('invoices.invoiceDetail')}</h2>
                 <p className="text-gray-400 text-sm">
                   {selectedInvoice?.house_number} - {selectedInvoice?.cycle}
                 </p>
@@ -401,35 +394,33 @@ export default function Invoices() {
               </button>
             </div>
 
-            {/* Content */}
             <div className="p-6 overflow-y-auto max-h-[70vh]">
               {detailLoading ? (
                 <div className="py-8 space-y-3">{Array.from({length:4}).map((_,i)=><SkeletonBlock key={i} className="h-4 w-full" />)}</div>
               ) : invoiceDetail ? (
                 <>
-                  {/* Summary */}
                   <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
-                    <div className="grid grid-cols-4 gap-4 text-center">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                       <div>
-                        <div className="text-gray-400 text-sm">Total</div>
+                        <div className="text-gray-400 text-sm">{t('invoices.total')}</div>
                         <div className="text-white font-bold text-lg">
                           ฿{invoiceDetail.total_amount?.toLocaleString() || 0}
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-400 text-sm">Paid</div>
+                        <div className="text-gray-400 text-sm">{t('invoices.paid')}</div>
                         <div className="text-green-400 font-bold text-lg">
                           ฿{invoiceDetail.paid_amount?.toLocaleString() || 0}
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-400 text-sm">Outstanding</div>
+                        <div className="text-gray-400 text-sm">{t('invoices.outstanding')}</div>
                         <div className="text-yellow-400 font-bold text-lg">
                           ฿{invoiceDetail.outstanding_amount?.toLocaleString() || 0}
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-400 text-sm">Status</div>
+                        <div className="text-gray-400 text-sm">{t('common.status')}</div>
                         <div className={`font-bold text-lg ${
                           invoiceDetail.outstanding_amount === 0 ? 'text-gray-400' :
                           invoiceDetail.outstanding_amount < invoiceDetail.total_amount ? 'text-orange-400' :
@@ -443,9 +434,8 @@ export default function Invoices() {
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
                   {(invoiceDetail.outstanding_amount || 0) > 0 && (
-                    <div className="mb-6 flex gap-3">
+                    <div className="mb-6 flex flex-col sm:flex-row gap-3">
                       <button
                         onClick={() => {
                           setShowDetailModal(false);
@@ -459,9 +449,8 @@ export default function Invoices() {
                         }}
                         className="flex-1 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors font-medium"
                       >
-                        Apply Payment / ชำระเงิน
+                        {t('invoices.applyPayment')}
                       </button>
-                      {/* Credit Note Button - Phase D.2 */}
                       <button
                         onClick={() => {
                           setShowDetailModal(false);
@@ -476,17 +465,16 @@ export default function Invoices() {
                         }}
                         className="flex-1 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-500 transition-colors font-medium"
                       >
-                        + Credit Note / ลดยอด
+                        + {t('invoices.creditNote')}
                       </button>
                     </div>
                   )}
 
-                  {/* Payment History */}
                   <div>
-                    <h3 className="text-white font-medium mb-3">Payment History / ประวัติการชำระ</h3>
+                    <h3 className="text-white font-medium mb-3">{t('invoices.paymentHistory')}</h3>
                     {payments.length === 0 ? (
                       <div className="text-center py-6 text-gray-400 bg-slate-700/30 rounded-lg">
-                        No payments recorded yet
+                        {t('common.noData')}
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -498,11 +486,11 @@ export default function Invoices() {
                                   ฿{payment.amount?.toLocaleString()}
                                 </div>
                                 <div className="text-gray-400 text-sm mt-1">
-                                  From Ledger #{payment.ledger_id || payment.income_transaction_id}
+                                  Ledger #{payment.ledger_id || payment.income_transaction_id}
                                 </div>
                                 {payment.note && (
                                   <div className="text-gray-500 text-sm mt-1">
-                                    Note: {payment.note}
+                                    {t('common.notes')}: {payment.note}
                                   </div>
                                 )}
                               </div>
@@ -517,32 +505,29 @@ export default function Invoices() {
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8 text-gray-400">Failed to load invoice detail</div>
+                <div className="text-center py-8 text-gray-400">{t('common.noData')}</div>
               )}
             </div>
 
-            {/* Footer */}
             <div className="px-6 py-4 border-t border-slate-700 flex justify-end">
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="px-6 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors"
               >
-                Close
+                {t('common.close')}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Manual Invoice Modal (Phase D.1) */}
+      {/* Manual Invoice Modal */}
       {showManualModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4">
-            {/* Header */}
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-md">
             <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-white">Create Manual Invoice</h2>
-                <p className="text-gray-400 text-sm">สร้างใบแจ้งหนี้พิเศษ</p>
+                <h2 className="text-xl font-bold text-white">{t('invoices.createManual')}</h2>
               </div>
               <button
                 onClick={() => setShowManualModal(false)}
@@ -552,12 +537,10 @@ export default function Invoices() {
               </button>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleManualSubmit} className="p-6 space-y-4">
-              {/* House Selection */}
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">
-                  บ้าน <span className="text-red-400">*</span>
+                  {t('invoices.house')} <span className="text-red-400">*</span>
                 </label>
                 <select
                   value={manualForm.house_id}
@@ -565,19 +548,18 @@ export default function Invoices() {
                   className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 >
-                  <option value="">-- เลือกบ้าน --</option>
+                  <option value="">-- {t('members.selectHouse')} --</option>
                   {houses.map((house) => (
                     <option key={house.id} value={house.id}>
-                      {house.house_code} - {house.owner_name || 'N/A'}
+                      {house.house_code} - {house.owner_name || '-'}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Amount */}
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">
-                  จำนวนเงิน (บาท) <span className="text-red-400">*</span>
+                  {t('common.amount')} (บาท) <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="number"
@@ -591,25 +573,23 @@ export default function Invoices() {
                 />
               </div>
 
-              {/* Description */}
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">
-                  รายละเอียด / เหตุผล <span className="text-red-400">*</span>
+                  {t('common.description')} <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   value={manualForm.description}
                   onChange={(e) => setManualForm({ ...manualForm, description: e.target.value })}
                   className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="เช่น ค่าปรับจอดรถผิดที่, ค่าซ่อมแซม"
+                  placeholder={t('invoices.descriptionPlaceholder')}
                   required
                 />
               </div>
 
-              {/* Due Date */}
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">
-                  วันครบกำหนด <span className="text-red-400">*</span>
+                  {t('invoices.dueDate')} <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="date"
@@ -621,35 +601,33 @@ export default function Invoices() {
                 />
               </div>
 
-              {/* Note */}
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">
-                  หมายเหตุ (ถ้ามี)
+                  {t('common.notes')} ({t('common.optional')})
                 </label>
                 <textarea
                   value={manualForm.note}
                   onChange={(e) => setManualForm({ ...manualForm, note: e.target.value })}
                   className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={2}
-                  placeholder="หมายเหตุเพิ่มเติม..."
+                  placeholder={t('common.notesPlaceholder')}
                 />
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowManualModal(false)}
                   className="flex-1 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors"
                 >
-                  ยกเลิก
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors disabled:opacity-50"
                 >
-                  {submitting ? 'กำลังสร้าง...' : 'สร้าง Invoice'}
+                  {submitting ? t('common.creating') : t('invoices.createManual')}
                 </button>
               </div>
             </form>
@@ -657,7 +635,7 @@ export default function Invoices() {
         </div>
       )}
 
-      {/* Credit Note Modal (Phase D.2) */}
+      {/* Credit Note Modal */}
       <CreditNoteModal
         isOpen={showCreditNoteModal}
         onClose={() => setShowCreditNoteModal(false)}
@@ -668,13 +646,14 @@ export default function Invoices() {
       {/* Generate Monthly Confirm Modal */}
       <ConfirmModal
         open={confirmGenerate}
-        title="สร้างใบแจ้งหนี้รายเดือน"
-        message="ต้องการสร้างใบแจ้งหนี้รายเดือนสำหรับบ้านที่ Active ทั้งหมดใช่หรือไม่?"
+        title={t('invoices.confirmGenerate')}
+        message={t('invoices.confirmGenerateMsg')}
         variant="info"
-        confirmText="สร้าง"
+        confirmText={t('common.create')}
         onConfirm={handleGenerateMonthly}
         onCancel={() => setConfirmGenerate(false)}
       />
     </div>
+    </AdminPageWrapper>
   );
 }

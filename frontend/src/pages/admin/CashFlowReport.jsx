@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { reportsAPI, housesAPI } from '../../api/client';
+import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 /**
  * Phase E.2: Cash Flow vs AR Report
@@ -113,11 +116,12 @@ export default function CashFlowReport() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <AdminPageWrapper>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Cash Flow vs AR Report</h1>
-        <p className="text-gray-400 mt-1">เปรียบเทียบยอดค้างรับ (AR) vs เงินสดรับจริง</p>
+        <h1 className="text-2xl font-bold text-white">{t('reports.cashFlowTitle')}</h1>
+        <p className="text-gray-400 mt-1">{t('cashFlow.subtitle')}</p>
       </div>
 
       {/* Filters */}
@@ -125,7 +129,7 @@ export default function CashFlowReport() {
         <div className="flex flex-wrap gap-4 items-end">
           {/* From Date */}
           <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm text-gray-400 mb-1">จากวันที่</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('cashFlow.fromDate')}</label>
             <input
               type="date"
               value={fromDate}
@@ -136,7 +140,7 @@ export default function CashFlowReport() {
           
           {/* To Date */}
           <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm text-gray-400 mb-1">ถึงวันที่</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('cashFlow.toDate')}</label>
             <input
               type="date"
               value={toDate}
@@ -147,13 +151,13 @@ export default function CashFlowReport() {
           
           {/* House Filter */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm text-gray-400 mb-1">บ้าน</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('cashFlow.house')}</label>
             <select
               value={selectedHouse}
               onChange={(e) => setSelectedHouse(e.target.value)}
               className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
             >
-              <option value="">ทุกบ้าน</option>
+              <option value="">{t('cashFlow.allHouses')}</option>
               {houses.map(h => (
                 <option key={h.id} value={h.id}>
                   {h.house_code} - {h.owner_name}
@@ -164,14 +168,14 @@ export default function CashFlowReport() {
           
           {/* Group By */}
           <div className="min-w-[120px]">
-            <label className="block text-sm text-gray-400 mb-1">จัดกลุ่มตาม</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('cashFlow.groupBy')}</label>
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value)}
               className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
             >
-              <option value="month">เดือน</option>
-              <option value="week">สัปดาห์</option>
+              <option value="month">{t('cashFlow.monthly')}</option>
+              <option value="week">{t('cashFlow.weekly')}</option>
             </select>
           </div>
           
@@ -181,7 +185,7 @@ export default function CashFlowReport() {
               onClick={loadReport}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-500"
             >
-              โหลดใหม่
+              {t('common.refresh')}
             </button>
             <button
               onClick={handleExportCSV}
@@ -208,35 +212,35 @@ export default function CashFlowReport() {
           <div className="bg-slate-800 rounded-lg p-4">
             <p className="text-gray-400 text-xs">AR (Accrual)</p>
             <p className="text-2xl font-bold text-blue-400">
-              ฿{report.summary.total_ar.toLocaleString()}
+              ฿{report.summary.total_ar.toLocaleString('th-TH')}
             </p>
             <p className="text-xs text-gray-500 mt-1">{report.invoice_count} invoices</p>
           </div>
           
           {/* Cash Total */}
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-gray-400 text-xs">Cash Received</p>
+            <p className="text-gray-400 text-xs">{t('reports.cashReceived')}</p>
             <p className="text-2xl font-bold text-green-400">
-              ฿{report.summary.total_cash.toLocaleString()}
+              ฿{report.summary.total_cash.toLocaleString('th-TH')}
             </p>
             <p className="text-xs text-gray-500 mt-1">{report.payin_count} pay-ins</p>
           </div>
           
           {/* Gap */}
           <div className={`rounded-lg p-4 ${getGapBgColor(report.summary.total_gap)}`}>
-            <p className="text-gray-400 text-xs">Gap (AR - Cash)</p>
+            <p className="text-gray-400 text-xs">{t('reports.gapArCash')}</p>
             <p className={`text-2xl font-bold ${getGapColor(report.summary.total_gap)}`}>
-              {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString()}
+              {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString('th-TH')}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              {report.summary.total_gap > 0 ? 'Under-collected' : 
-               report.summary.total_gap < 0 ? 'Over-collected' : 'Balanced'}
+              {report.summary.total_gap > 0 ? t('cashFlow.underCollected') : 
+               report.summary.total_gap < 0 ? t('cashFlow.overCollected') : t('cashFlow.balanced')}
             </p>
           </div>
           
           {/* Gap Percent */}
           <div className="bg-slate-800 rounded-lg p-4 border-l-4 border-primary-500">
-            <p className="text-gray-400 text-xs">Gap %</p>
+            <p className="text-gray-400 text-xs">{t('reports.gapPercent')}</p>
             <p className={`text-2xl font-bold ${getGapColor(report.summary.total_gap)}`}>
               {report.summary.gap_percent !== null 
                 ? `${report.summary.gap_percent >= 0 ? '+' : ''}${report.summary.gap_percent}%`
@@ -257,9 +261,9 @@ export default function CashFlowReport() {
       {/* Report Info */}
       {report && !loading && (
         <div className="mb-4 text-sm text-gray-400">
-          ช่วงเวลา: <span className="text-white">{report.from_date}</span> ถึง <span className="text-white">{report.to_date}</span>
+          {t('cashFlow.period')}: <span className="text-white">{report.from_date}</span> {t('cashFlow.to')} <span className="text-white">{report.to_date}</span>
           {' | '}
-          จัดกลุ่ม: <span className="text-white">{report.group_by === 'month' ? 'รายเดือน' : 'รายสัปดาห์'}</span>
+          {t('cashFlow.groupBy')}: <span className="text-white">{report.group_by === 'month' ? t('cashFlow.monthly') : t('cashFlow.weekly')}</span>
         </div>
       )}
 
@@ -270,19 +274,19 @@ export default function CashFlowReport() {
             <table className="w-full">
               <thead className="bg-slate-700">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Period</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">{t('cashFlow.period')}</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">AR (Accrual)</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">Cash Received</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">Gap</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">Gap %</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">{t('reports.cashReceived')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">{t('reports.gap')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">{t('reports.gapPercent')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">{t('common.status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
                 {report.rows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-                      ไม่มีข้อมูลในช่วงเวลาที่เลือก
+                      {t('cashFlow.noData')}
                     </td>
                   </tr>
                 ) : (
@@ -291,13 +295,13 @@ export default function CashFlowReport() {
                       <tr key={row.period} className={`hover:bg-slate-700/50 ${getGapBgColor(row.gap)}`}>
                         <td className="px-4 py-3 text-white font-medium">{row.period}</td>
                         <td className="px-4 py-3 text-right text-blue-400">
-                          ฿{row.ar_amount.toLocaleString()}
+                          ฿{row.ar_amount.toLocaleString('th-TH')}
                         </td>
                         <td className="px-4 py-3 text-right text-green-400">
-                          ฿{row.cash_amount.toLocaleString()}
+                          ฿{row.cash_amount.toLocaleString('th-TH')}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${getGapColor(row.gap)}`}>
-                          {row.gap >= 0 ? '+' : ''}฿{row.gap.toLocaleString()}
+                          {row.gap >= 0 ? '+' : ''}฿{row.gap.toLocaleString('th-TH')}
                         </td>
                         <td className={`px-4 py-3 text-right ${getGapColor(row.gap)}`}>
                           {row.gap_percent !== null 
@@ -325,13 +329,13 @@ export default function CashFlowReport() {
                     <tr className="bg-slate-700 font-bold">
                       <td className="px-4 py-3 text-white">TOTAL</td>
                       <td className="px-4 py-3 text-right text-blue-300">
-                        ฿{report.summary.total_ar.toLocaleString()}
+                        ฿{report.summary.total_ar.toLocaleString('th-TH')}
                       </td>
                       <td className="px-4 py-3 text-right text-green-300">
-                        ฿{report.summary.total_cash.toLocaleString()}
+                        ฿{report.summary.total_cash.toLocaleString('th-TH')}
                       </td>
                       <td className={`px-4 py-3 text-right ${getGapColor(report.summary.total_gap)}`}>
-                        {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString()}
+                        {report.summary.total_gap >= 0 ? '+' : ''}฿{report.summary.total_gap.toLocaleString('th-TH')}
                       </td>
                       <td className={`px-4 py-3 text-right ${getGapColor(report.summary.total_gap)}`}>
                         {report.summary.gap_percent !== null 
@@ -350,9 +354,10 @@ export default function CashFlowReport() {
 
       {/* Legend */}
       <div className="mt-4 text-xs text-gray-500">
-        <p><span className="text-red-400">+Gap (Under)</span> = AR มากกว่า Cash (ยังเก็บเงินไม่ครบ)</p>
-        <p><span className="text-green-400">-Gap (Over)</span> = Cash มากกว่า AR (เก็บเงินล่วงหน้า/เกิน)</p>
+        <p><span className="text-red-400">+Gap (Under)</span> = {t('cashFlow.gapUnderExplain')}</p>
+        <p><span className="text-green-400">-Gap (Over)</span> = {t('cashFlow.gapOverExplain')}</p>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

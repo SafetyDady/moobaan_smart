@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { housesAPI } from '../../api/client';
 import { useToast } from '../../components/Toast';
+import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function AddHouse() {
   const navigate = useNavigate();
@@ -19,24 +22,24 @@ export default function AddHouse() {
   });
 
   const houseStatuses = [
-    { value: 'ACTIVE', label: 'Active / ใช้งานอยู่' },
-    { value: 'VACANT', label: 'Vacant / ว่าง' },
-    { value: 'BANK_OWNED', label: 'Bank Owned / ธนาคารเจ้าของ' },
-    { value: 'SUSPENDED', label: 'Suspended / ระงับการใช้งาน' },
-    { value: 'ARCHIVED', label: 'Archived / เก็บถาวร' }
+    { value: 'ACTIVE', label: t('houses.statusActive') },
+    { value: 'VACANT', label: t('houses.statusVacant') },
+    { value: 'BANK_OWNED', label: t('houses.statusBankOwned') },
+    { value: 'SUSPENDED', label: t('houses.statusSuspended') },
+    { value: 'ARCHIVED', label: t('houses.statusArchived') },
   ];
 
   const validateForm = () => {
     const newErrors = {};
 
     if (!formData.house_code.trim()) {
-      newErrors.house_code = 'House code is required / รหัสบ้านจำเป็นต้องระบุ';
+      newErrors.house_code = t('addHouse.houseCodeRequired');
     } else if (!/^28\/[1-9][0-9]*$/.test(formData.house_code.trim())) {
-      newErrors.house_code = 'House code must be in format 28/[number] (e.g., 28/1, 28/15) / รหัสบ้านต้องอยู่ในรูปแบบ 28/[หมายเลข]';
+      newErrors.house_code = t('addHouse.houseCodeFormat');
     }
 
     if (!formData.owner_name.trim()) {
-      newErrors.owner_name = 'Owner name is required / ชื่อเจ้าของจำเป็นต้องระบุ';
+      newErrors.owner_name = t('addHouse.ownerRequired');
     }
 
     setErrors(newErrors);
@@ -55,10 +58,9 @@ export default function AddHouse() {
       const response = await housesAPI.create(formData);
       
       if (response.data.success) {
-        toast.success(`สร้างข้อมูลบ้านเรียบร้อย! House Code: ${formData.house_code} / Owner: ${formData.owner_name}`);
+        toast.success(`${t('addHouse.createSuccess')} ${t('addHouse.houseCode')}: ${formData.house_code} / ${t('addHouse.ownerName')}: ${formData.owner_name}`);
         
         if (saveAndAddAnother) {
-          // Reset form for another entry
           setFormData({
             house_code: '',
             owner_name: '',
@@ -70,7 +72,6 @@ export default function AddHouse() {
           });
           setErrors({});
         } else {
-          // Navigate back to houses list
           navigate('/admin/houses');
         }
       }
@@ -78,10 +79,10 @@ export default function AddHouse() {
       console.error('Failed to create house:', error);
       const errorDetail = error.response?.data?.detail || error.response?.data || error.message;
       
-      if (typeof errorDetail === 'object' && errorDetail.error_en) {
-        toast.error(`${errorDetail.error_th || errorDetail.error_en}`);
+      if (typeof errorDetail === 'object' && errorDetail.error_th) {
+        toast.error(errorDetail.error_th);
       } else {
-        toast.error(`ไม่สามารถสร้างบ้านได้: ${typeof errorDetail === 'string' ? errorDetail : 'Unknown error'}`);
+        toast.error(`${t('addHouse.createFailed')}: ${typeof errorDetail === 'string' ? errorDetail : t('common.error')}`);
       }
     } finally {
       setLoading(false);
@@ -90,66 +91,65 @@ export default function AddHouse() {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
   return (
-    <div className="p-8">
+    <AdminPageWrapper>
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
           <button 
             onClick={() => navigate('/admin/houses')}
             className="text-primary-400 hover:text-primary-300"
           >
-            ← Back to Houses
+            ← {t('common.back')}
           </button>
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">Add New House</h1>
-        <p className="text-gray-400">เพิ่มข้อมูลบ้านใหม่ / Create a new house record</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('addHouse.title')}</h1>
+        <p className="text-gray-400">{t('addHouse.subtitle')}</p>
       </div>
 
       <div className="card max-w-2xl">
         <div className="p-6 border-b border-gray-700">
-          <h2 className="text-xl font-bold text-white">House Information / ข้อมูลบ้าน</h2>
+          <h2 className="text-xl font-bold text-white">{t('addHouse.houseInfo')}</h2>
         </div>
 
         <form className="p-6 space-y-6">
           {/* House Code */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              House Code / รหัสบ้าน *
+              {t('houses.houseCode')} *
             </label>
             <input
               type="text"
               value={formData.house_code}
               onChange={(e) => handleInputChange('house_code', e.target.value)}
-              placeholder="e.g., 28/1, 28/15, 28/158"
-              className={`input ${errors.house_code ? 'border-red-500' : ''}`}
+              placeholder={t('addHouse.houseCodePlaceholder')}
+              className={`input w-full ${errors.house_code ? 'border-red-500' : ''}`}
               disabled={loading}
             />
             {errors.house_code && (
               <p className="text-red-400 text-sm mt-1">{errors.house_code}</p>
             )}
             <p className="text-gray-500 text-sm mt-1">
-              Format: 28/[number] เช่น 28/1, 28/15, 28/158
+              {t('addHouse.houseCodeFormat')}
             </p>
           </div>
 
           {/* Owner Name */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Owner Name / ชื่อเจ้าของ *
+              {t('houses.ownerName')} *
             </label>
             <input
               type="text"
               value={formData.owner_name}
               onChange={(e) => handleInputChange('owner_name', e.target.value)}
-              placeholder="Full name of the house owner"
-              className={`input ${errors.owner_name ? 'border-red-500' : ''}`}
+              placeholder={t('addHouse.ownerNamePlaceholder')}
+              className={`input w-full ${errors.owner_name ? 'border-red-500' : ''}`}
               disabled={loading}
             />
             {errors.owner_name && (
@@ -160,12 +160,12 @@ export default function AddHouse() {
           {/* House Status */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              House Status / สถานะบ้าน
+              {t('houses.houseStatus')}
             </label>
             <select
               value={formData.house_status}
               onChange={(e) => handleInputChange('house_status', e.target.value)}
-              className="input"
+              className="input w-full"
               disabled={loading}
             >
               {houseStatuses.map(status => (
@@ -180,40 +180,40 @@ export default function AddHouse() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Floor Area / พื้นที่ใช้สอย
+                {t('houses.floorArea')}
               </label>
               <input
                 type="text"
                 value={formData.floor_area}
                 onChange={(e) => handleInputChange('floor_area', e.target.value)}
-                placeholder="e.g., 120 ตร.ม."
-                className="input"
+                placeholder={t('houses.areaPlaceholder')}
+                className="input w-full"
                 disabled={loading}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Land Area / พื้นที่ดิน
+                {t('houses.landArea')}
               </label>
               <input
                 type="text"
                 value={formData.land_area}
                 onChange={(e) => handleInputChange('land_area', e.target.value)}
-                placeholder="e.g., 80 ตรว."
-                className="input"
+                placeholder={t('houses.landPlaceholder')}
+                className="input w-full"
                 disabled={loading}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Zone / โซน
+                {t('houses.zone')}
               </label>
               <input
                 type="text"
                 value={formData.zone}
                 onChange={(e) => handleInputChange('zone', e.target.value)}
-                placeholder="e.g., A, B, C"
-                className="input"
+                placeholder={t('addHouse.zonePlaceholder')}
+                className="input w-full"
                 disabled={loading}
               />
             </div>
@@ -222,27 +222,27 @@ export default function AddHouse() {
           {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Notes / หมายเหตุ
+              {t('common.notes')}
             </label>
             <textarea
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="Additional notes or comments"
+              placeholder={t('common.notesPlaceholder')}
               rows="3"
-              className="input"
+              className="input w-full"
               disabled={loading}
             />
           </div>
 
           {/* Form Actions */}
-          <div className="flex gap-4 pt-4">
+          <div className="flex flex-wrap gap-4 pt-4">
             <button
               type="button"
               onClick={(e) => handleSubmit(e, false)}
               disabled={loading}
               className="btn-primary"
             >
-              {loading ? 'Creating... / กำลังสร้าง...' : '💾 Save / บันทึก'}
+              {loading ? t('common.saving') : `💾 ${t('common.save')}`}
             </button>
             <button
               type="button"
@@ -250,7 +250,7 @@ export default function AddHouse() {
               disabled={loading}
               className="btn-secondary"
             >
-              {loading ? 'Creating... / กำลังสร้าง...' : '💾 Save & Add Another / บันทึกและเพิ่มต่อ'}
+              {loading ? t('common.saving') : `💾 ${t('addHouse.saveAndAdd')}`}
             </button>
             <button
               type="button"
@@ -258,11 +258,12 @@ export default function AddHouse() {
               disabled={loading}
               className="btn-outline"
             >
-              Cancel / ยกเลิก
+              {t('common.cancel')}
             </button>
           </div>
         </form>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

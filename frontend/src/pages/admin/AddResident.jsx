@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usersAPI, housesAPI } from '../../api/client';
 import { useToast } from '../../components/Toast';
+import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function AddResident() {
   const navigate = useNavigate();
@@ -28,9 +31,9 @@ export default function AddResident() {
   });
 
   const memberRoles = [
-    { value: 'owner', label: 'Owner / เจ้าของ' },
-    { value: 'resident', label: 'Resident / ผู้อาศัย' },
-    { value: 'tenant', label: 'Tenant / ผู้เช่า' }
+    { value: 'owner', label: t('roles.owner') },
+    { value: 'resident', label: t('roles.resident') },
+    { value: 'tenant', label: t('roles.tenant') }
   ];
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function AddResident() {
   const handlePhoneSearch = async () => {
     const normalized = phone.trim().replace(/-/g, '').replace(/ /g, '');
     if (!normalized) {
-      setErrors({ phone: 'กรุณาใส่เบอร์โทรศัพท์' });
+      setErrors({ phone: t('addResident.phoneRequired') });
       return;
     }
 
@@ -92,7 +95,7 @@ export default function AddResident() {
     } catch (error) {
       console.error('Phone search failed:', error);
       setSearchResult(null);
-      setErrors({ phone: 'ค้นหาไม่สำเร็จ กรุณาลองใหม่' });
+      setErrors({ phone: t('addResident.searchFailed') });
     } finally {
       setSearching(false);
     }
@@ -127,20 +130,20 @@ export default function AddResident() {
     const newErrors = {};
 
     if (!formData.house_id) {
-      newErrors.house_id = 'จำเป็นต้องเลือกบ้าน';
+      newErrors.house_id = t('addResident.houseRequired');
     }
 
     // If new user, name is required
     if (!searchResult?.found && !formData.full_name.trim()) {
-      newErrors.full_name = 'ชื่อ-นามสกุลจำเป็นต้องระบุ';
+      newErrors.full_name = t('addResident.nameRequired');
     }
 
     if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      newErrors.email = 'รูปแบบอีเมลไม่ถูกต้อง';
+      newErrors.email = t('addResident.emailInvalid');
     }
 
     if (selectedHouseInfo && selectedHouseInfo.available_slots <= 0) {
-      newErrors.house_id = `บ้านนี้มีสมาชิกครบ ${selectedHouseInfo.max_member_count} คนแล้ว`;
+      newErrors.house_id = `${t('addResident.houseFull')} (${selectedHouseInfo.max_member_count})`;
     }
 
     setErrors(newErrors);
@@ -183,9 +186,9 @@ export default function AddResident() {
       console.error('Failed to create/assign resident:', error);
       const detail = error.response?.data?.detail || error.message;
       if (typeof detail === 'object' && detail.error_th) {
-        toast.error(detail.error_th || detail.error_en || 'เกิดข้อผิดพลาด');
+        toast.error(detail.error_th || detail.error_en || t('common.error'));
       } else {
-        toast.error(`ไม่สำเร็จ: ${typeof detail === 'string' ? detail : 'Unknown error'}`);
+        toast.error(`${t('addResident.failed')}: ${typeof detail === 'string' ? detail : 'Unknown error'}`);
       }
     } finally {
       setLoading(false);
@@ -197,16 +200,17 @@ export default function AddResident() {
   const hasSearched = searchResult !== null;
 
   return (
-    <div className="p-8">
+    <AdminPageWrapper>
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
           <button onClick={() => navigate('/admin/members')} className="text-primary-400 hover:text-primary-300">
-            ← Back to Members
+            ← {t('common.back')}
           </button>
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">เพิ่มลูกบ้าน / Add Resident</h1>
-        <p className="text-gray-400">ค้นหาด้วยเบอร์โทรก่อน — ถ้ามีอยู่แล้วจะเพิ่มบ้านให้คนเดิม</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('addResident.title')}</h1>
+        <p className="text-gray-400">{t('addResident.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -215,14 +219,14 @@ export default function AddResident() {
           {/* ── Step 1: Phone Search ── */}
           <div className="card mb-6">
             <div className="p-6 border-b border-gray-700">
-              <h2 className="text-xl font-bold text-white">ขั้นที่ 1: ค้นหาด้วยเบอร์โทร</h2>
-              <p className="text-gray-400 text-sm mt-1">ใส่เบอร์โทรเพื่อตรวจสอบว่ามี user ในระบบแล้วหรือไม่</p>
+              <h2 className="text-xl font-bold text-white">{t('addResident.step1Title')}</h2>
+              <p className="text-gray-400 text-sm mt-1">{t('addResident.step1Desc')}</p>
             </div>
             <div className="p-6">
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    เบอร์โทรศัพท์ *
+                    {t('addResident.phoneLabel')} *
                   </label>
                   <input
                     type="tel"
@@ -248,7 +252,7 @@ export default function AddResident() {
                     disabled={searching || loading}
                     className="btn-primary whitespace-nowrap"
                   >
-                    {searching ? 'กำลังค้นหา...' : '🔍 ค้นหา'}
+                    {searching ? t('addResident.searching') : t('addResident.searchBtn')}
                   </button>
                 </div>
               </div>
@@ -257,37 +261,37 @@ export default function AddResident() {
               {isExistingUser && searchResult.user && (
                 <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-blue-400 font-bold text-lg">✅ พบผู้ใช้ในระบบ</span>
+                    <span className="text-blue-400 font-bold text-lg">{t('addResident.foundUser')}</span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <span className="text-gray-400">👤 ชื่อ:</span>
+                      <span className="text-gray-400">{t('addResident.userName')}</span>
                       <span className="text-white font-medium">{searchResult.user.full_name}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-gray-400">📱 LINE:</span>
                       <span className={searchResult.user.line_linked ? 'text-green-400' : 'text-yellow-400'}>
-                        {searchResult.user.line_linked ? 'เชื่อมแล้ว ✅' : 'ยังไม่เชื่อม ⚠️'}
+                        {searchResult.user.line_linked ? t('addResident.lineLinked') : t('addResident.lineNotLinked')}
                       </span>
                     </div>
                     {searchResult.user.email && (
                       <div className="flex items-center gap-3">
-                        <span className="text-gray-400">📧 อีเมล:</span>
+                        <span className="text-gray-400">{t('addResident.userEmail')}</span>
                         <span className="text-gray-300">{searchResult.user.email}</span>
                       </div>
                     )}
                     <div>
-                      <span className="text-gray-400">🏠 บ้านปัจจุบัน:</span>
+                      <span className="text-gray-400">{t('addResident.currentHouses')}</span>
                       {searchResult.user.memberships.length > 0 ? (
                         <div className="mt-1 space-y-1 ml-6">
                           {searchResult.user.memberships.map((m, i) => (
                             <div key={i} className={`text-sm ${m.status === 'ACTIVE' ? 'text-green-300' : 'text-gray-500'}`}>
-                              • {m.house_code} ({m.role}, {m.status === 'ACTIVE' ? '✅ Active' : '⛔ Inactive'})
+                              • {m.house_code} ({m.role}, {m.status === 'ACTIVE' ? t('addResident.active') : t('addResident.inactive')})
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-yellow-400 ml-2">ยังไม่มีบ้าน</span>
+                        <span className="text-yellow-400 ml-2">{t('addResident.noHouse')}</span>
                       )}
                     </div>
                   </div>
@@ -297,7 +301,7 @@ export default function AddResident() {
               {/* Search Result: Not Found */}
               {isNewUser && (
                 <div className="mt-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                  <span className="text-yellow-400 font-bold">⚠️ ไม่พบผู้ใช้เบอร์นี้ — จะสร้างใหม่</span>
+                  <span className="text-yellow-400 font-bold">{t('addResident.notFoundUser')}</span>
                 </div>
               )}
             </div>
@@ -308,7 +312,7 @@ export default function AddResident() {
             <div className="card">
               <div className="p-6 border-b border-gray-700">
                 <h2 className="text-xl font-bold text-white">
-                  ขั้นที่ 2: {isExistingUser ? 'เลือกบ้านที่จะเพิ่ม' : 'กรอกข้อมูลและเลือกบ้าน'}
+                  {t('addResident.step2')}: {isExistingUser ? t('addResident.selectHouse') : t('addResident.fillAndSelectHouse')}
                 </h2>
               </div>
 
@@ -318,13 +322,13 @@ export default function AddResident() {
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        ชื่อ-นามสกุล *
+                        {t('addResident.fullNameLabel')} *
                       </label>
                       <input
                         type="text"
                         value={formData.full_name}
                         onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                        placeholder="กรอกชื่อ-นามสกุล"
+                        placeholder={t("addResident.fullNamePlaceholder")}
                         className={`input w-full ${errors.full_name ? 'border-red-500' : ''}`}
                         disabled={loading}
                       />
@@ -332,7 +336,7 @@ export default function AddResident() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        อีเมล (ไม่บังคับ)
+                        {t('addResident.emailLabel')}
                       </label>
                       <input
                         type="email"
@@ -350,7 +354,7 @@ export default function AddResident() {
                 {/* House Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    เลือกบ้าน *
+                    {t('addResident.selectHouseLabel')} *
                   </label>
                   <select
                     value={formData.house_id}
@@ -358,7 +362,7 @@ export default function AddResident() {
                     className={`input w-full ${errors.house_id ? 'border-red-500' : ''}`}
                     disabled={loading}
                   >
-                    <option value="">เลือกบ้าน...</option>
+                    <option value="">{t('addResident.selectHousePlaceholder')}</option>
                     {getAvailableHouses().map(house => (
                       <option key={house.id} value={house.id}>
                         {house.house_code} - {house.owner_name} ({house.house_status})
@@ -368,7 +372,7 @@ export default function AddResident() {
                   {errors.house_id && <p className="text-red-400 text-sm mt-1">{errors.house_id}</p>}
                   {isExistingUser && getAvailableHouses().length === 0 && (
                     <p className="text-yellow-400 text-sm mt-2">
-                      ⚠️ ผู้ใช้คนนี้เป็นสมาชิกทุกบ้านที่ Active แล้ว
+                      {t('addResident.allHousesAssigned')}
                     </p>
                   )}
                 </div>
@@ -376,7 +380,7 @@ export default function AddResident() {
                 {/* Member Role */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    บทบาท
+                    {t('addResident.roleLabel')}
                   </label>
                   <select
                     value={formData.member_role}
@@ -399,9 +403,9 @@ export default function AddResident() {
                     disabled={loading || (selectedHouseInfo && selectedHouseInfo.available_slots <= 0)}
                     className="btn-primary"
                   >
-                    {loading ? 'กำลังดำเนินการ...' : isExistingUser 
-                      ? '🏠 เพิ่มเข้าบ้าน' 
-                      : '👤 สร้างและเพิ่มเข้าบ้าน'}
+                    {loading ? t('common.loading') : isExistingUser 
+                      ? t('addResident.addToHouseBtn') 
+                      : t('addResident.createAndAddBtn')}
                   </button>
                   <button
                     type="button"
@@ -409,7 +413,7 @@ export default function AddResident() {
                     disabled={loading}
                     className="btn-outline"
                   >
-                    🔄 เริ่มใหม่
+                    {t('addResident.resetBtn')}
                   </button>
                 </div>
               </form>
@@ -423,28 +427,28 @@ export default function AddResident() {
           {selectedHouseInfo && (
             <div className="card">
               <div className="p-4 border-b border-gray-700">
-                <h3 className="font-bold text-white">ข้อมูลบ้าน</h3>
+                <h3 className="font-bold text-white">{t('addResident.houseInfo')}</h3>
               </div>
               <div className="p-4 space-y-3">
                 <div>
-                  <span className="text-gray-400">รหัสบ้าน: </span>
+                  <span className="text-gray-400">{t('addResident.houseCode')}: </span>
                   <span className="text-white font-medium">{selectedHouseInfo.house_code}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">สมาชิก: </span>
+                  <span className="text-gray-400">{t('addResident.members')}: </span>
                   <span className={`font-medium ${selectedHouseInfo.available_slots > 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {selectedHouseInfo.current_member_count}/{selectedHouseInfo.max_member_count}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-400">ว่าง: </span>
+                  <span className="text-gray-400">{t('addResident.available')}: </span>
                   <span className={`font-medium ${selectedHouseInfo.available_slots > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {selectedHouseInfo.available_slots} ที่
+                    {selectedHouseInfo.available_slots} {t('addResident.slots')}
                   </span>
                 </div>
                 {selectedHouseInfo.available_slots <= 0 && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded p-3 text-red-400 text-sm">
-                    ⚠️ บ้านนี้มีสมาชิกครบ 3 คนแล้ว ไม่สามารถเพิ่มได้
+                    {t('addResident.houseFull')}
                   </div>
                 )}
               </div>
@@ -457,8 +461,8 @@ export default function AddResident() {
               <div className={`p-4 border-b ${creationSuccess.existing_user ? 'border-blue-700 bg-blue-900/20' : 'border-green-700 bg-green-900/20'}`}>
                 <h3 className="font-bold text-white">
                   {creationSuccess.existing_user 
-                    ? '🔗 เพิ่มบ้านสำเร็จ' 
-                    : '✅ สร้างผู้อาศัยสำเร็จ'}
+                    ? t('addResident.addHouseSuccess') 
+                    : t('addResident.createSuccess')}
                 </h3>
               </div>
               <div className="p-4 space-y-4">
@@ -476,7 +480,7 @@ export default function AddResident() {
                   )}
                   {creationSuccess.active_houses_count > 1 && (
                     <p className="text-yellow-400 text-sm mt-2">
-                      🏠 มี {creationSuccess.active_houses_count} บ้าน — สลับบ้านได้ในหน้า Profile
+                      {t('addResident.multiHouseInfo')} {creationSuccess.active_houses_count} {t('addResident.houses')}
                     </p>
                   )}
                 </div>
@@ -487,10 +491,10 @@ export default function AddResident() {
 
                 <div className="flex gap-3 pt-2">
                   <button onClick={() => navigate('/admin/members')} className="btn-primary flex-1">
-                    ไปหน้ารายชื่อ
+                    {t('addResident.goToList')}
                   </button>
                   <button onClick={resetSearch} className="btn-outline flex-1">
-                    เพิ่มคนอื่น
+                    {t('addResident.addAnother')}
                   </button>
                 </div>
               </div>
@@ -501,23 +505,23 @@ export default function AddResident() {
           {!hasSearched && (
             <div className="card">
               <div className="p-4 border-b border-gray-700">
-                <h3 className="font-bold text-white">📖 วิธีใช้</h3>
+                <h3 className="font-bold text-white">{t('addResident.howToUse')}</h3>
               </div>
               <div className="p-4 space-y-3 text-sm text-gray-300">
                 <div className="flex gap-2">
                   <span className="text-primary-400 font-bold">1.</span>
-                  <span>ใส่เบอร์โทร แล้วกด "ค้นหา"</span>
+                  <span>{t('addResident.howStep1')}</span>
                 </div>
                 <div className="flex gap-2">
                   <span className="text-primary-400 font-bold">2.</span>
-                  <span>ถ้ามี user อยู่แล้ว → เลือกบ้านที่จะเพิ่ม</span>
+                  <span>{t('addResident.howStep2')}</span>
                 </div>
                 <div className="flex gap-2">
                   <span className="text-primary-400 font-bold">3.</span>
-                  <span>ถ้าเป็นคนใหม่ → กรอกชื่อ เลือกบ้าน</span>
+                  <span>{t('addResident.howStep3')}</span>
                 </div>
                 <div className="mt-3 bg-gray-700/50 p-3 rounded text-gray-400 text-xs">
-                  💡 เบอร์โทรเป็น key สำคัญ — คนเดียวกัน (เบอร์เดียวกัน) สามารถมีได้หลายบ้าน
+                  {t('addResident.howTip')}
                 </div>
               </div>
             </div>
@@ -525,5 +529,6 @@ export default function AddResident() {
         </div>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

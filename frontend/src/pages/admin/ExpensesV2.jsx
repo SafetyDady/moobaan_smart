@@ -2,6 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { expensesAPI, housesAPI, accountsAPI, vendorsAPI, attachmentsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
+import { t } from '../../hooks/useLocale';
+import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 /**
  * Phase F.1: Expense Core (Cash Out)
@@ -18,20 +24,20 @@ import { SkeletonTable } from '../../components/Skeleton';
 
 // Fallback categories (replaced by API-loaded expense_categories from DB)
 const FALLBACK_EXPENSE_CATEGORIES = [
-  { value: 'MAINTENANCE', label: 'Maintenance' },
-  { value: 'SECURITY', label: 'Security' },
-  { value: 'CLEANING', label: 'Cleaning' },
-  { value: 'ELECTRICITY', label: 'ค่าไฟฟ้า' },
-  { value: 'WATER', label: 'ค่าน้ำประปา' },
-  { value: 'ADMIN', label: 'Admin' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'MAINTENANCE', label: t('expenses.catMaintenance') },
+  { value: 'SECURITY', label: t('expenses.catSecurity') },
+  { value: 'CLEANING', label: t('expenses.catCleaning') },
+  { value: 'ELECTRICITY', label: t('expenses.catElectricity') },
+  { value: 'WATER', label: t('expenses.catWater') },
+  { value: 'ADMIN', label: t('expenses.catAdmin') },
+  { value: 'OTHER', label: t('common.other') },
 ];
 
 const PAYMENT_METHODS = [
-  { value: 'CASH', label: 'Cash' },
-  { value: 'TRANSFER', label: 'Bank Transfer' },
-  { value: 'CHECK', label: 'Check' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'CASH', label: t('expenses.payCash') },
+  { value: 'TRANSFER', label: t('expenses.payTransfer') },
+  { value: 'CHECK', label: t('expenses.payCheck') },
+  { value: 'OTHER', label: t('common.other') },
 ];
 
 export default function Expenses() {
@@ -51,6 +57,10 @@ export default function Expenses() {
   const [expenseCategories, setExpenseCategories] = useState([]);  // Phase H.1.1: DB categories
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Pagination
+  const { sortConfig, requestSort, sortedData: sortedExpenses } = useSort(expenses);
+  const paged = usePagination(sortedExpenses);
 
   // Filters
   const [fromDate, setFromDate] = useState('');
@@ -439,12 +449,13 @@ export default function Expenses() {
   };
 
   return (
-    <div className="p-8">
+    <AdminPageWrapper>
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">💸 Expenses Management</h1>
-          <p className="text-gray-400">Track and manage village expenses (cash out)</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">💸 Expenses Management</h1>
+          <p className="text-gray-400">{t('expenses.subtitle')}</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowCreateModal(true); }}
@@ -457,26 +468,26 @@ export default function Expenses() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-slate-800 rounded-xl p-4 border border-gray-700">
-          <div className="text-gray-400 text-sm">Total Paid</div>
-          <div className="text-2xl font-bold text-green-400">฿{summary.total_paid?.toLocaleString() || 0}</div>
+          <div className="text-gray-400 text-sm">{t('expenses.totalPaid')}</div>
+          <div className="text-2xl font-bold text-green-400">฿{summary.total_paid?.toLocaleString('th-TH') || 0}</div>
           <div className="text-xs text-gray-500">{summary.count_paid || 0} expenses</div>
         </div>
         <div className="bg-slate-800 rounded-xl p-4 border border-gray-700">
-          <div className="text-gray-400 text-sm">Total Pending</div>
-          <div className="text-2xl font-bold text-yellow-400">฿{summary.total_pending?.toLocaleString() || 0}</div>
+          <div className="text-gray-400 text-sm">{t('expenses.totalPending')}</div>
+          <div className="text-2xl font-bold text-yellow-400">฿{summary.total_pending?.toLocaleString('th-TH') || 0}</div>
           <div className="text-xs text-gray-500">{summary.count_pending || 0} expenses</div>
         </div>
         <div className="bg-slate-800 rounded-xl p-4 border border-gray-700">
-          <div className="text-gray-400 text-sm">Total (Paid + Pending)</div>
+          <div className="text-gray-400 text-sm">{t('expenses.totalAll')}</div>
           <div className="text-2xl font-bold text-white">
-            ฿{((summary.total_paid || 0) + (summary.total_pending || 0)).toLocaleString()}
+            ฿{((summary.total_paid || 0) + (summary.total_pending || 0)).toLocaleString('th-TH')}
           </div>
           <div className="text-xs text-gray-500">
             {(summary.count_paid || 0) + (summary.count_pending || 0)} expenses
           </div>
         </div>
         <div className="bg-slate-800 rounded-xl p-4 border border-gray-700">
-          <div className="text-gray-400 text-sm">Cancelled</div>
+          <div className="text-gray-400 text-sm">{t('expenses.cancelled')}</div>
           <div className="text-2xl font-bold text-gray-400">{summary.count_cancelled || 0}</div>
           <div className="text-xs text-gray-500">expenses</div>
         </div>
@@ -486,7 +497,7 @@ export default function Expenses() {
       <div className="bg-slate-800 rounded-xl p-4 mb-6 border border-gray-700">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">From Date</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('expenses.fromDate')}</label>
             <input
               type="date"
               value={fromDate}
@@ -495,7 +506,7 @@ export default function Expenses() {
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">To Date</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('expenses.toDate')}</label>
             <input
               type="date"
               value={toDate}
@@ -504,39 +515,39 @@ export default function Expenses() {
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Status</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('common.status')}</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
             >
-              <option value="">All Status</option>
-              <option value="PENDING">Pending</option>
-              <option value="PAID">Paid</option>
-              <option value="CANCELLED">Cancelled</option>
+              <option value="">{t('payins.allStatus')}</option>
+              <option value="PENDING">{t('expenses.pending')}</option>
+              <option value="PAID">{t('expenses.paid')}</option>
+              <option value="CANCELLED">{t('expenses.cancelled')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Category</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('common.category')}</label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
             >
-              <option value="">All Categories</option>
+              <option value="">{t('expenses.allCategories')}</option>
               {expenseCategories.map(cat => (
                 <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">House</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('members.house')}</label>
             <select
               value={houseFilter}
               onChange={(e) => setHouseFilter(e.target.value)}
               className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
             >
-              <option value="">All Houses</option>
+              <option value="">{t('members.allHouses')}</option>
               {houses.map(h => (
                 <option key={h.id} value={h.id}>{h.house_code || h.house_number}</option>
               ))}
@@ -566,28 +577,29 @@ export default function Expenses() {
           <table className="w-full">
             <thead className="bg-slate-700">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Date</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Category</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Description</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Vendor</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-300">Amount</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Paid Date</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">House</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Actions</th>
+                <SortableHeader label={t('common.date')} sortKey="expense_date" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                <SortableHeader label={t('common.category')} sortKey="category" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.description')}</th>
+                <SortableHeader label={t('expenses.vendor')} sortKey="vendor_name" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                <SortableHeader label={t('common.amount')} sortKey="amount" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-right text-sm font-medium text-gray-300" />
+                <SortableHeader label={t('common.status')} sortKey="status" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-center text-sm font-medium text-gray-300" />
+                <SortableHeader label={t('expenses.paidDate')} sortKey="paid_date" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('members.house')}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
               {loading ? (
                 <SkeletonTable rows={5} cols={9} />
               ) : expenses.length === 0 ? (
-                <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center text-gray-400">
-                    No expenses found for the selected period
-                  </td>
-                </tr>
+                <EmptyState
+                  icon="💸"
+                  colSpan={9}
+                  isFiltered={!!(statusFilter || categoryFilter || houseFilter || fromDate || toDate)}
+                  onClearFilters={() => { setStatusFilter(''); setCategoryFilter(''); setHouseFilter(''); setFromDate(''); setToDate(''); }}
+                />
               ) : (
-                expenses.map((expense) => (
+                paged.currentItems.map((expense) => (
                   <tr key={expense.id} className="hover:bg-slate-700/50">
                     <td className="px-4 py-3 text-gray-300">
                       {expense.expense_date}
@@ -602,7 +614,7 @@ export default function Expenses() {
                       {expense.vendor_name || '-'}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-white">
-                      ฿{expense.amount?.toLocaleString()}
+                      ฿{expense.amount?.toLocaleString('th-TH')}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(expense.status)}`}>
@@ -659,7 +671,7 @@ export default function Expenses() {
                           </button>
                         )}
                         {expense.status === 'CANCELLED' && (
-                          <span className="text-xs text-gray-500">Cancelled</span>
+                          <span className="text-xs text-gray-500">{t('expenses.cancelled')}</span>
                         )}
                       </div>
                     </td>
@@ -670,6 +682,9 @@ export default function Expenses() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && expenses.length > 0 && <Pagination {...paged} />}
 
       {/* Create Modal */}
       {showCreateModal && (
@@ -686,7 +701,7 @@ export default function Expenses() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Category *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.category')} *</label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -698,7 +713,7 @@ export default function Expenses() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Amount (฿) *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.amount')} (฿) *</label>
                   <input
                     type="number"
                     value={formData.amount}
@@ -712,7 +727,7 @@ export default function Expenses() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Description *</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('common.description')} *</label>
                 <input
                   type="text"
                   value={formData.description}
@@ -724,7 +739,7 @@ export default function Expenses() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Expense Date *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.expenseDate')} *</label>
                   <input
                     type="date"
                     value={formData.expense_date}
@@ -733,7 +748,7 @@ export default function Expenses() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Vendor *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.vendor')} *</label>
                   <select
                     value={formData.vendor_id}
                     onChange={(e) => {
@@ -743,7 +758,7 @@ export default function Expenses() {
                     }}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">Select vendor...</option>
+                    <option value="">{t('vendors.selectVendor')}</option>
                     {vendors.map(v => (
                       <option key={v.id} value={v.id}>{v.name}</option>
                     ))}
@@ -753,26 +768,26 @@ export default function Expenses() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Related House</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.relatedHouse')}</label>
                   <select
                     value={formData.house_id}
                     onChange={(e) => setFormData({ ...formData, house_id: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">None (Village-wide)</option>
+                    <option value="">{t('expenses.villageWide')}</option>
                     {houses.map(h => (
                       <option key={h.id} value={h.id}>{h.house_code || h.house_number}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Account Code</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.accountCode')}</label>
                   <select
                     value={formData.account_id}
                     onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">Not assigned</option>
+                    <option value="">{t('expenses.notAssigned')}</option>
                     {expenseAccounts.map(acc => (
                       <option key={acc.id} value={acc.id}>{acc.account_code} - {acc.account_name}</option>
                     ))}
@@ -782,13 +797,13 @@ export default function Expenses() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Payment Method</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.paymentMethod')}</label>
                   <select
                     value={formData.payment_method}
                     onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">Not specified</option>
+                    <option value="">{t('expenses.notSpecified')}</option>
                     {PAYMENT_METHODS.map(pm => (
                       <option key={pm.value} value={pm.value}>{pm.label}</option>
                     ))}
@@ -797,7 +812,7 @@ export default function Expenses() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Notes</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('common.notes')}</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -821,7 +836,7 @@ export default function Expenses() {
                 className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg"
                 disabled={modalLoading || !formData.amount || !formData.description || !formData.vendor_id}
               >
-                {modalLoading ? 'Creating...' : 'Create Expense'}
+                {modalLoading ? t('common.saving') : t('expenses.createExpense')}
               </button>
             </div>
           </div>
@@ -843,7 +858,7 @@ export default function Expenses() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Category *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.category')} *</label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -855,7 +870,7 @@ export default function Expenses() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Amount (฿) *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.amount')} (฿) *</label>
                   <input
                     type="number"
                     value={formData.amount}
@@ -868,7 +883,7 @@ export default function Expenses() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Description *</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('common.description')} *</label>
                 <input
                   type="text"
                   value={formData.description}
@@ -879,7 +894,7 @@ export default function Expenses() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Expense Date *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.expenseDate')} *</label>
                   <input
                     type="date"
                     value={formData.expense_date}
@@ -888,7 +903,7 @@ export default function Expenses() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Vendor *</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.vendor')} *</label>
                   <select
                     value={formData.vendor_id}
                     onChange={(e) => {
@@ -898,39 +913,39 @@ export default function Expenses() {
                     }}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">Select vendor...</option>
+                    <option value="">{t('vendors.selectVendor')}</option>
                     {vendors.map(v => (
                       <option key={v.id} value={v.id}>{v.name}</option>
                     ))}
                   </select>
                   {formData.vendor_name && !formData.vendor_id && (
-                    <p className="text-xs text-yellow-400/70 mt-1">Legacy: {formData.vendor_name}</p>
+                    <p className="text-xs text-yellow-400/70 mt-1">{t('expenses.previous')}: {formData.vendor_name}</p>
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Related House</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.relatedHouse')}</label>
                   <select
                     value={formData.house_id}
                     onChange={(e) => setFormData({ ...formData, house_id: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">None (Village-wide)</option>
+                    <option value="">{t('expenses.villageWide')}</option>
                     {houses.map(h => (
                       <option key={h.id} value={h.id}>{h.house_code || h.house_number}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Account Code</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.accountCode')}</label>
                   <select
                     value={formData.account_id}
                     onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">Not assigned</option>
+                    <option value="">{t('expenses.notAssigned')}</option>
                     {expenseAccounts.map(acc => (
                       <option key={acc.id} value={acc.id}>{acc.account_code} - {acc.account_name}</option>
                     ))}
@@ -940,13 +955,13 @@ export default function Expenses() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Payment Method</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('expenses.paymentMethod')}</label>
                   <select
                     value={formData.payment_method}
                     onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                   >
-                    <option value="">Not specified</option>
+                    <option value="">{t('expenses.notSpecified')}</option>
                     {PAYMENT_METHODS.map(pm => (
                       <option key={pm.value} value={pm.value}>{pm.label}</option>
                     ))}
@@ -955,7 +970,7 @@ export default function Expenses() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Notes</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('common.notes')}</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -978,7 +993,7 @@ export default function Expenses() {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                 disabled={modalLoading || !formData.amount || !formData.description}
               >
-                {modalLoading ? 'Saving...' : 'Save Changes'}
+                {modalLoading ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>
@@ -999,16 +1014,16 @@ export default function Expenses() {
 
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
               <p className="text-gray-300">
-                <strong>Expense:</strong> {selectedExpense.description}
+                <strong>{t('expenses.expense')}:</strong> {selectedExpense.description}
               </p>
               <p className="text-white text-lg font-bold mt-1">
-                Amount: ฿{selectedExpense.amount?.toLocaleString()}
+                {t('expenses.amount')}: ฿{selectedExpense.amount?.toLocaleString('th-TH')}
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Paid Date *</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('expenses.paidDate')} *</label>
                 <input
                   type="date"
                   value={paidDate}
@@ -1021,7 +1036,7 @@ export default function Expenses() {
                 </p>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Payment Method</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('expenses.paymentMethod')}</label>
                 <select
                   value={paidPaymentMethod}
                   onChange={(e) => setPaidPaymentMethod(e.target.value)}
@@ -1047,7 +1062,7 @@ export default function Expenses() {
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
                 disabled={modalLoading || !paidDate}
               >
-                {modalLoading ? 'Processing...' : 'Mark as Paid'}
+                {modalLoading ? t('common.saving') : t('expenses.markAsPaid')}
               </button>
             </div>
           </div>
@@ -1068,10 +1083,10 @@ export default function Expenses() {
 
             <div className="mb-4 p-4 bg-slate-700 rounded-lg">
               <p className="text-gray-300">
-                <strong>Expense:</strong> {selectedExpense.description}
+                <strong>{t('expenses.expenseLabel')}:</strong> {selectedExpense.description}
               </p>
               <p className="text-white text-lg font-bold mt-1">
-                Amount: ฿{selectedExpense.amount?.toLocaleString()}
+                {t('expenses.amount')}: ฿{selectedExpense.amount?.toLocaleString('th-TH')}
               </p>
             </div>
 
@@ -1092,7 +1107,7 @@ export default function Expenses() {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
                 disabled={modalLoading}
               >
-                {modalLoading ? 'Cancelling...' : 'Yes, Cancel'}
+                {modalLoading ? t('common.saving') : t('expenses.yesCancel')}
               </button>
             </div>
           </div>
@@ -1116,25 +1131,25 @@ export default function Expenses() {
             {/* Expense Summary */}
             <div className="mb-4 p-4 bg-slate-700 rounded-lg space-y-1">
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">Description</span>
+                <span className="text-gray-400 text-sm">{t('common.description')}</span>
                 <span className="text-white text-sm font-medium">{selectedExpense.description}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">Amount</span>
-                <span className="text-white text-sm font-bold">฿{selectedExpense.amount?.toLocaleString()}</span>
+                <span className="text-gray-400 text-sm">{t('common.amount')}</span>
+                <span className="text-white text-sm font-bold">฿{selectedExpense.amount?.toLocaleString('th-TH')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">Status</span>
+                <span className="text-gray-400 text-sm">{t('common.status')}</span>
                 <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusBadge(selectedExpense.status)}`}>
                   {selectedExpense.status}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">Vendor</span>
+                <span className="text-gray-400 text-sm">{t('expenses.vendor')}</span>
                 <span className="text-gray-300 text-sm">{selectedExpense.vendor_name || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400 text-sm">Date</span>
+                <span className="text-gray-400 text-sm">{t('common.date')}</span>
                 <span className="text-gray-300 text-sm">{selectedExpense.expense_date}</span>
               </div>
             </div>
@@ -1170,9 +1185,9 @@ export default function Expenses() {
                       ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-600/50'
                       : 'bg-gray-600 cursor-not-allowed opacity-50'
                   }`}
-                  title={selectedExpense.status !== 'PAID' ? 'Receipt can only be uploaded when expense is PAID' : ''}
+                  title={selectedExpense.status !== 'PAID' ? t('expenses.uploadOnlyPaid') : ''}
                 >
-                  {uploading ? '⏳ Uploading...' : '🧾 Upload Receipt'}
+                  {uploading ? t('expenses.uploading') : t('expenses.uploadReceipt')}
                 </button>
                 <input
                   ref={receiptInputRef}
@@ -1202,9 +1217,9 @@ export default function Expenses() {
 
             {/* Attachment List */}
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-400">Uploaded Files</h3>
+              <h3 className="text-sm font-medium text-gray-400">{t('expenses.attachments')}</h3>
               {attachLoading ? (
-                <p className="text-gray-500 text-sm py-4 text-center">Loading attachments...</p>
+                <p className="text-gray-500 text-sm py-4 text-center">{t('expenses.loadingAttachments')}</p>
               ) : attachments.length === 0 ? (
                 <p className="text-gray-500 text-sm py-4 text-center border border-dashed border-gray-600 rounded-lg">
                   No attachments yet
@@ -1219,7 +1234,7 @@ export default function Expenses() {
                       <div className="min-w-0">
                         <p className="text-white text-sm truncate">{att.filename}</p>
                         <p className="text-gray-500 text-xs">
-                          {new Date(att.created_at).toLocaleString()}
+                          {new Date(att.created_at).toLocaleString('th-TH')}
                         </p>
                       </div>
                     </div>
@@ -1262,13 +1277,14 @@ export default function Expenses() {
       )}
       <ConfirmModal
         open={confirmDeleteAttach.open}
-        title="ลบไฟล์แนบ"
-        message="ต้องการลบไฟล์แนบนี้ใช่หรือไม่?"
+        title={t("expenses.deleteAttachment")}
+        message={t("expenses.deleteAttachmentConfirm")}
         variant="danger"
-        confirmText="ลบ"
+        confirmText={t("common.delete")}
         onConfirm={() => handleDeleteAttachment(confirmDeleteAttach.attachmentId, confirmDeleteAttach.expenseId)}
         onCancel={() => setConfirmDeleteAttach({ open: false, attachmentId: null, expenseId: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }

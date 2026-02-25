@@ -16,6 +16,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { accountsAPI } from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
+import AdminPageWrapper from '../components/AdminPageWrapper';
+import { t } from '../hooks/useLocale';
+
 
 // Account type badge colors
 const TYPE_COLORS = {
@@ -74,7 +77,7 @@ export default function ChartOfAccounts() {
       const response = await accountsAPI.list(params);
       setAccounts(response.data.accounts || []);
     } catch (err) {
-      setError('Failed to load accounts');
+      setError(t('chartOfAccounts.loadFailed'));
       console.error(err);
     } finally {
       setLoading(false);
@@ -116,12 +119,12 @@ export default function ChartOfAccounts() {
         account_type: formData.account_type,
       });
       
-      setSuccess('Account created successfully');
+      setSuccess(t('chartOfAccounts.createSuccess'));
       setShowCreateModal(false);
       resetForm();
       fetchAccounts();
     } catch (err) {
-      setFormError(err.response?.data?.detail || 'Failed to create account');
+      setFormError(err.response?.data?.detail || t('chartOfAccounts.createFailed'));
     } finally {
       setSaving(false);
     }
@@ -139,12 +142,12 @@ export default function ChartOfAccounts() {
         active: formData.active,
       });
       
-      setSuccess('Account updated successfully');
+      setSuccess(t('chartOfAccounts.updateSuccess'));
       setEditingAccount(null);
       resetForm();
       fetchAccounts();
     } catch (err) {
-      setFormError(err.response?.data?.detail || 'Failed to update account');
+      setFormError(err.response?.data?.detail || t('chartOfAccounts.updateFailed'));
     } finally {
       setSaving(false);
     }
@@ -156,10 +159,10 @@ export default function ChartOfAccounts() {
     
     try {
       await accountsAPI.delete(account.id);
-      setSuccess(`Account "${account.account_code}" disabled`);
+      setSuccess(`${t('chartOfAccounts.disableSuccess')} "${account.account_code}"`);
       fetchAccounts();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to disable account');
+      setError(err.response?.data?.detail || t('chartOfAccounts.disableFailed'));
     }
   };
 
@@ -174,9 +177,9 @@ export default function ChartOfAccounts() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      setSuccess('Export downloaded');
+      setSuccess(t('chartOfAccounts.exportSuccess'));
     } catch (err) {
-      setError('Failed to export CSV');
+      setError(t('chartOfAccounts.exportFailed'));
     }
   };
 
@@ -219,11 +222,12 @@ export default function ChartOfAccounts() {
   }, [error]);
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Chart of Accounts</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('chartOfAccounts.title')}</h1>
           <p className="text-sm text-gray-500 mt-1">
             Manage account codes for classification and reporting
           </p>
@@ -273,17 +277,17 @@ export default function ChartOfAccounts() {
       <div className="bg-white rounded-lg shadow p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.type')}</label>
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             >
-              <option value="">All Types</option>
-              <option value="ASSET">Asset (1xxx)</option>
-              <option value="LIABILITY">Liability (2xxx)</option>
-              <option value="REVENUE">Revenue (4xxx)</option>
-              <option value="EXPENSE">Expense (5xxx)</option>
+              <option value="">{t('chartOfAccounts.allTypes')}</option>
+              <option value="ASSET">{t('chartOfAccounts.asset')}</option>
+              <option value="LIABILITY">{t('chartOfAccounts.liability')}</option>
+              <option value="REVENUE">{t('chartOfAccounts.revenue')}</option>
+              <option value="EXPENSE">{t('chartOfAccounts.expense')}</option>
             </select>
           </div>
           
@@ -295,12 +299,12 @@ export default function ChartOfAccounts() {
                 onChange={(e) => setShowInactive(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
               />
-              <span className="text-sm text-gray-700">Show Inactive</span>
+              <span className="text-sm text-gray-700">{t('common.showInactive')}</span>
             </label>
           </div>
           
           <div className="ml-auto text-sm text-gray-500">
-            {accounts.length} account{accounts.length !== 1 ? 's' : ''}
+            {accounts.length} {t('chartOfAccounts.accountUnit')}
           </div>
         </div>
       </div>
@@ -309,14 +313,14 @@ export default function ChartOfAccounts() {
       {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-500">Loading accounts...</p>
+          <p className="mt-4 text-gray-500">{t('chartOfAccounts.loadingAccounts')}</p>
         </div>
       ) : accounts.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <p className="text-gray-500">No accounts found</p>
+          <p className="text-gray-500">{t('chartOfAccounts.noAccountsFound')}</p>
           {canEdit && (
             <button
               onClick={() => {
@@ -391,14 +395,15 @@ export default function ChartOfAccounts() {
       )}
       <ConfirmModal
         open={confirmDisable.open}
-        title="ปิดการใช้งานบัญชี"
-        message={`ต้องการปิดการใช้งานบัญชี "${confirmDisable.account?.account_code || ''} - ${confirmDisable.account?.account_name || ''}" ใช่หรือไม่?`}
+        title={t('chartOfAccounts.disableTitle')}
+        message={`${t('chartOfAccounts.disableConfirm')} "${confirmDisable.account?.account_code || ''} - ${confirmDisable.account?.account_name || ''}"?`}
         variant="warning"
-        confirmText="ปิดการใช้งาน"
+        confirmText={t('chartOfAccounts.disableBtn')}
         onConfirm={() => handleDelete(confirmDisable.account)}
         onCancel={() => setConfirmDisable({ open: false, account: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }
 
@@ -419,12 +424,12 @@ function AccountTypeSection({ title, accounts, canEdit, canDelete, onEdit, onDel
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Usage</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('chartOfAccounts.code')}</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('chartOfAccounts.accountName')}</th>
+            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('common.status')}</th>
+            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('chartOfAccounts.usage')}</th>
             {canEdit && (
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('common.actions')}</th>
             )}
           </tr>
         </thead>
@@ -443,7 +448,7 @@ function AccountTypeSection({ title, accounts, canEdit, canDelete, onEdit, onDel
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {account.active ? 'Active' : 'Inactive'}
+                  {account.active ? t('common.active') : t('common.inactive')}
                 </span>
               </td>
               <td className="px-4 py-3 text-center text-sm text-gray-500">
@@ -463,14 +468,14 @@ function AccountTypeSection({ title, accounts, canEdit, canDelete, onEdit, onDel
                     onClick={() => onEdit(account)}
                     className="text-blue-600 hover:text-blue-800 text-sm mr-3"
                   >
-                    Edit
+                    {t('common.edit')}
                   </button>
                   {canDelete && account.expense_count === 0 && account.invoice_count === 0 && account.active && (
                     <button
                       onClick={() => onDelete(account)}
                       className="text-red-600 hover:text-red-800 text-sm"
                     >
-                      Disable
+                      {t('chartOfAccounts.disableBtn')}
                     </button>
                   )}
                 </td>
@@ -508,19 +513,19 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {isCreate && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Code <span className="text-red-500">*</span>
+                {t('chartOfAccounts.code')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.account_code}
                 onChange={(e) => setFormData({ ...formData, account_code: e.target.value })}
-                placeholder="e.g., 5101"
+                placeholder={t('chartOfAccounts.codePlaceholder')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono"
                 required
                 maxLength={20}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Convention: 1xxx=Asset, 2xxx=Liability, 4xxx=Revenue, 5xxx=Expense
+                {t('chartOfAccounts.codeConvention')}
               </p>
             </div>
           )}
@@ -529,7 +534,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {!isCreate && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Code
+                {t('chartOfAccounts.code')}
               </label>
               <input
                 type="text"
@@ -538,7 +543,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 font-mono text-gray-600"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Account code cannot be changed
+                {t('chartOfAccounts.codeImmutable')}
               </p>
             </div>
           )}
@@ -546,13 +551,13 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {/* Account Name */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Account Name <span className="text-red-500">*</span>
+              {t('chartOfAccounts.accountName')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.account_name}
               onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
-              placeholder="e.g., Office Supplies"
+              placeholder={t('chartOfAccounts.namePlaceholder')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               required
               maxLength={255}
@@ -563,7 +568,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {isCreate && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Type <span className="text-red-500">*</span>
+                {t('common.type')} <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.account_type}
@@ -571,10 +576,10 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 required
               >
-                <option value="EXPENSE">Expense (5xxx)</option>
-                <option value="REVENUE">Revenue (4xxx)</option>
-                <option value="ASSET">Asset (1xxx)</option>
-                <option value="LIABILITY">Liability (2xxx)</option>
+                <option value="EXPENSE">{t('chartOfAccounts.expense')}</option>
+                <option value="REVENUE">{t('chartOfAccounts.revenue')}</option>
+                <option value="ASSET">{t('chartOfAccounts.asset')}</option>
+                <option value="LIABILITY">{t('chartOfAccounts.liability')}</option>
               </select>
             </div>
           )}
@@ -583,7 +588,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
           {!isCreate && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Type
+                {t('common.type')}
               </label>
               <input
                 type="text"
@@ -592,7 +597,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Account type cannot be changed
+                {t('chartOfAccounts.typeImmutable')}
               </p>
             </div>
           )}
@@ -607,7 +612,7 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
                   onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
                   className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                 />
-                <span className="text-sm text-gray-700">Active</span>
+                <span className="text-sm text-gray-700">{t('common.active')}</span>
               </label>
             </div>
           )}
@@ -619,14 +624,14 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
               onClick={onCancel}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : isCreate ? 'Create' : 'Save Changes'}
+              {saving ? t('common.saving') : isCreate ? t('common.create') : t('common.save')}
             </button>
           </div>
         </form>

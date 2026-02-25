@@ -121,3 +121,72 @@ body {
 .animate-slide-up {
   animation: slideUp 0.3s ease-out forwards;
 }
+
+/* ── Phase 2 Task 2.3: Responsive Admin Panel ─────────────── */
+
+/* Hide mobile nav toggle by default (desktop) */
+.mobile-nav-toggle {
+  display: none;
+}
+
+/* Responsive: hide sidebar and show mobile nav on smaller screens */
+@media (max-width: 1023px) {
+  /* Hide the desktop sidebar */
+  .flex.h-screen > aside.w-64 {
+    display: none;
+  }
+
+  /* Show mobile hamburger button */
+  .mobile-nav-toggle {
+    display: flex;
+  }
+
+  /* Add top padding for hamburger button space */
+  .flex.h-screen > main {
+    padding-top: 56px;
+  }
+
+  /* Make tables scroll horizontally */
+  .table-container {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Compact table cells on mobile */
+  .table th,
+  .table td {
+    @apply px-3 py-2 text-xs;
+  }
+
+  /* Stack cards vertically */
+  .grid.grid-cols-2,
+  .grid.grid-cols-3,
+  .grid.grid-cols-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .grid.grid-cols-2,
+  .grid.grid-cols-3,
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .table th,
+  .table td {
+    @apply px-4 py-3 text-sm;
+  }
+}
+
+/* Ensure modals are full-width on mobile */
+@media (max-width: 639px) {
+  .fixed.inset-0 .max-w-lg,
+  .fixed.inset-0 .max-w-md,
+  .fixed.inset-0 .max-w-2xl,
+  .fixed.inset-0 .max-w-3xl {
+    max-width: calc(100vw - 2rem);
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+}

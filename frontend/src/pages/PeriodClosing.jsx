@@ -14,6 +14,9 @@ import { periodsAPI, exportAPI } from '../api/client';
 import { useToast } from '../components/Toast';
 import { SkeletonCard } from '../components/Skeleton';
 import { useAuth } from '../contexts/AuthContext';
+import AdminPageWrapper from '../components/AdminPageWrapper';
+import { t } from '../hooks/useLocale';
+
 
 // Month names in Thai
 const MONTH_NAMES_TH = [
@@ -21,11 +24,7 @@ const MONTH_NAMES_TH = [
   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
 ];
 
-// Month names in English
-const MONTH_NAMES_EN = [
-  '', 'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
+// MONTH_NAMES_EN removed - using Thai only (Phase 2 Localization)
 
 function PeriodClosing() {
   const { user } = useAuth();
@@ -86,7 +85,7 @@ function PeriodClosing() {
       setPeriods(response.data.items || []);
     } catch (err) {
       console.error('Error fetching periods:', err);
-      setError('ไม่สามารถโหลดข้อมูลรอบบัญชีได้');
+      setError(t('periodClosing.loadError'));
     } finally {
       setLoading(false);
     }
@@ -132,7 +131,7 @@ function PeriodClosing() {
       fetchPeriodDetail(selectedPeriod.year, selectedPeriod.month);
     } catch (err) {
       console.error('Error locking period:', err);
-      toast.error(err.response?.data?.detail || 'ไม่สามารถล็อครอบบัญชีได้');
+      toast.error(err.response?.data?.detail || t('periodClosing.lockFailed'));
     } finally {
       setActionLoading(false);
     }
@@ -142,7 +141,7 @@ function PeriodClosing() {
     if (!selectedPeriod || !unlockReason.trim()) return;
     
     if (unlockReason.trim().length < 10) {
-      toast.warning('กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร');
+      toast.warning(t('periodClosing.unlockReasonMinLength'));
       return;
     }
     
@@ -155,7 +154,7 @@ function PeriodClosing() {
       fetchPeriodDetail(selectedPeriod.year, selectedPeriod.month);
     } catch (err) {
       console.error('Error unlocking period:', err);
-      toast.error(err.response?.data?.detail || 'ไม่สามารถปลดล็อครอบบัญชีได้');
+      toast.error(err.response?.data?.detail || t('periodClosing.unlockFailed'));
     } finally {
       setActionLoading(false);
     }
@@ -188,7 +187,7 @@ function PeriodClosing() {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Export failed:', err);
-      toast.error('Export ไม่สำเร็จ');
+      toast.error(t('periodClosing.exportFailed'));
     } finally {
       setExporting(false);
     }
@@ -218,30 +217,31 @@ function PeriodClosing() {
     if (status === 'LOCKED') {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          🔒 ล็อคแล้ว
+          {t('periodClosing.lockedBadge')}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-        📝 ฉบับร่าง
+        {t('periodClosing.draftBadge')}
       </span>
     );
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">ปิดรอบบัญชี</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('periodClosing.pageTitle')}</h1>
         <p className="mt-1 text-sm text-gray-500">
-          จัดการการปิดรอบบัญชีรายเดือน - ล็อคข้อมูลเพื่อป้องกันการแก้ไขย้อนหลัง
+          {t('periodClosing.subtitle')}
         </p>
       </div>
       
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-3">เลือกรอบบัญชี</h2>
+        <h2 className="text-lg font-medium text-gray-900 mb-3">{t('periodClosing.selectPeriod')}</h2>
         <div className="flex flex-wrap gap-2">
           {periodOptions.slice(0, 6).map(opt => {
             const existing = periods.find(p => p.period_year === opt.year && p.period_month === opt.month);
@@ -258,7 +258,7 @@ function PeriodClosing() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {MONTH_NAMES_EN[opt.month]} {opt.year}
+                {MONTH_NAMES_TH[opt.month]} {opt.year}
                 {isLocked && ' 🔒'}
               </button>
             );
@@ -275,7 +275,7 @@ function PeriodClosing() {
                 {MONTH_NAMES_TH[selectedPeriod.month]} {selectedPeriod.year}
               </h2>
               <p className="text-sm text-gray-500">
-                รอบบัญชี {selectedPeriod.year}-{String(selectedPeriod.month).padStart(2, '0')}
+                {t('periodClosing.accountingPeriod')} {selectedPeriod.year}-{String(selectedPeriod.month).padStart(2, '0')}
               </p>
             </div>
             {periodDetail && getStatusBadge(periodDetail.status)}
@@ -290,25 +290,25 @@ function PeriodClosing() {
               {/* Snapshot Data */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">ยอดลูกหนี้ (AR)</p>
+                  <p className="text-xs text-gray-500">{t('periodClosing.arBalance')}</p>
                   <p className="text-lg font-semibold text-gray-900">
                     {formatCurrency(periodDetail.snapshot_data?.ar_total)}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">เงินรับแล้ว</p>
+                  <p className="text-xs text-gray-500">{t('periodClosing.cashReceived')}</p>
                   <p className="text-lg font-semibold text-green-600">
                     {formatCurrency(periodDetail.snapshot_data?.cash_received_total)}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">รายจ่ายชำระแล้ว</p>
+                  <p className="text-xs text-gray-500">{t('periodClosing.expensesPaid')}</p>
                   <p className="text-lg font-semibold text-red-600">
                     {formatCurrency(periodDetail.snapshot_data?.expense_paid_total)}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">รายจ่ายรอชำระ</p>
+                  <p className="text-xs text-gray-500">{t('periodClosing.expensesPending')}</p>
                   <p className="text-lg font-semibold text-yellow-600">
                     {formatCurrency(periodDetail.snapshot_data?.expense_pending_total)}
                   </p>
@@ -317,26 +317,26 @@ function PeriodClosing() {
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">เครดิตโน้ต</p>
+                  <p className="text-xs text-gray-500">{t('periodClosing.creditNotes')}</p>
                   <p className="text-lg font-semibold text-purple-600">
                     {formatCurrency(periodDetail.snapshot_data?.credit_total)}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">จำนวนใบแจ้งหนี้</p>
+                  <p className="text-xs text-gray-500">{t('periodClosing.invoiceCount')}</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {periodDetail.snapshot_data?.invoice_count || 0} รายการ
+                    {periodDetail.snapshot_data?.invoice_count || 0} {t('periodClosing.items')}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">จำนวนบ้านที่มีผู้อยู่</p>
+                  <p className="text-xs text-gray-500">{t('periodClosing.occupiedHouses')}</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {periodDetail.snapshot_data?.house_count || 0} หลัง
+                    {periodDetail.snapshot_data?.house_count || 0} {t('periodClosing.units')}
                   </p>
                 </div>
                 {periodDetail.exists && (
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500">สร้างเมื่อ</p>
+                    <p className="text-xs text-gray-500">{t('periodClosing.createdAt')}</p>
                     <p className="text-sm font-medium text-gray-900">
                       {formatDate(periodDetail.created_at)}
                     </p>
@@ -346,7 +346,7 @@ function PeriodClosing() {
               
               {periodDetail.notes && (
                 <div className="bg-blue-50 rounded-lg p-3 mb-4">
-                  <p className="text-xs text-blue-600 font-medium">หมายเหตุ</p>
+                  <p className="text-xs text-blue-600 font-medium">{t('common.notes')}</p>
                   <p className="text-sm text-blue-800">{periodDetail.notes}</p>
                 </div>
               )}
@@ -360,7 +360,7 @@ function PeriodClosing() {
                         onClick={() => setShowUnlockModal(true)}
                         className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
                       >
-                        🔓 ปลดล็อค
+                        {t('periodClosing.unlockBtn')}
                       </button>
                     )}
                     {isAdmin && (
@@ -369,14 +369,14 @@ function PeriodClosing() {
                         disabled={exporting}
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {exporting ? '📦 Exporting…' : '📦 Export Accounting (ZIP)'}
+                        {exporting ? t('periodClosing.exporting') : t('periodClosing.exportZip')}
                       </button>
                     )}
                     <button
                       onClick={() => handleViewLogs(selectedPeriod.year, selectedPeriod.month)}
                       className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
                     >
-                      📋 ดูประวัติการปลดล็อค
+                      {t('periodClosing.viewUnlockHistory')}
                     </button>
                   </>
                 ) : (
@@ -384,13 +384,13 @@ function PeriodClosing() {
                     onClick={() => setShowLockModal(true)}
                     className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                   >
-                    🔒 ล็อครอบบัญชี
+                    {t('periodClosing.lockPeriodBtn')}
                   </button>
                 )}
               </div>
             </div>
           ) : (
-            <p className="text-gray-500 py-4">ไม่พบข้อมูล</p>
+            <p className="text-gray-500 py-4">{t('periodClosing.noData')}</p>
           )}
         </div>
       )}
@@ -398,7 +398,7 @@ function PeriodClosing() {
       {/* Periods List */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-4 py-3 border-b">
-          <h2 className="text-lg font-medium text-gray-900">ประวัติรอบบัญชี</h2>
+          <h2 className="text-lg font-medium text-gray-900">{t('periodClosing.historyTitle')}</h2>
         </div>
         
         {loading ? (
@@ -409,19 +409,19 @@ function PeriodClosing() {
           <div className="text-center py-8 text-red-600">{error}</div>
         ) : periods.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            ยังไม่มีรอบบัญชีที่ถูกบันทึก
+            {t('periodClosing.noHistory')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">รอบบัญชี</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">ยอดลูกหนี้</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">เงินรับ</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">สร้างโดย</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">วันที่สร้าง</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('periodClosing.periodLabel')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('common.status')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('periodClosing.arBalance')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('periodClosing.cashReceived')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('periodClosing.createdBy')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('periodClosing.createdDate')}</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -459,7 +459,7 @@ function PeriodClosing() {
                           handleViewLogs(period.period_year, period.period_month);
                         }}
                         className="text-gray-400 hover:text-gray-600"
-                        title="ดูประวัติ"
+                        title={t("periodClosing.viewHistory")}
                       >
                         📋
                       </button>
@@ -477,21 +477,21 @@ function PeriodClosing() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
-              🔒 ล็อครอบบัญชี {MONTH_NAMES_TH[selectedPeriod?.month]} {selectedPeriod?.year}
+              {t('periodClosing.lockConfirmTitle')} {MONTH_NAMES_TH[selectedPeriod?.month]} {selectedPeriod?.year}
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              เมื่อล็อคแล้ว จะไม่สามารถแก้ไขข้อมูลในรอบนี้ได้ (ใบแจ้งหนี้, รายรับ, รายจ่าย)
+              {t('periodClosing.lockWarning')}
             </p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                หมายเหตุ (ถ้ามี)
+                {t('periodClosing.notesOptional')}
               </label>
               <textarea
                 value={lockNotes}
                 onChange={(e) => setLockNotes(e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="หมายเหตุสำหรับการปิดรอบ..."
+                placeholder={t("periodClosing.notesPlaceholder")}
               />
             </div>
             <div className="flex justify-end gap-3">
@@ -499,14 +499,14 @@ function PeriodClosing() {
                 onClick={() => setShowLockModal(false)}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
               >
-                ยกเลิก
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleLockPeriod}
                 disabled={actionLoading}
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
               >
-                {actionLoading ? 'กำลังดำเนินการ...' : 'ยืนยันล็อค'}
+                {actionLoading ? t('common.loading') : t('periodClosing.confirmLock')}
               </button>
             </div>
           </div>
@@ -518,25 +518,25 @@ function PeriodClosing() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
-              🔓 ปลดล็อครอบบัญชี {MONTH_NAMES_TH[selectedPeriod?.month]} {selectedPeriod?.year}
+              {t('periodClosing.unlockConfirmTitle')} {MONTH_NAMES_TH[selectedPeriod?.month]} {selectedPeriod?.year}
             </h3>
             <p className="text-sm text-red-500 mb-4">
-              ⚠️ การปลดล็อคจะอนุญาตให้แก้ไขข้อมูลย้อนหลังได้ กรุณาระบุเหตุผล
+              {t('periodClosing.unlockWarning')}
             </p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                เหตุผลในการปลดล็อค <span className="text-red-500">*</span>
+                {t('periodClosing.unlockReasonLabel')} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={unlockReason}
                 onChange={(e) => setUnlockReason(e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร..."
+                placeholder={t("periodClosing.unlockReasonPlaceholder")}
                 required
               />
               <p className="text-xs text-gray-400 mt-1">
-                {unlockReason.length}/10 ตัวอักษรขั้นต่ำ
+                {unlockReason.length}/10 {t('periodClosing.minChars')}
               </p>
             </div>
             <div className="flex justify-end gap-3">
@@ -547,14 +547,14 @@ function PeriodClosing() {
                 }}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
               >
-                ยกเลิก
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleUnlockPeriod}
                 disabled={actionLoading || unlockReason.trim().length < 10}
                 className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors disabled:opacity-50"
               >
-                {actionLoading ? 'กำลังดำเนินการ...' : 'ยืนยันปลดล็อค'}
+                {actionLoading ? t('common.loading') : t('periodClosing.confirmUnlock')}
               </button>
             </div>
           </div>
@@ -567,7 +567,7 @@ function PeriodClosing() {
           <div className="bg-white rounded-lg max-w-lg w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">
-                📋 ประวัติการปลดล็อค
+                {t('periodClosing.unlockHistoryTitle')}
               </h3>
               <button
                 onClick={() => setShowLogsModal(false)}
@@ -578,7 +578,7 @@ function PeriodClosing() {
             </div>
             
             {unlockLogs.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">ไม่มีประวัติการปลดล็อค</p>
+              <p className="text-gray-500 text-center py-4">{t('periodClosing.noUnlockHistory')}</p>
             ) : (
               <div className="space-y-3 max-h-80 overflow-y-auto">
                 {unlockLogs.map(log => (
@@ -598,13 +598,14 @@ function PeriodClosing() {
                 onClick={() => setShowLogsModal(false)}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
               >
-                ปิด
+                {t('common.close')}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
+    </AdminPageWrapper>
   );
 }
 

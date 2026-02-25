@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { reportsAPI, housesAPI } from '../../api/client';
+import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 /**
  * Phase E.1: Invoice Aging Report
@@ -41,7 +44,7 @@ export default function InvoiceAgingReport() {
       setReport(res.data);
     } catch (err) {
       console.error('Failed to load aging report:', err);
-      setError(err.response?.data?.detail || 'Failed to load report');
+      setError(err.response?.data?.detail || t('reports.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -49,11 +52,11 @@ export default function InvoiceAgingReport() {
 
   // Bucket display config
   const bucketConfig = {
-    'current': { label: 'ยังไม่ถึงกำหนด', color: 'bg-green-500/20 text-green-400' },
-    '0_30': { label: '0-30 วัน', color: 'bg-yellow-500/20 text-yellow-400' },
-    '31_60': { label: '31-60 วัน', color: 'bg-orange-500/20 text-orange-400' },
-    '61_90': { label: '61-90 วัน', color: 'bg-red-500/20 text-red-400' },
-    '90_plus': { label: '>90 วัน', color: 'bg-red-600/30 text-red-300 font-bold' },
+    'current': { label: t('reports.agingCurrent'), color: 'bg-green-500/20 text-green-400' },
+    '0_30': { label: t('reports.aging0_30'), color: 'bg-yellow-500/20 text-yellow-400' },
+    '31_60': { label: t('reports.aging31_60'), color: 'bg-orange-500/20 text-orange-400' },
+    '61_90': { label: t('reports.aging61_90'), color: 'bg-red-500/20 text-red-400' },
+    '90_plus': { label: t('reports.aging90plus'), color: 'bg-red-600/30 text-red-300 font-bold' },
   };
 
   // Export to CSV
@@ -87,11 +90,12 @@ export default function InvoiceAgingReport() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <AdminPageWrapper>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Invoice Aging Report</h1>
-        <p className="text-gray-400 mt-1">รายงานหนี้ค้างชำระตามอายุหนี้</p>
+        <h1 className="text-2xl font-bold text-white">{t('reports.agingTitle')}</h1>
+        <p className="text-gray-400 mt-1">{t('invoiceAging.subtitle')}</p>
       </div>
 
       {/* Filters */}
@@ -99,13 +103,13 @@ export default function InvoiceAgingReport() {
         <div className="flex flex-wrap gap-4 items-end">
           {/* House Filter */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm text-gray-400 mb-1">บ้าน</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('invoiceAging.house')}</label>
             <select
               value={selectedHouse}
               onChange={(e) => setSelectedHouse(e.target.value)}
               className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
             >
-              <option value="">ทุกบ้าน</option>
+              <option value="">{t('invoiceAging.allHouses')}</option>
               {houses.map(h => (
                 <option key={h.id} value={h.id}>
                   {h.house_code} - {h.owner_name}
@@ -116,7 +120,7 @@ export default function InvoiceAgingReport() {
           
           {/* As Of Date */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm text-gray-400 mb-1">ณ วันที่</label>
+            <label className="block text-sm text-gray-400 mb-1">{t('invoiceAging.asOfDate')}</label>
             <input
               type="date"
               value={asOfDate}
@@ -131,14 +135,14 @@ export default function InvoiceAgingReport() {
               onClick={loadReport}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-500"
             >
-              โหลดใหม่
+              {t('common.refresh')}
             </button>
             <button
               onClick={handleExportCSV}
               disabled={!report?.rows?.length}
               className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:opacity-50"
             >
-              Export CSV
+              {t('reports.exportCsv')}
             </button>
           </div>
         </div>
@@ -155,39 +159,39 @@ export default function InvoiceAgingReport() {
       {report && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-gray-400 text-xs">ยังไม่ถึงกำหนด</p>
+            <p className="text-gray-400 text-xs">{t('invoiceAging.current')}</p>
             <p className="text-xl font-bold text-green-400">
-              ฿{(report.summary.current || 0).toLocaleString()}
+              ฿{(report.summary.current || 0).toLocaleString('th-TH')}
             </p>
           </div>
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-gray-400 text-xs">0-30 วัน</p>
+            <p className="text-gray-400 text-xs">{t('invoiceAging.days0_30')}</p>
             <p className="text-xl font-bold text-yellow-400">
-              ฿{(report.summary['0_30'] || 0).toLocaleString()}
+              ฿{(report.summary['0_30'] || 0).toLocaleString('th-TH')}
             </p>
           </div>
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-gray-400 text-xs">31-60 วัน</p>
+            <p className="text-gray-400 text-xs">{t('invoiceAging.days31_60')}</p>
             <p className="text-xl font-bold text-orange-400">
-              ฿{(report.summary['31_60'] || 0).toLocaleString()}
+              ฿{(report.summary['31_60'] || 0).toLocaleString('th-TH')}
             </p>
           </div>
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-gray-400 text-xs">61-90 วัน</p>
+            <p className="text-gray-400 text-xs">{t('invoiceAging.days61_90')}</p>
             <p className="text-xl font-bold text-red-400">
-              ฿{(report.summary['61_90'] || 0).toLocaleString()}
+              ฿{(report.summary['61_90'] || 0).toLocaleString('th-TH')}
             </p>
           </div>
           <div className="bg-slate-800 rounded-lg p-4">
-            <p className="text-gray-400 text-xs">&gt;90 วัน</p>
+            <p className="text-gray-400 text-xs">{t('invoiceAging.days90plus')}</p>
             <p className="text-xl font-bold text-red-300">
-              ฿{(report.summary['90_plus'] || 0).toLocaleString()}
+              ฿{(report.summary['90_plus'] || 0).toLocaleString('th-TH')}
             </p>
           </div>
           <div className="bg-slate-800 rounded-lg p-4 border-l-4 border-primary-500">
-            <p className="text-gray-400 text-xs">รวมค้างทั้งหมด</p>
+            <p className="text-gray-400 text-xs">{t('invoiceAging.totalOutstanding')}</p>
             <p className="text-xl font-bold text-white">
-              ฿{(report.total_outstanding || 0).toLocaleString()}
+              ฿{(report.total_outstanding || 0).toLocaleString('th-TH')}
             </p>
           </div>
         </div>
@@ -203,9 +207,9 @@ export default function InvoiceAgingReport() {
       {/* Report Info */}
       {report && !loading && (
         <div className="mb-4 text-sm text-gray-400">
-          ณ วันที่: <span className="text-white">{report.as_of}</span>
+          {t('invoiceAging.asOfDate')}: <span className="text-white">{report.as_of}</span>
           {' | '}
-          จำนวน Invoice: <span className="text-white">{report.invoice_count}</span>
+          {t('invoiceAging.invoiceCount')}: <span className="text-white">{report.invoice_count}</span>
         </div>
       )}
 
@@ -216,21 +220,21 @@ export default function InvoiceAgingReport() {
             <table className="w-full">
               <thead className="bg-slate-700">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Invoice</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">บ้าน</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">เจ้าของ</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">รอบบิล</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Due Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">วันค้าง</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">ค้างชำระ</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">อายุหนี้</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">{t('invoiceAging.invoice')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">{t('invoiceAging.house')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">{t('reports.owner')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">{t('reports.billingCycle')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">{t('reports.dueDate')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">{t('reports.daysOverdue')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase">{t('reports.outstanding')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">{t('reports.agingBucket')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
                 {report.rows.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                      ไม่มี Invoice ค้างชำระ 🎉
+                      {t('reports.noOverdueInvoices')} 🎉
                     </td>
                   </tr>
                 ) : (
@@ -247,7 +251,7 @@ export default function InvoiceAgingReport() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-yellow-400">
-                        ฿{row.outstanding.toLocaleString()}
+                        ฿{row.outstanding.toLocaleString('th-TH')}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-1 rounded text-xs ${bucketConfig[row.bucket]?.color || 'bg-gray-500/20 text-gray-400'}`}>
@@ -263,5 +267,6 @@ export default function InvoiceAgingReport() {
         </div>
       )}
     </div>
+    </AdminPageWrapper>
   );
 }

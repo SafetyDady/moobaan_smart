@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { vendorsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonPage } from '../../components/Skeleton';
+import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+import Pagination, { usePagination } from '../../components/Pagination';
+import SortableHeader, { useSort } from '../../components/SortableHeader';
+import EmptyState from '../../components/EmptyState';
+
 
 /**
  * Phase H.1.1: Vendor & Category Management
@@ -41,6 +47,10 @@ export default function Vendors() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newExpenseCategoryName, setNewExpenseCategoryName] = useState('');
 
+  // Sorting & Pagination for vendors
+  const { sortConfig, requestSort, sortedData: sortedVendors } = useSort(vendors);
+  const pagedVendors = usePagination(sortedVendors);
+
   // ========== Load Data ==========
   useEffect(() => {
     loadAll();
@@ -60,7 +70,7 @@ export default function Vendors() {
       setExpenseCategories(expCatRes.data.categories || []);
     } catch (err) {
       console.error('Failed to load vendor data:', err);
-      setError('Failed to load data');
+      setError(t('vendors.loadError'));
     } finally {
       setLoading(false);
     }
@@ -106,7 +116,7 @@ export default function Vendors() {
           phone: vendorForm.phone || null,
           bank_account: vendorForm.bank_account || null,
         });
-        showMessage(`Vendor "${editingVendor.name}" updated`);
+        showMessage(`${t('vendors.updateSuccess')} "${editingVendor.name}"`);
       } else {
         // Create
         await vendorsAPI.create({
@@ -115,7 +125,7 @@ export default function Vendors() {
           phone: vendorForm.phone || null,
           bank_account: vendorForm.bank_account || null,
         });
-        showMessage(`Vendor "${vendorForm.name}" created`);
+        showMessage(`${t('vendors.createSuccess')} "${vendorForm.name}"`);
       }
       setShowVendorForm(false);
       resetVendorForm();
@@ -125,7 +135,7 @@ export default function Vendors() {
       if (detail?.code === 'VENDOR_NAME_ALREADY_EXISTS') {
         setFormError(detail.message);
       } else {
-        setFormError(typeof detail === 'string' ? detail : 'Operation failed');
+        setFormError(typeof detail === 'string' ? detail : t('vendors.operationFailed'));
       }
     } finally {
       setFormLoading(false);
@@ -136,20 +146,20 @@ export default function Vendors() {
     setConfirmDeactivate({ open: false, vendor: null });
     try {
       await vendorsAPI.deactivate(vendor.id);
-      showMessage(`Vendor "${vendor.name}" deactivated`);
+      showMessage(`${t('vendors.deactivateSuccess')} "${vendor.name}"`);
       loadAll();
     } catch (err) {
-      setError('Failed to deactivate vendor');
+      setError(t('vendors.deactivateFailed'));
     }
   };
 
   const handleReactivateVendor = async (vendor) => {
     try {
       await vendorsAPI.reactivate(vendor.id);
-      showMessage(`Vendor "${vendor.name}" reactivated`);
+      showMessage(`${t('vendors.activateSuccess')} "${vendor.name}"`);
       loadAll();
     } catch (err) {
-      setError('Failed to reactivate vendor');
+      setError(t('vendors.activateFailed'));
     }
   };
 
@@ -159,14 +169,14 @@ export default function Vendors() {
     try {
       await vendorsAPI.createCategory({ name: newCategoryName.trim() });
       setNewCategoryName('');
-      showMessage('Vendor category created');
+      showMessage(t('vendors.createCategorySuccess'));
       loadAll();
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (detail?.code === 'CATEGORY_NAME_ALREADY_EXISTS') {
         setError(detail.message);
       } else {
-        setError('Failed to create vendor category');
+        setError(t('vendors.createCategoryFailed'));
       }
     }
   };
@@ -175,14 +185,14 @@ export default function Vendors() {
     try {
       if (cat.is_active) {
         await vendorsAPI.deactivateCategory(cat.id);
-        showMessage(`Category "${cat.name}" deactivated`);
+        showMessage(`${t('vendors.deactivateCategorySuccess')} "${cat.name}"`);
       } else {
         await vendorsAPI.reactivateCategory(cat.id);
-        showMessage(`Category "${cat.name}" reactivated`);
+        showMessage(`${t('vendors.activateCategorySuccess')} "${cat.name}"`);
       }
       loadAll();
     } catch (err) {
-      setError('Failed to toggle category');
+      setError(t('vendors.toggleCategoryFailed'));
     }
   };
 
@@ -192,14 +202,14 @@ export default function Vendors() {
     try {
       await vendorsAPI.createExpenseCategory({ name: newExpenseCategoryName.trim() });
       setNewExpenseCategoryName('');
-      showMessage('Expense category created');
+      showMessage(t('vendors.createExpCategorySuccess'));
       loadAll();
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (detail?.code === 'CATEGORY_NAME_ALREADY_EXISTS') {
         setError(detail.message);
       } else {
-        setError('Failed to create expense category');
+        setError(t('vendors.createExpCategoryFailed'));
       }
     }
   };
@@ -208,14 +218,14 @@ export default function Vendors() {
     try {
       if (cat.is_active) {
         await vendorsAPI.deactivateExpenseCategory(cat.id);
-        showMessage(`Expense category "${cat.name}" deactivated`);
+        showMessage(`${t('vendors.deactivateExpCategorySuccess')} "${cat.name}"`);
       } else {
         await vendorsAPI.reactivateExpenseCategory(cat.id);
-        showMessage(`Expense category "${cat.name}" reactivated`);
+        showMessage(`${t('vendors.activateExpCategorySuccess')} "${cat.name}"`);
       }
       loadAll();
     } catch (err) {
-      setError('Failed to toggle expense category');
+      setError(t('vendors.toggleExpCategoryFailed'));
     }
   };
 
@@ -223,17 +233,18 @@ export default function Vendors() {
   const activeVendorCategories = vendorCategories.filter(c => c.is_active !== false);
 
   const tabs = [
-    { id: 'vendors', label: '🏢 Vendors', count: vendors.length },
-    { id: 'vendor-categories', label: '📂 Vendor Categories', count: vendorCategories.length },
-    { id: 'expense-categories', label: '💰 Expense Categories', count: expenseCategories.length },
+    { id: 'vendors', label: t('vendors.vendorsTab'), count: vendors.length },
+    { id: 'vendor-categories', label: t('vendors.vendorCategoriesTab'), count: vendorCategories.length },
+    { id: 'expense-categories', label: t('vendors.expenseCategoriesTab'), count: expenseCategories.length },
   ];
 
   return (
-    <div className="p-8">
+    <AdminPageWrapper>
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">🏢 Vendor & Category Management</h1>
-        <p className="text-gray-400">Manage vendors, vendor categories, and expense categories</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">🏢 {t('vendors.title')}</h1>
+        <p className="text-gray-400">{t('vendors.subtitle')}</p>
       </div>
 
       {/* Success/Error Messages */}
@@ -275,7 +286,7 @@ export default function Vendors() {
             onChange={(e) => setShowInactive(e.target.checked)}
             className="rounded border-gray-600 bg-slate-700 text-primary-600"
           />
-          Show inactive items
+          {t('vendors.showInactive')}
         </label>
       </div>
 
@@ -287,12 +298,12 @@ export default function Vendors() {
           {activeTab === 'vendors' && (
             <div>
               <div className="mb-4 flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-white">Vendors ({vendors.length})</h2>
+                <h2 className="text-lg font-semibold text-white">{t('vendors.vendorsList')} ({vendors.length})</h2>
                 <button
                   onClick={openCreateVendor}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center gap-2"
                 >
-                  ➕ Add Vendor
+                  {t('vendors.addVendor')}
                 </button>
               </div>
 
@@ -300,23 +311,23 @@ export default function Vendors() {
                 <table className="w-full">
                   <thead className="bg-slate-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Name</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Category</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Phone</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Bank Account</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Actions</th>
+                      <SortableHeader label={t('common.name')} sortKey="name" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                      <SortableHeader label={t('common.category')} sortKey="category_name" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                      <SortableHeader label={t('common.phone')} sortKey="phone" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                      <SortableHeader label={t('vendors.bankAccount')} sortKey="bank_account" sortConfig={sortConfig} onSort={requestSort} className="px-4 py-3 text-left text-sm font-medium text-gray-300" />
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
                     {vendors.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="px-4 py-8 text-center text-gray-400">
-                          No vendors yet. Click "Add Vendor" to create one.
+                        <td colSpan="6">
+                          <EmptyState icon="🏢" message={t('vendors.noVendors') || 'ยังไม่มีผู้รับเงิน'} description={t('vendors.noVendorsDesc') || 'คลิก "เพิ่มผู้รับเงิน" เพื่อสร้างใหม่'} />
                         </td>
                       </tr>
                     ) : (
-                      vendors.map(vendor => (
+                      pagedVendors.currentItems.map(vendor => (
                         <tr key={vendor.id} className={`hover:bg-slate-700/50 ${!vendor.is_active ? 'opacity-50' : ''}`}>
                           <td className="px-4 py-3 text-white font-medium">{vendor.name}</td>
                           <td className="px-4 py-3 text-gray-300">{vendor.category_name || '-'}</td>
@@ -324,9 +335,9 @@ export default function Vendors() {
                           <td className="px-4 py-3 text-gray-300">{vendor.bank_account || '-'}</td>
                           <td className="px-4 py-3 text-center">
                             {vendor.is_active ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Active</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">{t('common.active')}</span>
                             ) : (
-                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Inactive</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('common.inactive')}</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -336,14 +347,14 @@ export default function Vendors() {
                                   <button
                                     onClick={() => openEditVendor(vendor)}
                                     className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
-                                    title="Edit (name is immutable)"
+                                    title={t('vendors.editTooltip') || 'แก้ไข (ชื่อเปลี่ยนไม่ได้)'}
                                   >
-                                    ✏️ Edit
+                                    {t('vendors.editBtn')}
                                   </button>
                                   <button
                                     onClick={() => setConfirmDeactivate({ open: true, vendor })}
                                     className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
-                                    title="Deactivate"
+                                    title={t('vendors.deactivateTooltip') || 'ปิดใช้งาน'}
                                   >
                                     🚫
                                   </button>
@@ -353,7 +364,7 @@ export default function Vendors() {
                                   onClick={() => handleReactivateVendor(vendor)}
                                   className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
                                 >
-                                  ♻️ Reactivate
+                                  {t('vendors.activateBtn')}
                                 </button>
                               )}
                             </div>
@@ -364,13 +375,14 @@ export default function Vendors() {
                   </tbody>
                 </table>
               </div>
+              {!loading && vendors.length > 0 && <Pagination {...pagedVendors} />}
             </div>
           )}
 
           {/* ========== VENDOR CATEGORIES TAB ========== */}
           {activeTab === 'vendor-categories' && (
             <div>
-              <h2 className="text-lg font-semibold text-white mb-4">Vendor Categories</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">{t('vendors.vendorCategories')}</h2>
 
               {/* Add Form */}
               <div className="mb-4 flex gap-2">
@@ -380,30 +392,30 @@ export default function Vendors() {
                   onChange={(e) => setNewCategoryName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateVendorCategory()}
                   className="flex-1 max-w-md px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                  placeholder="New vendor category name..."
+                  placeholder={t('vendors.newVendorCatPlaceholder')}
                 />
                 <button
                   onClick={handleCreateVendorCategory}
                   disabled={!newCategoryName.trim()}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg"
                 >
-                  ➕ Add
-                </button>
-              </div>
+                ➕ {t('common.add') || 'เพิ่ม'}
+              </button>
+            </div>
 
               <div className="bg-slate-800 rounded-xl border border-gray-700 overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-slate-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Name</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Actions</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
                     {vendorCategories.length === 0 ? (
                       <tr>
-                        <td colSpan="3" className="px-4 py-8 text-center text-gray-400">No vendor categories</td>
+                        <td colSpan="3" className="px-4 py-8 text-center text-gray-400">{t('vendors.noVendorCategories')}</td>
                       </tr>
                     ) : (
                       vendorCategories.map(cat => (
@@ -411,9 +423,9 @@ export default function Vendors() {
                           <td className="px-4 py-3 text-white">{cat.name}</td>
                           <td className="px-4 py-3 text-center">
                             {cat.is_active ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Active</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">{t('common.active')}</span>
                             ) : (
-                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Inactive</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('common.inactive')}</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -425,7 +437,7 @@ export default function Vendors() {
                                   : 'bg-green-600 hover:bg-green-700 text-white'
                               }`}
                             >
-                              {cat.is_active ? '🚫 Deactivate' : '♻️ Reactivate'}
+                              {cat.is_active ? t('vendors.deactivateBtn') : t('vendors.activateBtn')}
                             </button>
                           </td>
                         </tr>
@@ -440,9 +452,9 @@ export default function Vendors() {
           {/* ========== EXPENSE CATEGORIES TAB ========== */}
           {activeTab === 'expense-categories' && (
             <div>
-              <h2 className="text-lg font-semibold text-white mb-4">Expense Categories</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">{t('vendors.expenseCategories')}</h2>
               <p className="text-sm text-gray-400 mb-4">
-                These categories replace the hardcoded list. Used in expense creation dropdown.
+{t('vendors.expenseCategoriesDesc') || 'หมวดหมู่เหล่านี้ใช้ใน dropdown สร้างค่าใช้จ่าย'}
               </p>
 
               {/* Add Form */}
@@ -453,30 +465,30 @@ export default function Vendors() {
                   onChange={(e) => setNewExpenseCategoryName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateExpenseCategory()}
                   className="flex-1 max-w-md px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                  placeholder="New expense category name..."
+                  placeholder={t('vendors.newExpenseCatPlaceholder')}
                 />
                 <button
                   onClick={handleCreateExpenseCategory}
                   disabled={!newExpenseCategoryName.trim()}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg"
                 >
-                  ➕ Add
-                </button>
-              </div>
+                ➕ {t('common.add') || 'เพิ่ม'}
+              </button>
+            </div>
 
               <div className="bg-slate-800 rounded-xl border border-gray-700 overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-slate-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Name</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Status</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">Actions</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">{t('common.name')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.status')}</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
                     {expenseCategories.length === 0 ? (
                       <tr>
-                        <td colSpan="3" className="px-4 py-8 text-center text-gray-400">No expense categories</td>
+                        <td colSpan="3" className="px-4 py-8 text-center text-gray-400">{t('vendors.noExpenseCategories')}</td>
                       </tr>
                     ) : (
                       expenseCategories.map(cat => (
@@ -484,9 +496,9 @@ export default function Vendors() {
                           <td className="px-4 py-3 text-white">{cat.name}</td>
                           <td className="px-4 py-3 text-center">
                             {cat.is_active ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Active</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">{t('common.active')}</span>
                             ) : (
-                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Inactive</span>
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('common.inactive')}</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -498,7 +510,7 @@ export default function Vendors() {
                                   : 'bg-green-600 hover:bg-green-700 text-white'
                               }`}
                             >
-                              {cat.is_active ? '🚫 Deactivate' : '♻️ Reactivate'}
+                              {cat.is_active ? `🚫 ${t('vendors.deactivate')}` : `♻️ ${t('vendors.activate')}`}
                             </button>
                           </td>
                         </tr>
@@ -517,7 +529,7 @@ export default function Vendors() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-lg mx-4 border border-gray-700">
             <h2 className="text-xl font-bold text-white mb-4">
-              {editingVendor ? `✏️ Edit Vendor: ${editingVendor.name}` : '➕ Create Vendor'}
+              {editingVendor ? `${t('vendors.editVendor')}: ${editingVendor.name}` : t('vendors.createVendor')}
             </h2>
 
             {formError && (
@@ -529,7 +541,7 @@ export default function Vendors() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">
-                  Vendor Name * {editingVendor && <span className="text-yellow-400">(immutable)</span>}
+                  {t('vendors.vendorName') || 'ชื่อผู้รับเงิน'} * {editingVendor && <span className="text-yellow-400">({t('vendors.immutable') || 'แก้ไขไม่ได้'})</span>}
                 </label>
                 <input
                   type="text"
@@ -538,22 +550,22 @@ export default function Vendors() {
                   className={`w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white ${
                     editingVendor ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
-                  placeholder="e.g., ABC Security Co."
+                  placeholder={t("vendors.namePlaceholder")}
                   disabled={!!editingVendor}
                 />
                 {editingVendor && (
-                  <p className="text-xs text-yellow-400/70 mt-1">Name cannot be changed after creation</p>
+                  <p className="text-xs text-yellow-400/70 mt-1">{t('vendors.cannotChangeName')}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Vendor Category</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('vendors.vendorCategory')}</label>
                 <select
                   value={vendorForm.vendor_category_id}
                   onChange={(e) => setVendorForm({ ...vendorForm, vendor_category_id: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
                 >
-                  <option value="">Not categorized</option>
+                  <option value="">{t('vendors.noCategory')}</option>
                   {activeVendorCategories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
@@ -562,23 +574,23 @@ export default function Vendors() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Phone</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('common.phone')}</label>
                   <input
                     type="text"
                     value={vendorForm.phone}
                     onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                    placeholder="e.g., 02-123-4567"
+                    placeholder={t("vendors.phonePlaceholder")}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Bank Account</label>
+                  <label className="block text-sm text-gray-400 mb-1">{t('vendors.bankAccount')}</label>
                   <input
                     type="text"
                     value={vendorForm.bank_account}
                     onChange={(e) => setVendorForm({ ...vendorForm, bank_account: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white"
-                    placeholder="e.g., KBank 123-4-56789-0"
+                    placeholder={t("vendors.bankPlaceholder")}
                   />
                 </div>
               </div>
@@ -590,14 +602,14 @@ export default function Vendors() {
                 className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg"
                 disabled={formLoading}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleVendorSubmit}
                 className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg"
                 disabled={formLoading || (!editingVendor && !vendorForm.name.trim())}
               >
-                {formLoading ? 'Saving...' : (editingVendor ? 'Save Changes' : 'Create Vendor')}
+                {formLoading ? t('common.saving') : (editingVendor ? t('common.save') : t('vendors.createVendor'))}
               </button>
             </div>
           </div>
@@ -605,13 +617,14 @@ export default function Vendors() {
       )}
       <ConfirmModal
         open={confirmDeactivate.open}
-        title="ระงับ Vendor"
-        message={`ต้องการระงับ "${confirmDeactivate.vendor?.name || ''}" ใช่หรือไม่? Vendor จะถูกซ่อนจาก dropdown แต่รายการค่าใช้จ่ายเดิมยังคงอยู่`}
+        title={t("vendors.deactivateConfirmTitle")}
+        message={`${t('vendors.deactivateConfirmMsg')} "${confirmDeactivate.vendor?.name || ''}"?`}
         variant="warning"
-        confirmText="ระงับ"
+        confirmText={t("vendors.deactivateBtn")}
         onConfirm={() => handleDeactivateVendor(confirmDeactivate.vendor)}
         onCancel={() => setConfirmDeactivate({ open: false, vendor: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }
