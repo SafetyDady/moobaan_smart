@@ -7,6 +7,8 @@ import { useToast } from '../../components/Toast';
 import { SkeletonTable, SkeletonBlock } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -226,6 +228,7 @@ export default function Invoices() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('invoices.title')}</h1>
@@ -648,5 +651,6 @@ export default function Invoices() {
         onCancel={() => setConfirmGenerate(false)}
       />
     </div>
+    </AdminPageWrapper>
   );
 }

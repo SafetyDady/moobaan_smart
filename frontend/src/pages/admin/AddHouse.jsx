@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { housesAPI } from '../../api/client';
 import { useToast } from '../../components/Toast';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function AddHouse() {
   const navigate = useNavigate();
@@ -95,6 +97,7 @@ export default function AddHouse() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
@@ -261,5 +264,6 @@ export default function AddHouse() {
         </form>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

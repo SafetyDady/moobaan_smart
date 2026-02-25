@@ -6,6 +6,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 const HOUSE_STATUSES = [
   { value: 'ACTIVE', label: t('houses.statusActive') },
@@ -146,6 +148,7 @@ export default function Houses() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
@@ -417,5 +420,6 @@ export default function Houses() {
         onCancel={() => setConfirmState({ open: false, houseId: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }

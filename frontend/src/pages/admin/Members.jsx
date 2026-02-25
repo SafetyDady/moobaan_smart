@@ -6,6 +6,8 @@ import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function Members() {
   const [residents, setResidents] = useState([]);
@@ -335,6 +337,7 @@ export default function Members() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -728,5 +731,6 @@ export default function Members() {
         onCancel={() => setConfirmDeactivate({ open: false, resident: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }

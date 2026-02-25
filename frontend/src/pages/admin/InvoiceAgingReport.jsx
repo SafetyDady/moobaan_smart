@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { reportsAPI, housesAPI } from '../../api/client';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 /**
  * Phase E.1: Invoice Aging Report
@@ -88,6 +90,7 @@ export default function InvoiceAgingReport() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
@@ -264,5 +267,6 @@ export default function InvoiceAgingReport() {
         </div>
       )}
     </div>
+    </AdminPageWrapper>
   );
 }

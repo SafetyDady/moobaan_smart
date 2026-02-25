@@ -5,6 +5,8 @@ import { useToast } from '../../components/Toast';
 import { SkeletonPage } from '../../components/Skeleton';
 import { safeParseDate, formatThaiDate, formatThaiTime } from '../../utils/payinStatus';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function UnidentifiedReceipts() {
   const toast = useToast();
@@ -137,6 +139,7 @@ export default function UnidentifiedReceipts() {
   }
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">รายการเงินเข้าที่ยังไม่ระบุ</h1>
@@ -322,5 +325,6 @@ export default function UnidentifiedReceipts() {
         </div>
       )}
     </div>
+    </AdminPageWrapper>
   );
 }

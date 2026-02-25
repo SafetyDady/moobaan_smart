@@ -14,6 +14,8 @@ import { periodsAPI, exportAPI } from '../api/client';
 import { useToast } from '../components/Toast';
 import { SkeletonCard } from '../components/Skeleton';
 import { useAuth } from '../contexts/AuthContext';
+import AdminPageWrapper from '../components/AdminPageWrapper';
+
 
 // Month names in Thai
 const MONTH_NAMES_TH = [
@@ -230,6 +232,7 @@ function PeriodClosing() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
@@ -605,6 +608,7 @@ function PeriodClosing() {
         </div>
       )}
     </div>
+    </AdminPageWrapper>
   );
 }
 

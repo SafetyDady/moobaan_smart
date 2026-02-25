@@ -3,6 +3,8 @@ import { vendorsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonPage } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 /**
  * Phase H.1.1: Vendor & Category Management
@@ -230,6 +232,7 @@ export default function Vendors() {
   ];
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
@@ -614,5 +617,6 @@ export default function Vendors() {
         onCancel={() => setConfirmDeactivate({ open: false, vendor: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }

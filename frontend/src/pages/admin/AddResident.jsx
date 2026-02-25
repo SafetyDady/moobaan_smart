@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { usersAPI, housesAPI } from '../../api/client';
 import { useToast } from '../../components/Toast';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function AddResident() {
   const navigate = useNavigate();
@@ -198,6 +200,7 @@ export default function AddResident() {
   const hasSearched = searchResult !== null;
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
@@ -526,5 +529,6 @@ export default function AddResident() {
         </div>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

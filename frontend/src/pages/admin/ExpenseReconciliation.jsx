@@ -3,6 +3,8 @@ import { expenseReconciliationAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonPage, SkeletonBlock } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function ExpenseReconciliation() {
   // State
@@ -159,7 +161,8 @@ export default function ExpenseReconciliation() {
   };
 
   return (
-    <div className="space-y-4">
+    <AdminPageWrapper>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">💳 Expense ↔ Bank Reconciliation</h1>
@@ -498,5 +501,6 @@ function AllocationHistory() {
         </div>
       )}
     </div>
+    </AdminPageWrapper>
   );
 }

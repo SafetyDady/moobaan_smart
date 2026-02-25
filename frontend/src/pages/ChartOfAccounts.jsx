@@ -16,6 +16,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { accountsAPI } from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
+import AdminPageWrapper from '../components/AdminPageWrapper';
+
 
 // Account type badge colors
 const TYPE_COLORS = {
@@ -219,6 +221,7 @@ export default function ChartOfAccounts() {
   }, [error]);
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -632,5 +635,6 @@ function AccountModal({ title, formData, setFormData, formError, saving, onSubmi
         </form>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

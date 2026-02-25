@@ -7,6 +7,8 @@ import {
   DollarSign, TrendingUp, TrendingDown, Home, 
   FileText, AlertTriangle, Users, CheckCircle 
 } from 'lucide-react';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function AdminDashboard() {
   const [summary, setSummary] = useState(null);
@@ -118,6 +120,7 @@ export default function AdminDashboard() {
   ];
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
@@ -200,5 +203,6 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

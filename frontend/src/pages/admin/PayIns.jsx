@@ -6,6 +6,8 @@ import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function PayIns() {
   const { isAdmin, isAccounting, currentRole, loading: roleLoading } = useRole();
@@ -200,6 +202,7 @@ export default function PayIns() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('payins.title')}</h1>
@@ -739,5 +742,6 @@ export default function PayIns() {
         </div>
       )}
     </div>
+    </AdminPageWrapper>
   );
 }

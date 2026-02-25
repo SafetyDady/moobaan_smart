@@ -3,6 +3,8 @@ import { bankStatementsAPI, bankAccountsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 const BankStatements = () => {
   const { user } = useAuth();
@@ -329,6 +331,7 @@ const BankStatements = () => {
   const safeBatches = Array.isArray(batches) ? batches : (batches?.items ?? []);
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">{t('bankStatements.title')}</h1>
@@ -748,6 +751,7 @@ const BankStatements = () => {
         onCancel={() => setConfirmDeleteBatch({ open: false, batchId: null, filename: '' })}
       />
     </div>
+    </AdminPageWrapper>
   );
 };
 

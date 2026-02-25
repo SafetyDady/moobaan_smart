@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { expensesAPI } from '../../api/client';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
@@ -32,6 +34,7 @@ export default function Expenses() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('expenses.title')}</h1>
@@ -81,5 +84,6 @@ export default function Expenses() {
         </div>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

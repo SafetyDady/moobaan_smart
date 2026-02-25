@@ -4,6 +4,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 /**
  * Phase F.1: Expense Core (Cash Out)
@@ -444,6 +446,7 @@ export default function Expenses() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8 flex justify-between items-center">
@@ -1278,5 +1281,6 @@ export default function Expenses() {
         onCancel={() => setConfirmDeleteAttach({ open: false, attachmentId: null, expenseId: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }

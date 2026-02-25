@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { reportsAPI, housesAPI } from '../../api/client';
 import { t } from '../../hooks/useLocale';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 /**
  * Phase E.2: Cash Flow vs AR Report
@@ -114,6 +116,7 @@ export default function CashFlowReport() {
   };
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
@@ -355,5 +358,6 @@ export default function CashFlowReport() {
         <p><span className="text-green-400">-Gap (Over)</span> = Cash มากกว่า AR (เก็บเงินล่วงหน้า/เกิน)</p>
       </div>
     </div>
+    </AdminPageWrapper>
   );
 }

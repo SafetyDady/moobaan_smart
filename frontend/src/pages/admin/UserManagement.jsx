@@ -4,6 +4,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
 import Pagination, { usePagination } from '../../components/Pagination';
+import AdminPageWrapper from '../../components/AdminPageWrapper';
+
 
 export default function UserManagement() {
   const [activeTab, setActiveTab] = useState('staff');
@@ -146,6 +148,7 @@ export default function UserManagement() {
   ];
 
   return (
+    <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
@@ -501,5 +504,6 @@ export default function UserManagement() {
         onCancel={() => setConfirmDeactivate({ open: false, user: null })}
       />
     </div>
+    </AdminPageWrapper>
   );
 }
