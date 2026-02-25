@@ -81,10 +81,10 @@ export default function VillageDashboard() {
   const fmtK = (v) => v >= 1000 ? `฿${(v / 1000).toFixed(1)}k` : `฿${v.toLocaleString('th-TH')}`;
   const fmtAmount = (v) => `฿${(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Chart: vertical stacked bars
+  // ── FIX 3: Chart — Grouped Bars (not stacked) ──
   const months = data.monthly_income || [];
-  const chartMax = Math.max(...months.map(m => (m.income || 0) + (m.expense || 0)), 1);
-  // Round up to nearest nice step
+  // For grouped bars, niceMax is based on the single largest value (income or expense), not their sum
+  const chartMax = Math.max(...months.flatMap(m => [m.income || 0, m.expense || 0]), 1);
   const niceMax = (() => {
     const raw = chartMax;
     if (raw <= 0) return 100000;
@@ -124,67 +124,69 @@ export default function VillageDashboard() {
           <p className="text-xs text-gray-500">{getTimeAgo()}</p>
         </div>
 
-        {/* ── Income / Expense Cards ── */}
+        {/* ── FIX 1: Income / Expense Cards — side by side with overflow protection ── */}
         <div className="grid grid-cols-2 gap-3">
           {/* Income */}
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
                 <ArrowUp size={16} className="text-emerald-400" />
               </div>
-              <span className="text-sm text-gray-400">{t('villageDashboard.income')}</span>
+              <span className="text-sm text-gray-400 truncate">{t('villageDashboard.income')}</span>
             </div>
-            <p className="text-xl font-bold text-white mb-1">
+            <p className="text-lg font-bold text-white mb-1 truncate">
               {fmtAmount(data.total_income)}
             </p>
             <p className="text-xs text-gray-500">{t('villageDashboard.fromLastMonth')}</p>
           </div>
 
           {/* Expense */}
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
                 <ArrowDown size={16} className="text-orange-400" />
               </div>
-              <span className="text-sm text-gray-400">{t('villageDashboard.expense')}</span>
+              <span className="text-sm text-gray-400 truncate">{t('villageDashboard.expense')}</span>
             </div>
-            <p className="text-xl font-bold text-white mb-1">
+            <p className="text-lg font-bold text-white mb-1 truncate">
               {fmtAmount(data.total_expense)}
             </p>
             <p className="text-xs text-gray-500">{t('villageDashboard.fromLastMonth')}</p>
           </div>
         </div>
 
-        {/* ── Debtor / Debt Cards ── */}
+        {/* ── FIX 2: Debtor / Debt Cards — side by side with overflow protection ── */}
         <div className="grid grid-cols-2 gap-3">
           {/* Debtor Count */}
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
                 <Users size={16} className="text-blue-400" />
               </div>
-              <span className="text-sm text-gray-400">{t('villageDashboard.debtors')}</span>
+              <span className="text-sm text-gray-400 truncate">{t('villageDashboard.debtors')}</span>
             </div>
             <p className="text-xl font-bold text-white">
-              {data.debtor_count} <span className="text-sm font-normal text-gray-400">{t('villageDashboard.households')}</span>
+              {data.debtor_count}
             </p>
+            <p className="text-xs text-gray-500">{t('villageDashboard.households')}</p>
           </div>
 
           {/* Total Debt */}
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
                 <Coins size={16} className="text-red-400" />
               </div>
-              <span className="text-sm text-gray-400">{t('villageDashboard.totalDebt')}</span>
+              <span className="text-sm text-gray-400 truncate">{t('villageDashboard.totalDebt')}</span>
             </div>
-            <p className="text-xl font-bold text-white">
-              ฿{(data.total_debt || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            <p className="text-lg font-bold text-white truncate">
+              ฿{(data.total_debt || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}
             </p>
+            <p className="text-xs text-gray-500">&nbsp;</p>
           </div>
         </div>
 
-        {/* ── Monthly Chart — Vertical Stacked Bars ── */}
+        {/* ── FIX 3: Monthly Chart — Grouped Bars (2 bars side by side per month) ── */}
         <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
           <h3 className="text-base font-semibold text-white mb-3">{t('villageDashboard.monthlyOverview')} <span className="text-xs font-normal text-gray-500">{t('villageDashboard.fromStatement')}</span></h3>
 
@@ -217,30 +219,33 @@ export default function VillageDashboard() {
                     />
                   ))}
 
-                  {/* Bar groups */}
+                  {/* Grouped bar groups — 2 separate bars per month */}
                   <div className="flex items-end justify-around h-full px-0.5 relative z-10">
                     {months.map((month) => {
                       const inc = month.income || 0;
                       const exp = month.expense || 0;
-                      const total = inc + exp;
-                      const barPct = niceMax > 0 ? (total / niceMax) * 100 : 0;
-                      // Use pixel-based heights for reliability
-                      const barPx = Math.max((barPct / 100) * 150, total > 0 ? 4 : 0);
-                      const incPx = total > 0 ? (inc / total) * barPx : 0;
-                      const expPx = total > 0 ? (exp / total) * barPx : 0;
+                      // Each bar is independently scaled against niceMax
+                      const incPct = niceMax > 0 ? (inc / niceMax) * 100 : 0;
+                      const expPct = niceMax > 0 ? (exp / niceMax) * 100 : 0;
 
                       return (
                         <div key={month.period} className="flex flex-col items-center justify-end h-full" style={{ width: `${100 / months.length}%` }}>
-                          {/* Amount label above bar */}
+                          {/* Amount labels above bars */}
                           <div className="text-[8px] text-center leading-tight mb-0.5 whitespace-nowrap">
                             <span className="text-emerald-400">{fmtK(inc)}</span>
                             <br />
-                            <span className="text-orange-400">({fmtK(exp)})</span>
+                            <span className="text-orange-400">{fmtK(exp)}</span>
                           </div>
-                          {/* Stacked bar — income on bottom (green), expense on top (orange) */}
-                          <div className="w-6 sm:w-8 flex flex-col rounded-t-sm overflow-hidden">
-                            <div className="bg-orange-500" style={{ height: expPx }} />
-                            <div className="bg-emerald-500" style={{ height: incPx }} />
+                          {/* Grouped bars — income (green) and expense (orange) side by side */}
+                          <div className="flex items-end gap-0.5" style={{ height: '80%' }}>
+                            <div
+                              className="w-3 sm:w-4 bg-emerald-500 rounded-t-sm"
+                              style={{ height: `${incPct}%`, minHeight: inc > 0 ? 2 : 0 }}
+                            />
+                            <div
+                              className="w-3 sm:w-4 bg-orange-500 rounded-t-sm"
+                              style={{ height: `${expPct}%`, minHeight: exp > 0 ? 2 : 0 }}
+                            />
                           </div>
                         </div>
                       );
@@ -267,11 +272,11 @@ export default function VillageDashboard() {
           )}
         </div>
 
-        {/* ── Expense by Category — 3-month comparison ── */}
+        {/* ── FIX 4: Expense by Category — exact proportional bars (no minimum width hack) ── */}
         {(data.expense_by_category || []).length > 0 && (() => {
           const cats = data.expense_by_category;
           const periods = data.expense_periods || [];
-          // Max for bar scaling across ALL categories
+          // globalMax from the single highest monthly value across ALL categories
           const globalMax = Math.max(...cats.flatMap(c => c.monthly.map(m => m.total)), 1);
 
           // Semantic color + icon per category
@@ -324,13 +329,24 @@ export default function VillageDashboard() {
                         </span>
                       </div>
 
-                      {/* Monthly mini-bars */}
+                      {/* Monthly mini-bars — FIX: exact proportional width from globalMax, no minimum width hack */}
                       <div className="space-y-1 ml-7">
                         {cat.monthly.map((m, mi) => {
+                          // barW = (value / globalMax) * 100
+                          // Same value ALWAYS produces same width — guaranteed
                           const barW = globalMax > 0 ? (m.total / globalMax) * 100 : 0;
                           // Change vs previous month
                           const prev = mi > 0 ? cat.monthly[mi - 1].total : null;
-                          const pctChange = prev && prev > 0 ? ((m.total - prev) / prev) * 100 : null;
+                          let pctChange = null;
+                          if (prev !== null) {
+                            if (prev === 0 && m.total > 0) {
+                              pctChange = 100; // went from 0 to something
+                            } else if (prev > 0) {
+                              pctChange = ((m.total - prev) / prev) * 100;
+                            } else if (prev === 0 && m.total === 0) {
+                              pctChange = null; // both zero, no change to show
+                            }
+                          }
 
                           return (
                             <div key={m.period} className="flex items-center gap-2">
@@ -338,7 +354,7 @@ export default function VillageDashboard() {
                               <div className="flex-1 h-4 bg-gray-700/40 rounded overflow-hidden">
                                 <div
                                   className={`h-full ${meta.bar} rounded transition-all duration-500`}
-                                  style={{ width: `${Math.max(barW, m.total > 0 ? 2 : 0)}%` }}
+                                  style={{ width: `${barW}%` }}
                                 />
                               </div>
                               <span className="text-[10px] text-gray-300 w-14 text-right shrink-0">
