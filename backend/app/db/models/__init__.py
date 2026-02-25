@@ -19,6 +19,7 @@ from .resident_house_audit import ResidentHouseAuditLog
 from .vendor import Vendor, VendorCategory, ExpenseCategoryMaster
 from .expense_bank_allocation import ExpenseBankAllocation
 from .attachment import Attachment
+from .notification import Notification, NotificationType
 
 __all__ = [
     "User",
@@ -55,4 +56,6 @@ __all__ = [
     "Vendor",
     "VendorCategory",
     "ExpenseCategoryMaster",
+    "Notification",
+    "NotificationType",
 ]

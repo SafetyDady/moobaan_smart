@@ -29,6 +29,7 @@ import InvoiceAgingReport from './pages/admin/InvoiceAgingReport';
 import CashFlowReport from './pages/admin/CashFlowReport';
 import ChartOfAccounts from './pages/ChartOfAccounts';  // Phase F.2: COA Lite
 import PeriodClosing from './pages/PeriodClosing';  // Phase G.1: Period Closing
+import AuditLogs from './pages/admin/AuditLogs';  // Phase 5.3: Audit Log UI
 
 // Resident pages (with mobile detection)
 import { ResidentDashboardWrapper, ResidentSubmitPaymentWrapper, ResidentVillageDashboardWrapper, ResidentPaymentHistoryWrapper, ResidentProfileWrapper } from './pages/resident/ResidentRouteWrapper';
@@ -73,6 +74,7 @@ function App() {
                     <Route path="reports/cashflow" element={<CashFlowReport />} />
                     <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
                     <Route path="period-closing" element={<PeriodClosing />} />
+                    <Route path="audit-logs" element={<AuditLogs />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
@@ -98,6 +100,7 @@ function App() {
                     <Route path="reports/cashflow" element={<CashFlowReport />} />
                     <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
                     <Route path="period-closing" element={<PeriodClosing />} />
+                    <Route path="audit-logs" element={<AuditLogs />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
