@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { payinsAPI, bankReconciliationAPI } from '../../api/client';
 import { useRole } from '../../contexts/RoleContext';
+import ConfirmModal from '../../components/ConfirmModal';
+import { useToast } from '../../components/Toast';
 
 export default function PayIns() {
   const { isAdmin, isAccounting, currentRole, loading: roleLoading } = useRole();
@@ -23,6 +25,9 @@ export default function PayIns() {
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [matchDebugInfo, setMatchDebugInfo] = useState(null);
   const [posting, setPosting] = useState(null); // payin id currently being posted
+  const [confirmUnmatch, setConfirmUnmatch] = useState({ open: false, payin: null });
+  const [confirmPost, setConfirmPost] = useState({ open: false, payin: null });
+  const toast = useToast();
 
   useEffect(() => {
     if (!roleLoading) {
@@ -58,7 +63,7 @@ export default function PayIns() {
       }
     } catch (error) {
       console.error('Failed to load candidate bank transactions:', error);
-      alert(error.response?.data?.detail || 'Failed to load candidate bank transactions');
+      toast.error(error.response?.data?.detail || 'Failed to load candidate bank transactions');
     } finally {
       setLoadingTransactions(false);
     }
@@ -67,27 +72,24 @@ export default function PayIns() {
   const handleMatch = async (txnId) => {
     try {
       await bankReconciliationAPI.matchTransaction(txnId, selectedPayin.id);
-      alert('Successfully matched with bank transaction');
+      toast.success('จับคู่กับรายการธนาคารสำเร็จ');
       setShowMatchModal(false);
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to match:', error);
-      alert(error.response?.data?.detail || 'Failed to match transaction');
+      toast.error(error.response?.data?.detail || 'Failed to match transaction');
     }
   };
 
   const handleUnmatch = async (payin) => {
-    if (!confirm(`Unmatch pay-in from bank transaction?\n\nThis will remove the reconciliation link.`)) {
-      return;
-    }
     try {
       await bankReconciliationAPI.unmatchTransaction(payin.matched_statement_txn_id);
-      alert('Successfully unmatched');
+      toast.success('Unmatch สำเร็จ');
       loadPayins();
     } catch (error) {
       console.error('Failed to unmatch:', error);
-      alert(error.response?.data?.detail || 'Failed to unmatch');
+      toast.error(error.response?.data?.detail || 'Failed to unmatch');
     }
   };
 
@@ -100,44 +102,41 @@ export default function PayIns() {
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      alert('Please provide a reason for rejection');
+      toast.warning('กรุณาระบุเหตุผลในการปฏิเสธ');
       return;
     }
     try {
       await payinsAPI.reject(selectedPayin.id, rejectReason);
-      alert('Pay-in rejected successfully');
+      toast.success('ปฏิเสธรายการสำเร็จ');
       setShowRejectModal(false);
       setRejectReason('');
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to reject:', error);
-      alert(error.response?.data?.detail || 'Failed to reject pay-in');
+      toast.error(error.response?.data?.detail || 'Failed to reject pay-in');
     }
   };
 
   const handleConfirmAndPost = async (payin) => {
-    if (!confirm(`Confirm & Post ฿${payin.amount} จากบ้าน ${payin.house_number}?\n\nระบบจะสร้าง Ledger + จัดสรรยอดเข้าใบแจ้งหนี้อัตโนมัติ`)) {
-      return;
-    }
     setPosting(payin.id);
     try {
       const result = await bankReconciliationAPI.confirmAndPost(payin.matched_statement_txn_id);
       const data = result.data;
       const allocCount = data.allocations?.length || 0;
       if (data.status === 'already_posted') {
-        alert('รายการนี้ถูก Post ไปแล้ว (idempotent)');
+        toast.info('รายการนี้ถูก Post ไปแล้ว (idempotent)');
       } else {
-        alert(`✅ Posted สำเร็จ!\n\nLedger #${data.income_transaction_id}\nจัดสรร ${allocCount} ใบแจ้งหนี้`);
+        toast.success(`Posted สำเร็จ! Ledger #${data.income_transaction_id} / จัดสรร ${allocCount} ใบแจ้งหนี้`);
       }
       loadPayins();
     } catch (error) {
       console.error('Failed to confirm & post:', error);
       const detail = error.response?.data?.detail;
       if (typeof detail === 'object' && detail.code === 'AMBIGUOUS') {
-        alert(`⚠️ ${detail.message}`);
+        toast.warning(detail.message);
       } else {
-        alert(typeof detail === 'string' ? detail : 'Failed to confirm & post');
+        toast.error(typeof detail === 'string' ? detail : 'Failed to confirm & post');
       }
     } finally {
       setPosting(null);
@@ -146,7 +145,7 @@ export default function PayIns() {
 
   const handleReverse = async () => {
     if (!reverseReason.trim()) {
-      alert('กรุณาระบุเหตุผลในการ Reverse');
+      toast.warning('กรุณาระบุเหตุผลในการ Reverse');
       return;
     }
     try {
@@ -154,32 +153,32 @@ export default function PayIns() {
         selectedPayin.matched_statement_txn_id,
         reverseReason
       );
-      alert(`↩️ Reversed สำเร็จ\n\n${result.data.message}`);
+      toast.success(`Reversed สำเร็จ: ${result.data.message}`);
       setShowReverseModal(false);
       setReverseReason('');
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to reverse:', error);
-      alert(error.response?.data?.detail || 'Failed to reverse');
+      toast.error(error.response?.data?.detail || 'Failed to reverse');
     }
   };
 
   const handleDeleteSubmission = async () => {
     if (!deleteReason.trim()) {
-      alert('กรุณาระบุเหตุผลในการลบ');
+      toast.warning('กรุณาระบุเหตุผลในการลบ');
       return;
     }
     try {
       await payinsAPI.cancel(selectedPayin.id, deleteReason);
-      alert('ลบรายการส่งเงินสำเร็จ (Submission deleted)');
+      toast.success('ลบรายการส่งเงินสำเร็จ');
       setShowDeleteModal(false);
       setDeleteReason('');
       setSelectedPayin(null);
       loadPayins();
     } catch (error) {
       console.error('Failed to delete submission:', error);
-      alert(error.response?.data?.detail || 'ไม่สามารถลบรายการส่งเงินได้');
+      toast.error(error.response?.data?.detail || 'ไม่สามารถลบรายการส่งเงินได้');
     }
   };
 
@@ -321,7 +320,7 @@ export default function PayIns() {
                               </button>
                             ) : (
                               <button
-                                onClick={() => handleUnmatch(payin)}
+                                onClick={() => setConfirmUnmatch({ open: true, payin })}
                                 className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-3 py-1 rounded"
                               >
                                 🔓 Unmatch
@@ -330,7 +329,7 @@ export default function PayIns() {
                             
                             {/* Confirm & Post button — replaces old Accept (Phase P1) */}
                             <button
-                              onClick={() => handleConfirmAndPost(payin)}
+                              onClick={() => setConfirmPost({ open: true, payin })}
                               disabled={!payin.is_matched || posting === payin.id}
                               className={`text-sm px-3 py-1 rounded font-medium ${
                                 payin.is_matched && posting !== payin.id
@@ -662,6 +661,28 @@ export default function PayIns() {
           </div>
         </div>
       )}
+
+      {/* Unmatch Confirm Modal */}
+      <ConfirmModal
+        open={confirmUnmatch.open}
+        title="Unmatch Pay-in"
+        message="ต้องการยกเลิกการจับคู่กับรายการธนาคารใช่หรือไม่?"
+        variant="warning"
+        confirmText="Unmatch"
+        onConfirm={() => handleUnmatch(confirmUnmatch.payin)}
+        onCancel={() => setConfirmUnmatch({ open: false, payin: null })}
+      />
+
+      {/* Confirm & Post Modal */}
+      <ConfirmModal
+        open={confirmPost.open}
+        title="Confirm & Post"
+        message={confirmPost.payin ? `Confirm & Post ฿${confirmPost.payin.amount} จากบ้าน ${confirmPost.payin.house_number}?\n\nระบบจะสร้าง Ledger + จัดสรรยอดเข้าใบแจ้งหนี้อัตโนมัติ` : ''}
+        variant="info"
+        confirmText="Confirm & Post"
+        onConfirm={() => { if (confirmPost.payin) handleConfirmAndPost(confirmPost.payin); }}
+        onCancel={() => setConfirmPost({ open: false, payin: null })}
+      />
 
       {/* Reverse Modal (Phase P1) */}
       {showReverseModal && (

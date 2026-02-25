@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { housesAPI } from '../../api/client';
+import ConfirmModal from '../../components/ConfirmModal';
+import { useToast } from '../../components/Toast';
 
 const HOUSE_STATUSES = [
   { value: 'ACTIVE', label: 'Active / ใช้งานอยู่', color: 'badge-success' },
@@ -16,12 +18,16 @@ export default function Houses() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [downloadingStatements, setDownloadingStatements] = useState(new Set());
+  const toast = useToast();
 
   // Edit modal state
   const [editingHouse, setEditingHouse] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
+
+  // Confirm modal state
+  const [confirmState, setConfirmState] = useState({ open: false, houseId: null });
 
   useEffect(() => {
     loadHouses();
@@ -43,14 +49,13 @@ export default function Houses() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this house?')) return;
-    
     try {
       await housesAPI.delete(id);
+      toast.success('ลบบ้านสำเร็จ');
       loadHouses();
     } catch (error) {
       console.error('Failed to delete house:', error);
-      alert('Failed to delete house');
+      toast.error('ไม่สามารถลบบ้านได้');
     }
   };
 
@@ -122,7 +127,7 @@ export default function Houses() {
 
     } catch (error) {
       console.error('Download failed:', error);
-      alert(`Download failed: ${error.message}`);
+      toast.error(`ดาวน์โหลดไม่สำเร็จ: ${error.message}`);
     } finally {
       setDownloadingStatements(prev => {
         const newSet = new Set(prev);
@@ -259,7 +264,7 @@ export default function Houses() {
                           {downloadingStatements.has(`${house.id}-xlsx`) ? '📊...' : '📊 Excel'}
                         </button>
                         <button
-                          onClick={() => handleDelete(house.id)}
+                          onClick={() => setConfirmState({ open: true, houseId: house.id })}
                           className="text-red-400 hover:text-red-300 text-sm"
                         >
                           Delete
@@ -395,6 +400,17 @@ export default function Houses() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirm Modal */}
+      <ConfirmModal
+        open={confirmState.open}
+        title="ยืนยันการลบบ้าน"
+        message="คุณต้องการลบบ้านนี้ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+        variant="danger"
+        confirmText="ลบ"
+        onConfirm={() => handleDelete(confirmState.houseId)}
+        onCancel={() => setConfirmState({ open: false, houseId: null })}
+      />
     </div>
   );
 }

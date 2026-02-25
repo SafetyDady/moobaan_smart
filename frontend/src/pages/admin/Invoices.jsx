@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { invoicesAPI, housesAPI, creditNotesAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
 import CreditNoteModal from '../../components/CreditNoteModal';
+import ConfirmModal from '../../components/ConfirmModal';
+import { useToast } from '../../components/Toast';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -33,6 +35,11 @@ export default function Invoices() {
   // Credit Note Modal state (Phase D.2)
   const [showCreditNoteModal, setShowCreditNoteModal] = useState(false);
   const [creditNoteInvoice, setCreditNoteInvoice] = useState(null);
+
+  const toast = useToast();
+
+  // Confirm modal state
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
 
   useEffect(() => {
     loadInvoices();
@@ -66,14 +73,13 @@ export default function Invoices() {
   };
 
   const handleGenerateMonthly = async () => {
-    if (!confirm('Generate monthly invoices for all active houses?')) return;
     try {
       await invoicesAPI.generateMonthly();
-      alert('Monthly invoices generated successfully');
+      toast.success('สร้างใบแจ้งหนี้รายเดือนสำเร็จ');
       loadInvoices();
     } catch (error) {
       console.error('Failed to generate invoices:', error);
-      alert('Failed to generate invoices');
+      toast.error('ไม่สามารถสร้างใบแจ้งหนี้ได้');
     }
   };
 
@@ -200,12 +206,12 @@ export default function Invoices() {
     e.preventDefault();
     
     if (!manualForm.house_id || !manualForm.amount || !manualForm.description || !manualForm.due_date) {
-      alert('กรุณากรอกข้อมูลให้ครบ');
+      toast.warning('กรุณากรอกข้อมูลให้ครบ');
       return;
     }
     
     if (parseFloat(manualForm.amount) <= 0) {
-      alert('จำนวนเงินต้องมากกว่า 0');
+      toast.warning('จำนวนเงินต้องมากกว่า 0');
       return;
     }
     
@@ -218,13 +224,13 @@ export default function Invoices() {
         due_date: manualForm.due_date,
         note: manualForm.note || null
       });
-      alert('สร้าง Manual Invoice สำเร็จ');
+      toast.success('สร้าง Manual Invoice สำเร็จ');
       setShowManualModal(false);
       setActiveTab('manual'); // Switch to manual tab
       loadInvoices();
     } catch (error) {
       console.error('Failed to create manual invoice:', error);
-      alert(error.response?.data?.detail || 'ไม่สามารถสร้าง Invoice ได้');
+      toast.error(error.response?.data?.detail || 'ไม่สามารถสร้าง Invoice ได้');
     } finally {
       setSubmitting(false);
     }
@@ -263,7 +269,7 @@ export default function Invoices() {
         {/* Action buttons based on tab */}
         <div className="ml-auto flex gap-2">
           {activeTab === 'auto' && (
-            <button onClick={handleGenerateMonthly} className="btn-primary">
+            <button onClick={() => setConfirmGenerate(true)} className="btn-primary">
               Generate Monthly Invoices
             </button>
           )}
@@ -656,6 +662,17 @@ export default function Invoices() {
         onClose={() => setShowCreditNoteModal(false)}
         invoice={creditNoteInvoice}
         onSuccess={handleCreditNoteSuccess}
+      />
+
+      {/* Generate Monthly Confirm Modal */}
+      <ConfirmModal
+        open={confirmGenerate}
+        title="สร้างใบแจ้งหนี้รายเดือน"
+        message="ต้องการสร้างใบแจ้งหนี้รายเดือนสำหรับบ้านที่ Active ทั้งหมดใช่หรือไม่?"
+        variant="info"
+        confirmText="สร้าง"
+        onConfirm={handleGenerateMonthly}
+        onCancel={() => setConfirmGenerate(false)}
       />
     </div>
   );
