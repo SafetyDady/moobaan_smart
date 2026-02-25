@@ -220,6 +220,8 @@ export const payinsAPI = {
   },
   // Slip view URL — use for window.open()
   slipUrl: (id) => `/api/payin-reports/${id}/slip`,
+  // Phase 4.3: Server-side blocking check
+  blockingCheck: (houseId) => apiClient.get('/api/payin-reports/blocking-check', { params: { house_id: houseId } }),
 };
 
 // Expenses API (Phase F.1: Expense Core)

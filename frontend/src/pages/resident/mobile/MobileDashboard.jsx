@@ -6,20 +6,17 @@ import MobileLayout from './MobileLayout';
 import InvoiceTable from './InvoiceTable';
 import { Home, Loader2, CreditCard, AlertTriangle } from 'lucide-react';
 import { SkeletonMobileList } from '../../../components/Skeleton';
-import { isBlockingPayin } from '../../../utils/payinStatus';
 import PullToRefresh from '../../../components/PullToRefresh';
 import { t } from '../../../hooks/useLocale';
 
 export default function MobileDashboard() {
   const { currentHouseId } = useRole();
   const [invoices, setInvoices] = useState([]);
-  const [payins, setPayins] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check if there's a blocking pay-in (DRAFT or PENDING)
-  const hasBlockingPayin = payins.some(isBlockingPayin);
-  const blockingPayin = payins.find(isBlockingPayin);
+  // Phase 4.3: Server-side blocking check (replaces client-side isBlockingPayin)
+  const [hasBlockingPayin, setHasBlockingPayin] = useState(false);
 
   useEffect(() => {
     // Guard: Only load data when currentHouseId is ready
@@ -37,13 +34,14 @@ export default function MobileDashboard() {
     }
     
     try {
-      const [invoicesRes, payinsRes, summaryRes] = await Promise.all([
+      const [invoicesRes, blockingRes, summaryRes] = await Promise.all([
         invoicesAPI.list({ house_id: currentHouseId }),
-        payinsAPI.list({ house_id: currentHouseId }),
+        payinsAPI.blockingCheck(currentHouseId),
         api.get('/api/dashboard/summary'),
       ]);
       setInvoices(invoicesRes.data);
-      setPayins(payinsRes.data);
+      // Phase 4.3: Use server-side blocking check result
+      setHasBlockingPayin(blockingRes.data?.has_blocking || false);
       setSummary(summaryRes.data);
     } catch (error) {
       console.error('Failed to load data:', error);
