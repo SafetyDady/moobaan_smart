@@ -3,6 +3,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { RoleProvider } from './contexts/RoleContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
+import { ToastProvider } from './components/Toast';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Auth pages
 import UnifiedLogin from './pages/UnifiedLogin';
@@ -36,6 +38,8 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <RoleProvider>
+        <ToastProvider>
+        <ErrorBoundary>
           <Routes>
           {/* Root path redirect */}
           <Route path="/" element={<Navigate to="/login" replace />} />
@@ -123,6 +127,8 @@ function App() {
           {/* 404 - redirect to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
+        </ErrorBoundary>
+        </ToastProvider>
         </RoleProvider>
       </AuthProvider>
     </BrowserRouter>
