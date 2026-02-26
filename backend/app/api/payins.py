@@ -742,7 +742,7 @@ async def delete_submission(
     - ถ้า matched อยู่ → unmatch ให้อัตโนมัติก่อนลบ
     """
     from app.db.models.bank_transaction import BankTransaction, PostingStatus
-    from app.db.models.income_transaction import IncomeTransaction
+    from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
     
     payin = db.query(PayinReportModel).options(
         joinedload(PayinReportModel.house),
@@ -763,9 +763,10 @@ async def delete_submission(
     if not request.reason or not request.reason.strip():
         raise HTTPException(status_code=400, detail="กรุณาระบุเหตุผลในการลบ")
     
-    # Check if this pay-in has been posted (has income_transaction)
+    # Check if this pay-in has an ACTIVE (non-reversed) ledger entry
     existing_ledger = db.query(IncomeTransaction).filter(
-        IncomeTransaction.payin_id == payin_id
+        IncomeTransaction.payin_id == payin_id,
+        IncomeTransaction.status != LedgerStatus.REVERSED
     ).first()
     if existing_ledger:
         raise HTTPException(
@@ -779,8 +780,19 @@ async def delete_submission(
             BankTransaction.id == payin.matched_statement_txn_id
         ).first()
         if bank_txn:
+            bank_txn.matched_payin_id = None
             bank_txn.posting_status = PostingStatus.UNMATCHED
         payin.matched_statement_txn_id = None
+        db.flush()
+    
+    # Also check reverse direction: bank_txn that references this payin
+    linked_bank_txns = db.query(BankTransaction).filter(
+        BankTransaction.matched_payin_id == payin_id
+    ).all()
+    for bt in linked_bank_txns:
+        bt.matched_payin_id = None
+        if bt.posting_status == PostingStatus.REVERSED:
+            bt.posting_status = PostingStatus.UNMATCHED
         db.flush()
     
     # Delete the payin report
