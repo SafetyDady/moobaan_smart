@@ -125,4 +125,12 @@ def run_production_seed():
 if __name__ == "__main__":
     init_database()
     run_production_seed()
+    
+    # One-time data fix: correct transfer_hour for admin-created pay-ins (UTC → Bangkok)
+    try:
+        from fix_admin_payin_hours import main as fix_payin_hours
+        fix_payin_hours()
+    except Exception as e:
+        print(f"⚠️ Payin hour fix skipped: {e}")
+    
     print("🚀 Starting uvicorn...")

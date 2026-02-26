@@ -18,6 +18,7 @@ from app.db.models.user import User
 from app.db.session import get_db
 from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_house_id_from_token, security
 from app.core.uploads import save_slip_file
+from app.core.timezone import BANGKOK_TZ
 
 router = APIRouter(prefix="/api/payin-state", tags=["payin-state-machine"])
 
@@ -356,13 +357,15 @@ async def admin_create_payin_from_bank(
     source = PayinSource.LINE_RECEIVED if request.source == "LINE_RECEIVED" else PayinSource.ADMIN_CREATED
     
     # Create pay-in
+    # Convert effective_at from UTC to Bangkok time for display fields (transfer_hour/minute)
+    effective_bkk = bank_txn.effective_at.astimezone(BANGKOK_TZ) if bank_txn.effective_at and bank_txn.effective_at.tzinfo else bank_txn.effective_at
     new_payin = PayinReport(
         house_id=request.house_id,
         submitted_by_user_id=None,  # No resident submitted
         amount=bank_txn.credit,
         transfer_date=bank_txn.effective_at,
-        transfer_hour=bank_txn.effective_at.hour if bank_txn.effective_at else 0,
-        transfer_minute=bank_txn.effective_at.minute if bank_txn.effective_at else 0,
+        transfer_hour=effective_bkk.hour if effective_bkk else 0,
+        transfer_minute=effective_bkk.minute if effective_bkk else 0,
         slip_url=None,
         status=PayinStatus.SUBMITTED,  # Ready for review
         source=source,
