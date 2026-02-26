@@ -64,7 +64,15 @@ def fetch_invoices(db: Session, period: Optional[str] = None):
     """Fetch invoice data for export"""
     query = db.query(Invoice)
     if period:
-        query = query.filter(Invoice.period == period)
+        # period format: "YYYY-MM" → filter by cycle_year and cycle_month
+        try:
+            year, month = period.split("-")
+            query = query.filter(
+                Invoice.cycle_year == int(year),
+                Invoice.cycle_month == int(month),
+            )
+        except (ValueError, AttributeError):
+            pass  # Invalid period format, skip filter
     query = query.order_by(desc(Invoice.created_at))
     invoices = query.all()
 
@@ -72,11 +80,12 @@ def fetch_invoices(db: Session, period: Optional[str] = None):
     rows = []
     for inv in invoices:
         house_code = inv.house.house_code if inv.house else "-"
+        inv_period = f"{inv.cycle_year}-{inv.cycle_month:02d}" if inv.cycle_year and inv.cycle_month else "-"
         rows.append([
             str(inv.id),
             house_code,
-            inv.period or "-",
-            fmt_baht(inv.amount),
+            inv_period,
+            fmt_baht(inv.total_amount),
             inv.status.value if inv.status else "-",
             fmt_date(inv.created_at),
         ])
@@ -353,7 +362,7 @@ REPORT_TYPES = {
 @router.get("/{report_type}")
 async def export_report(
     report_type: str,
-    format: str = Query("xlsx", regex="^(pdf|xlsx)$", description="Export format: pdf or xlsx"),
+    format: str = Query("xlsx", pattern="^(pdf|xlsx)$", description="Export format: pdf or xlsx"),
     period: Optional[str] = Query(None, description="Filter by period (YYYY-MM)"),
     status: Optional[str] = Query(None, description="Filter by status"),
     db: Session = Depends(get_db),
