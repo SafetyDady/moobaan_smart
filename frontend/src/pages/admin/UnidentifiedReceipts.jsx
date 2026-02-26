@@ -125,11 +125,13 @@ export default function UnidentifiedReceipts() {
       // Step 2: Attach slip to the created Pay-in
       if (newPayinId && slipFile) {
         const slipFormData = new FormData();
-        slipFormData.append('slip', slipFile);
+        // Ensure a safe filename with recognized extension (prevents 400 from backend)
+        const safeName = (slipFile.name && slipFile.name !== 'blob' && /\.(jpe?g|png|gif|webp)$/i.test(slipFile.name))
+          ? slipFile.name
+          : 'slip.jpg';
+        slipFormData.append('slip', slipFile, safeName);
         
-        await api.post(`/api/payin-state/${newPayinId}/attach-slip`, slipFormData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await api.post(`/api/payin-state/${newPayinId}/attach-slip`, slipFormData);
       }
       
       toast.success(t('unidentified.createSuccess'));
