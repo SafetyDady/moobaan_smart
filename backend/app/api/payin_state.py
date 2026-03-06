@@ -294,6 +294,56 @@ async def list_unidentified_bank_credits(
     }
 
 
+@router.get("/unidentified-bank-credits/export-image")
+async def export_unidentified_credits_image(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting),
+):
+    """
+    Export unidentified bank CREDIT transactions as a mobile-friendly PNG image.
+    Designed for sharing in LINE group chat to remind residents to report payments.
+    """
+    from fastapi.responses import StreamingResponse
+    from app.db.models.bank_account import BankAccount
+    from app.services.unidentified_image_generator import generate_unidentified_receipts_image
+
+    # Reuse same query as list_unidentified_bank_credits
+    unidentified = db.query(BankTransaction).options(
+        joinedload(BankTransaction.bank_account)
+    ).filter(
+        and_(
+            BankTransaction.credit.isnot(None),
+            BankTransaction.credit > 0,
+            BankTransaction.matched_payin_id.is_(None)
+        )
+    ).order_by(BankTransaction.effective_at.desc()).limit(limit).all()
+
+    transactions_data = [
+        {
+            "effective_at": txn.effective_at.isoformat() if txn.effective_at else None,
+            "amount": float(txn.credit) if txn.credit else 0,
+            "description": txn.description,
+            "bank_name": txn.bank_account.bank_code if txn.bank_account else None,
+        }
+        for txn in unidentified
+    ]
+
+    buffer = generate_unidentified_receipts_image(
+        transactions_data,
+        village_name="หมู่บ้านสมาร์ท",
+    )
+
+    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"unidentified_credits_{now_str}.png"
+
+    return StreamingResponse(
+        buffer,
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/admin-create-from-bank")
 async def admin_create_payin_from_bank(
     request: AdminCreateFromBankRequest,

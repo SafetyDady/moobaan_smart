@@ -781,6 +781,9 @@ const th = {
     createFailed: 'สร้าง Pay-in ไม่สำเร็จ',
     allMatched: 'จับคู่ครบแล้ว',
     allMatchedDesc: 'ไม่มีรายการเงินเข้าที่รอระบุ',
+    exportImage: 'ส่งออกรูปภาพ',
+    exportSuccess: 'ส่งออกรูปภาพสำเร็จ',
+    exportFailed: 'ส่งออกรูปภาพไม่สำเร็จ',
   },
 
   // ── Reports ──────────────────────────────────────────────

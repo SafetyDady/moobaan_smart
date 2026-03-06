@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, X, Image as ImageIcon, CheckCircle } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, CheckCircle, Download } from 'lucide-react';
 import { api } from '../../api/client';
 import compressImage from '../../utils/compressImage';
 import { useToast } from '../../components/Toast';
@@ -20,6 +20,7 @@ export default function UnidentifiedReceipts() {
   const [showModal, setShowModal] = useState(false);
   const [selectedTx, setSelectedTx] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [slipFile, setSlipFile] = useState(null);
   const [slipPreview, setSlipPreview] = useState(null);
   const fileInputRef = useRef(null);
@@ -146,6 +147,35 @@ export default function UnidentifiedReceipts() {
     }
   };
 
+  const handleExportImage = async () => {
+    setExporting(true);
+    try {
+      const response = await api.get('/api/payin-state/unidentified-bank-credits/export-image', {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      const disposition = response.headers['content-disposition'];
+      let filename = 'unidentified_credits.png';
+      if (disposition) {
+        const match = disposition.match(/filename="?([^";\n]+)"?/);
+        if (match) filename = match[1];
+      }
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(t('unidentified.exportSuccess'));
+    } catch (error) {
+      console.error('Export image failed:', error);
+      toast.error(t('unidentified.exportFailed'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-4 sm:p-6 lg:p-8"><SkeletonPage /></div>;
   }
@@ -153,11 +183,27 @@ export default function UnidentifiedReceipts() {
   return (
     <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('unidentified.title')}</h1>
-        <p className="text-gray-400">
-          {t('unidentified.subtitle')}
-        </p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('unidentified.title')}</h1>
+          <p className="text-gray-400">
+            {t('unidentified.subtitle')}
+          </p>
+        </div>
+        {transactions.length > 0 && (
+          <button
+            onClick={handleExportImage}
+            disabled={exporting}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            {exporting ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}
+            <span>{t('unidentified.exportImage')}</span>
+          </button>
+        )}
       </div>
 
       {transactions.length === 0 ? (
