@@ -1,10 +1,22 @@
 """
-Generate a mobile-friendly HTML report of unidentified bank credits.
-Designed for admin to view in browser and screenshot to share in LINE group.
+Generate a mobile-friendly PDF report of unidentified bank credits.
+Designed for admin to download and share in LINE group chat.
+Uses ReportLab with Thai font support (Sarabun from Google Fonts).
 """
 
+import io
+import os
 from datetime import datetime, timedelta, timezone
-from html import escape
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+)
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 BANGKOK_TZ = timezone(timedelta(hours=7), name="Asia/Bangkok")
 
@@ -12,6 +24,52 @@ THAI_MONTHS = [
     "", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
     "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."
 ]
+
+# ── Colors ─────────────────────────────────────────────────────────────
+HEADER_BG = colors.HexColor("#1e293b")
+SUMMARY_BG = colors.HexColor("#e0f2fe")
+SUMMARY_TEXT = colors.HexColor("#0c4a6e")
+TABLE_HEADER_BG = colors.HexColor("#334155")
+ROW_ODD = colors.HexColor("#f8fafc")
+GRID_COLOR = colors.HexColor("#e2e8f0")
+AMOUNT_GREEN = colors.HexColor("#059669")
+TEXT_SECONDARY = colors.HexColor("#64748b")
+CTA_BG = colors.HexColor("#fef3c7")
+CTA_TEXT = colors.HexColor("#92400e")
+
+
+def _setup_fonts() -> str:
+    """Register Thai font and return font name."""
+    font_paths = [
+        os.path.join(os.path.dirname(__file__), "../../assets/fonts/Sarabun-Regular.ttf"),
+        "/usr/share/fonts/truetype/thai/Sarabun-Regular.ttf",
+    ]
+    bold_paths = [
+        os.path.join(os.path.dirname(__file__), "../../assets/fonts/Sarabun-Bold.ttf"),
+        "/usr/share/fonts/truetype/thai/Sarabun-Bold.ttf",
+    ]
+
+    registered = False
+    for fp in font_paths:
+        fp = os.path.normpath(fp)
+        if os.path.exists(fp):
+            try:
+                pdfmetrics.registerFont(TTFont("Sarabun", fp))
+                registered = True
+                break
+            except Exception:
+                continue
+
+    for fp in bold_paths:
+        fp = os.path.normpath(fp)
+        if os.path.exists(fp):
+            try:
+                pdfmetrics.registerFont(TTFont("Sarabun-Bold", fp))
+                break
+            except Exception:
+                continue
+
+    return "Sarabun" if registered else "Helvetica"
 
 
 def _fmt_baht(val: float) -> str:
@@ -37,265 +95,257 @@ def _fmt_date_thai(iso_str: str) -> tuple[str, str]:
 
 def _extract_sender(txn: dict) -> str:
     """
-    Extract sender/details from raw_row or description.
-    KBANK CSV stores sender info in the Details column (typically last non-empty cell).
+    Extract sender/details from raw_row.
+    KBANK CSV stores sender info in the Details column (typically index 12).
     """
     raw_row = txn.get("raw_row")
     if raw_row and isinstance(raw_row, list):
-        # Try common details column indices (KBANK: index 12)
         for idx in [12, 11, 13]:
             if idx < len(raw_row) and raw_row[idx] and str(raw_row[idx]).strip():
                 return str(raw_row[idx]).strip()
-        # Fallback: last non-empty cell in the row
+        # Fallback: last non-empty non-numeric cell
         for cell in reversed(raw_row):
-            if cell and str(cell).strip() and str(cell).strip() not in ('-', ''):
+            if cell and str(cell).strip():
                 val = str(cell).strip()
-                # Skip numeric-only values (amounts/balances)
-                cleaned = val.replace(',', '').replace('.', '').replace('-', '')
+                cleaned = val.replace(",", "").replace(".", "").replace("-", "")
                 if not cleaned.isdigit():
                     return val
     return txn.get("description") or "-"
 
 
-def generate_unidentified_receipts_html(
+def generate_unidentified_receipts_pdf(
     transactions: list[dict],
     village_name: str = "หมู่บ้าน",
-) -> str:
+) -> io.BytesIO:
     """
-    Generate a self-contained HTML report of unidentified bank credits.
-    Mobile-friendly, designed for screenshot sharing in LINE group.
+    Generate a PDF report of unidentified bank credits.
+
+    Args:
+        transactions: List of dicts with keys:
+            - effective_at, amount, description, channel, bank_name, raw_row
+        village_name: Village name for header
+
+    Returns:
+        BytesIO buffer containing PDF data
     """
+    font_name = _setup_fonts()
+    bold_name = "Sarabun-Bold" if font_name == "Sarabun" else "Helvetica-Bold"
+
     now_bkk = datetime.now(BANGKOK_TZ)
     day = now_bkk.day
     month = THAI_MONTHS[now_bkk.month]
     year_be = (now_bkk.year + 543) % 100
-    report_date = f"{day} {month} {year_be} เวลา {now_bkk.hour:02d}:{now_bkk.minute:02d} น."
+    report_date = f"ออกรายงานเมื่อ {day} {month} {year_be} เวลา {now_bkk.hour:02d}:{now_bkk.minute:02d} น."
 
     txn_count = len(transactions)
     total_amount = sum(t.get("amount", 0) for t in transactions)
 
-    # Build transaction rows
-    rows_html = ""
-    for idx, txn in enumerate(transactions):
-        date_str, time_str = _fmt_date_thai(txn.get("effective_at"))
-        amount = txn.get("amount", 0)
-        sender = escape(_extract_sender(txn))
-        channel = escape(txn.get("channel") or "")
-        bank = escape(txn.get("bank_name") or "")
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+        leftMargin=15 * mm,
+        rightMargin=15 * mm,
+    )
 
-        rows_html += f"""
-        <div class="row {'odd' if idx % 2 else ''}">
-          <div class="row-num">{idx + 1}</div>
-          <div class="row-detail">
-            <div class="row-date">{escape(date_str)} &nbsp; {escape(time_str)} น.</div>
-            <div class="row-sender">{sender}</div>
-            <div class="row-channel">{escape(channel)}{(' · ' + bank) if bank else ''}</div>
-          </div>
-          <div class="row-amount">{_fmt_baht(amount)}</div>
-        </div>"""
+    elements = []
 
-    html = f"""<!DOCTYPE html>
-<html lang="th">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>รายการเงินเข้าที่ยังไม่ระบุ - {escape(village_name)}</title>
-<style>
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  body {{
-    font-family: 'Sarabun', 'Prompt', 'Kanit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #f1f5f9;
-    color: #1e293b;
-    min-height: 100vh;
-  }}
-  .container {{
-    max-width: 480px;
-    margin: 0 auto;
-    background: #fff;
-    min-height: 100vh;
-    box-shadow: 0 0 20px rgba(0,0,0,0.08);
-  }}
-  .header {{
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    color: #fff;
-    padding: 24px 20px;
-  }}
-  .header h1 {{
-    font-size: 22px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }}
-  .header .subtitle {{
-    font-size: 15px;
-    color: #94a3b8;
-    margin-bottom: 8px;
-  }}
-  .header .date {{
-    font-size: 13px;
-    color: #64748b;
-  }}
-  .summary {{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #e0f2fe;
-    margin: 12px 12px 0;
-    padding: 14px 18px;
-    border-radius: 12px;
-  }}
-  .summary-label {{
-    font-size: 15px;
-    color: #0c4a6e;
-    font-weight: 600;
-  }}
-  .summary-total {{
-    font-size: 18px;
-    color: #0c4a6e;
-    font-weight: 700;
-  }}
-  .table-header {{
-    display: flex;
-    align-items: center;
-    background: #334155;
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 10px 12px;
-    margin: 12px 12px 0;
-    border-radius: 8px 8px 0 0;
-  }}
-  .table-header .th-num {{ width: 36px; text-align: center; }}
-  .table-header .th-detail {{ flex: 1; padding-left: 8px; }}
-  .table-header .th-amount {{ width: 110px; text-align: right; }}
-  .rows {{
-    margin: 0 12px;
-    border-left: 1px solid #e2e8f0;
-    border-right: 1px solid #e2e8f0;
-  }}
-  .row {{
-    display: flex;
-    align-items: flex-start;
-    padding: 12px;
-    border-bottom: 1px solid #e2e8f0;
-  }}
-  .row.odd {{
-    background: #f8fafc;
-  }}
-  .row-num {{
-    width: 36px;
-    text-align: center;
-    font-size: 14px;
-    color: #94a3b8;
-    padding-top: 2px;
-    font-weight: 600;
-  }}
-  .row-detail {{
-    flex: 1;
-    padding-left: 8px;
-    min-width: 0;
-  }}
-  .row-date {{
-    font-size: 14px;
-    font-weight: 600;
-    color: #1e293b;
-  }}
-  .row-sender {{
-    font-size: 14px;
-    color: #475569;
-    margin-top: 2px;
-    word-break: break-word;
-  }}
-  .row-channel {{
-    font-size: 12px;
-    color: #94a3b8;
-    margin-top: 2px;
-  }}
-  .row-amount {{
-    width: 110px;
-    text-align: right;
-    font-size: 15px;
-    font-weight: 700;
-    color: #059669;
-    padding-top: 2px;
-    white-space: nowrap;
-  }}
-  .rows-end {{
-    margin: 0 12px;
-    height: 8px;
-    border-left: 1px solid #e2e8f0;
-    border-right: 1px solid #e2e8f0;
-    border-bottom: 1px solid #e2e8f0;
-    border-radius: 0 0 8px 8px;
-  }}
-  .footer {{
-    text-align: center;
-    padding: 20px;
-    color: #6b7280;
-    font-size: 14px;
-    line-height: 1.6;
-  }}
-  .footer .cta {{
-    background: #fef3c7;
-    color: #92400e;
-    padding: 12px 16px;
-    border-radius: 10px;
-    margin: 0 12px 12px;
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.5;
-  }}
-  .footer .gen {{
-    font-size: 12px;
-    color: #94a3b8;
-  }}
-  .empty {{
-    text-align: center;
-    padding: 40px 20px;
-    color: #94a3b8;
-    font-size: 15px;
-  }}
-  @media print {{
-    body {{ background: #fff; }}
-    .container {{ box-shadow: none; max-width: 100%; }}
-  }}
-</style>
-</head>
-<body>
-<div class="container">
-  <div class="header">
-    <h1>{escape(village_name)}</h1>
-    <div class="subtitle">รายการเงินเข้าที่ยังไม่ระบุตัวตน</div>
-    <div class="date">ออกรายงานเมื่อ {escape(report_date)}</div>
-  </div>
+    # ── Styles ─────────────────────────────────────────────────────────
+    styles = getSampleStyleSheet()
 
-  <div class="summary">
-    <div class="summary-label">{txn_count} รายการ</div>
-    <div class="summary-total">รวม {_fmt_baht(total_amount)}</div>
-  </div>
+    style_title = ParagraphStyle(
+        "ReportTitle", parent=styles["Title"],
+        fontName=bold_name, fontSize=20, textColor=colors.white,
+        spaceAfter=2 * mm,
+    )
+    style_subtitle = ParagraphStyle(
+        "ReportSubtitle", parent=styles["Normal"],
+        fontName=font_name, fontSize=13, textColor=colors.HexColor("#94a3b8"),
+        spaceAfter=2 * mm,
+    )
+    style_date = ParagraphStyle(
+        "ReportDate", parent=styles["Normal"],
+        fontName=font_name, fontSize=10, textColor=TEXT_SECONDARY,
+    )
+    style_summary = ParagraphStyle(
+        "SummaryText", parent=styles["Normal"],
+        fontName=bold_name, fontSize=13, textColor=SUMMARY_TEXT,
+    )
+    style_cell = ParagraphStyle(
+        "CellText", parent=styles["Normal"],
+        fontName=font_name, fontSize=10, textColor=colors.HexColor("#1e293b"),
+        leading=14,
+    )
+    style_cell_small = ParagraphStyle(
+        "CellSmall", parent=styles["Normal"],
+        fontName=font_name, fontSize=9, textColor=TEXT_SECONDARY,
+        leading=12,
+    )
+    style_cell_amount = ParagraphStyle(
+        "CellAmount", parent=styles["Normal"],
+        fontName=bold_name, fontSize=11, textColor=AMOUNT_GREEN,
+        alignment=2,  # RIGHT
+    )
+    style_footer = ParagraphStyle(
+        "Footer", parent=styles["Normal"],
+        fontName=font_name, fontSize=10, textColor=CTA_TEXT,
+        alignment=1,  # CENTER
+        leading=16,
+    )
+    style_gen = ParagraphStyle(
+        "Generated", parent=styles["Normal"],
+        fontName=font_name, fontSize=8, textColor=TEXT_SECONDARY,
+        alignment=1,
+    )
 
-  {"" if txn_count == 0 else f'''
-  <div class="table-header">
-    <div class="th-num">#</div>
-    <div class="th-detail">วันที่ / ผู้โอน</div>
-    <div class="th-amount">จำนวนเงิน</div>
-  </div>
-  <div class="rows">
-    {rows_html}
-  </div>
-  <div class="rows-end"></div>
-  '''}
+    # ── Header (dark background table) ─────────────────────────────────
+    header_data = [[
+        Paragraph(f"{village_name}", style_title),
+    ], [
+        Paragraph("รายการเงินเข้าที่ยังไม่ระบุตัวตน", style_subtitle),
+    ], [
+        Paragraph(report_date, style_date),
+    ]]
+    page_width = A4[0] - 30 * mm
+    header_table = Table(header_data, colWidths=[page_width])
+    header_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), HEADER_BG),
+        ("TOPPADDING", (0, 0), (0, 0), 12),
+        ("BOTTOMPADDING", (0, -1), (0, -1), 12),
+        ("LEFTPADDING", (0, 0), (-1, -1), 14),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+        ("TOPPADDING", (0, 1), (0, 1), 0),
+        ("BOTTOMPADDING", (0, 0), (0, 0), 0),
+        ("TOPPADDING", (0, 2), (0, 2), 0),
+        ("ROUNDEDCORNERS", [6, 6, 0, 0]),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 3 * mm))
 
-  {"<div class='empty'>ไม่มีรายการที่ยังไม่ระบุ</div>" if txn_count == 0 else ""}
+    # ── Summary bar ────────────────────────────────────────────────────
+    summary_data = [[
+        Paragraph(f"{txn_count} รายการ", style_summary),
+        Paragraph(f"รวม {_fmt_baht(total_amount)}", ParagraphStyle(
+            "SummaryRight", parent=style_summary, alignment=2,
+        )),
+    ]]
+    summary_table = Table(summary_data, colWidths=[page_width * 0.5, page_width * 0.5])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), SUMMARY_BG),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 14),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+        ("ROUNDEDCORNERS", [6, 6, 6, 6]),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 4 * mm))
 
-  <div class="footer">
-    <div class="cta">
-      หากท่านเป็นเจ้าของรายการเหล่านี้<br>
-      กรุณารายงานการชำระเงินผ่านแอปพลิเคชัน<br>
-      หรือติดต่อฝ่ายการเงินของหมู่บ้าน
-    </div>
-    <div class="gen">Generated: {now_bkk.strftime('%d/%m/%Y %H:%M')}</div>
-  </div>
-</div>
-</body>
-</html>"""
-    return html
+    # ── Transaction table ──────────────────────────────────────────────
+    # Columns: # | วันที่/เวลา + ผู้โอน | จำนวนเงิน
+    col_widths = [25, page_width - 25 - 80, 80]
+
+    # Table header
+    th_style = ParagraphStyle(
+        "TH", parent=styles["Normal"],
+        fontName=bold_name, fontSize=10, textColor=colors.white,
+    )
+    th_style_right = ParagraphStyle(
+        "THRight", parent=th_style, alignment=2,
+    )
+    table_data = [[
+        Paragraph("#", th_style),
+        Paragraph("วันที่ / ผู้โอน", th_style),
+        Paragraph("จำนวนเงิน", th_style_right),
+    ]]
+
+    # Table rows
+    if txn_count == 0:
+        table_data.append([
+            "",
+            Paragraph("ไม่มีรายการที่ยังไม่ระบุ", style_cell_small),
+            "",
+        ])
+    else:
+        for idx, txn in enumerate(transactions):
+            date_str, time_str = _fmt_date_thai(txn.get("effective_at"))
+            sender = _extract_sender(txn)
+            channel = txn.get("channel") or ""
+            bank = txn.get("bank_name") or ""
+            channel_line = f"{channel}{' · ' + bank if bank else ''}"
+
+            detail_text = (
+                f"<b>{date_str} &nbsp; {time_str} น.</b><br/>"
+                f"{sender}<br/>"
+                f"<font size='8' color='#94a3b8'>{channel_line}</font>"
+            )
+
+            table_data.append([
+                Paragraph(str(idx + 1), ParagraphStyle(
+                    "RowNum", parent=style_cell, textColor=TEXT_SECONDARY, alignment=1,
+                )),
+                Paragraph(detail_text, style_cell),
+                Paragraph(_fmt_baht(txn.get("amount", 0)), style_cell_amount),
+            ])
+
+    txn_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+    # Table styling
+    style_cmds = [
+        # Header row
+        ("BACKGROUND", (0, 0), (-1, 0), TABLE_HEADER_BG),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        # Body
+        ("TOPPADDING", (0, 1), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        # Grid
+        ("GRID", (0, 0), (-1, -1), 0.5, GRID_COLOR),
+        ("LINEBELOW", (0, 0), (-1, 0), 1, TABLE_HEADER_BG),
+    ]
+
+    # Alternating row backgrounds
+    for i in range(1, len(table_data)):
+        if i % 2 == 0:
+            style_cmds.append(("BACKGROUND", (0, i), (-1, i), ROW_ODD))
+
+    txn_table.setStyle(TableStyle(style_cmds))
+    elements.append(txn_table)
+    elements.append(Spacer(1, 6 * mm))
+
+    # ── Footer CTA ─────────────────────────────────────────────────────
+    cta_data = [[
+        Paragraph(
+            "หากท่านเป็นเจ้าของรายการเหล่านี้<br/>"
+            "กรุณารายงานการชำระเงินผ่านแอปพลิเคชัน<br/>"
+            "หรือติดต่อฝ่ายการเงินของหมู่บ้าน",
+            style_footer,
+        )
+    ]]
+    cta_table = Table(cta_data, colWidths=[page_width])
+    cta_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), CTA_BG),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 14),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+        ("ROUNDEDCORNERS", [6, 6, 6, 6]),
+    ]))
+    elements.append(cta_table)
+    elements.append(Spacer(1, 4 * mm))
+
+    # Generated timestamp
+    elements.append(Paragraph(
+        f"Generated: {now_bkk.strftime('%d/%m/%Y %H:%M')}",
+        style_gen,
+    ))
+
+    # ── Build PDF ──────────────────────────────────────────────────────
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer

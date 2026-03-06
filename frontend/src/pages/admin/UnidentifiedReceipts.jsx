@@ -150,14 +150,13 @@ export default function UnidentifiedReceipts() {
   const handleExportReport = async () => {
     setExporting(true);
     try {
-      const response = await api.get('/api/payin-state/unidentified-bank-credits/export-image', {
+      const response = await api.get('/api/payin-state/unidentified-bank-credits/export-report', {
         responseType: 'blob',
       });
-      const blob = new Blob([response.data], { type: 'text/html' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       window.open(url, '_blank');
-      // Revoke after a delay to allow the new tab to load
-      setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
       toast.success(t('unidentified.exportSuccess'));
     } catch (error) {
       console.error('Export report failed:', error);

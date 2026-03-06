@@ -301,11 +301,11 @@ async def export_unidentified_credits_report(
     current_user: User = Depends(require_admin_or_accounting),
 ):
     """
-    Export unidentified bank CREDIT transactions as a mobile-friendly HTML report.
-    Admin opens in browser, screenshots and shares in LINE group chat.
+    Export unidentified bank CREDIT transactions as a PDF report.
+    Admin downloads and shares in LINE group chat.
     """
-    from fastapi.responses import HTMLResponse
-    from app.services.unidentified_report_generator import generate_unidentified_receipts_html
+    from fastapi.responses import StreamingResponse
+    from app.services.unidentified_report_generator import generate_unidentified_receipts_pdf
 
     unidentified = db.query(BankTransaction).options(
         joinedload(BankTransaction.bank_account)
@@ -329,23 +329,19 @@ async def export_unidentified_credits_report(
         for txn in unidentified
     ]
 
-    html = generate_unidentified_receipts_html(
+    buffer = generate_unidentified_receipts_pdf(
         transactions_data,
         village_name="หมู่บ้านมั่งมีลีลาวดี",
     )
 
-    return HTMLResponse(content=html)
+    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"unidentified_credits_{now_str}.pdf"
 
-
-# Backward-compatible alias (old endpoint name)
-@router.get("/unidentified-bank-credits/export-image")
-async def export_unidentified_credits_image(
-    limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_accounting),
-):
-    """Alias for export-report (backward compatibility)."""
-    return await export_unidentified_credits_report(limit=limit, db=db, current_user=current_user)
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router.post("/admin-create-from-bank")
