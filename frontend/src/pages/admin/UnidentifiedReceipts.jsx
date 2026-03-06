@@ -150,7 +150,7 @@ export default function UnidentifiedReceipts() {
   const handleExportReport = async () => {
     setExporting(true);
     try {
-      const response = await api.get('/api/payin-state/unidentified-bank-credits/export-report', {
+      const response = await api.get('/api/payin-state/unidentified-bank-credits/export-image', {
         responseType: 'blob',
       });
       const blob = new Blob([response.data], { type: 'text/html' });

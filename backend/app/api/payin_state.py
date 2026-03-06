@@ -337,6 +337,17 @@ async def export_unidentified_credits_report(
     return HTMLResponse(content=html)
 
 
+# Backward-compatible alias (old endpoint name)
+@router.get("/unidentified-bank-credits/export-image")
+async def export_unidentified_credits_image(
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_accounting),
+):
+    """Alias for export-report (backward compatibility)."""
+    return await export_unidentified_credits_report(limit=limit, db=db, current_user=current_user)
+
+
 @router.post("/admin-create-from-bank")
 async def admin_create_payin_from_bank(
     request: AdminCreateFromBankRequest,
