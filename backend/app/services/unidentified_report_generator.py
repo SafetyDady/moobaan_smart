@@ -245,7 +245,7 @@ def generate_unidentified_receipts_pdf(
 
     # ── Transaction table ──────────────────────────────────────────────
     # Columns: # | วันที่/เวลา + ผู้โอน | จำนวนเงิน
-    col_widths = [25, page_width - 25 - 80, 80]
+    col_widths = [32, page_width - 32 - 85, 85]
 
     # Table header
     th_style = ParagraphStyle(
