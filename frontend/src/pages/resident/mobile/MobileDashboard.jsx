@@ -52,7 +52,7 @@ export default function MobileDashboard() {
 
   // Get balance from summary API (negative = owe, positive = overpaid)
   const currentBalance = summary?.current_balance || 0;
-  const isOverpaid = currentBalance > 0;
+  const isOverpaid = currentBalance >= 0;
   const displayAmount = Math.abs(currentBalance);
 
   // Guard: Wait for house context before rendering dashboard
