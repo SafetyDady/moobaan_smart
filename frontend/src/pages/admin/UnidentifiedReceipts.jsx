@@ -147,29 +147,20 @@ export default function UnidentifiedReceipts() {
     }
   };
 
-  const handleExportImage = async () => {
+  const handleExportReport = async () => {
     setExporting(true);
     try {
-      const response = await api.get('/api/payin-state/unidentified-bank-credits/export-image', {
+      const response = await api.get('/api/payin-state/unidentified-bank-credits/export-report', {
         responseType: 'blob',
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      const disposition = response.headers['content-disposition'];
-      let filename = 'unidentified_credits.png';
-      if (disposition) {
-        const match = disposition.match(/filename="?([^";\n]+)"?/);
-        if (match) filename = match[1];
-      }
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const blob = new Blob([response.data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Revoke after a delay to allow the new tab to load
+      setTimeout(() => window.URL.revokeObjectURL(url), 5000);
       toast.success(t('unidentified.exportSuccess'));
     } catch (error) {
-      console.error('Export image failed:', error);
+      console.error('Export report failed:', error);
       toast.error(t('unidentified.exportFailed'));
     } finally {
       setExporting(false);
@@ -192,7 +183,7 @@ export default function UnidentifiedReceipts() {
         </div>
         {transactions.length > 0 && (
           <button
-            onClick={handleExportImage}
+            onClick={handleExportReport}
             disabled={exporting}
             className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
           >

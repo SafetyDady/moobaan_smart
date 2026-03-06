@@ -294,21 +294,19 @@ async def list_unidentified_bank_credits(
     }
 
 
-@router.get("/unidentified-bank-credits/export-image")
-async def export_unidentified_credits_image(
-    limit: int = 50,
+@router.get("/unidentified-bank-credits/export-report")
+async def export_unidentified_credits_report(
+    limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_accounting),
 ):
     """
-    Export unidentified bank CREDIT transactions as a mobile-friendly PNG image.
-    Designed for sharing in LINE group chat to remind residents to report payments.
+    Export unidentified bank CREDIT transactions as a mobile-friendly HTML report.
+    Admin opens in browser, screenshots and shares in LINE group chat.
     """
-    from fastapi.responses import StreamingResponse
-    from app.db.models.bank_account import BankAccount
-    from app.services.unidentified_image_generator import generate_unidentified_receipts_image
+    from fastapi.responses import HTMLResponse
+    from app.services.unidentified_report_generator import generate_unidentified_receipts_html
 
-    # Reuse same query as list_unidentified_bank_credits
     unidentified = db.query(BankTransaction).options(
         joinedload(BankTransaction.bank_account)
     ).filter(
@@ -324,24 +322,19 @@ async def export_unidentified_credits_image(
             "effective_at": txn.effective_at.isoformat() if txn.effective_at else None,
             "amount": float(txn.credit) if txn.credit else 0,
             "description": txn.description,
+            "channel": txn.channel,
             "bank_name": txn.bank_account.bank_code if txn.bank_account else None,
+            "raw_row": txn.raw_row,
         }
         for txn in unidentified
     ]
 
-    buffer = generate_unidentified_receipts_image(
+    html = generate_unidentified_receipts_html(
         transactions_data,
-        village_name="หมู่บ้านสมาร์ท",
+        village_name="หมู่บ้านมั่งมีลีลาวดี",
     )
 
-    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"unidentified_credits_{now_str}.png"
-
-    return StreamingResponse(
-        buffer,
-        media_type="image/png",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    return HTMLResponse(content=html)
 
 
 @router.post("/admin-create-from-bank")
