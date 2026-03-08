@@ -1090,6 +1090,9 @@ const th = {
     payNow: 'ชำระเงินเลย',
     blockingWarning: 'คุณมีรายการที่ยังไม่เสร็จ กรุณาดำเนินการให้เสร็จก่อน',
     invoiceTitle: 'ใบแจ้งหนี้',
+    transferToAccount: 'โอนเงินเข้าบัญชี',
+    copyAccountNo: 'คัดลอก',
+    copied: 'คัดลอกแล้ว!',
   },
 
   // ── Invoice Table (Resident) ───────────────────────────────

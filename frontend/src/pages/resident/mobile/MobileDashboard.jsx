@@ -4,6 +4,7 @@ import { invoicesAPI, payinsAPI, api } from '../../../api/client';
 import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import InvoiceTable from './InvoiceTable';
+import BankAccountCard from '../../../components/BankAccountCard';
 import { Home, Loader2, CreditCard, AlertTriangle } from 'lucide-react';
 import { SkeletonMobileList } from '../../../components/Skeleton';
 import PullToRefresh from '../../../components/PullToRefresh';
@@ -142,6 +143,17 @@ export default function MobileDashboard() {
           )}
         </div>
       </div>
+
+      {/* Bank Account Info (shown only when outstanding) */}
+      {!isOverpaid && (
+        <div className="px-4 mt-3">
+          <BankAccountCard
+            bankName="ธนาคารกสิกรไทย"
+            accountNo="040-1-56500-0"
+            accountName="นิติบุคคลหมู่บ้านจัดสรรแมกไม้ลีลาวดี"
+          />
+        </div>
+      )}
 
       {/* Invoice Table Section */}
       <div className="px-4 mb-6">
