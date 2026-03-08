@@ -19,7 +19,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../../api/client';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Building2, Phone, KeyRound, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
+import { TreePine, Phone, KeyRound, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import HouseSelector from './HouseSelector';
 
 // Login steps
@@ -419,11 +419,11 @@ export default function ResidentLogin() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Building2 className="text-white" size={32} />
+          <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
+            <TreePine className="text-white" size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-white">Moobaan Smart</h1>
-          <p className="text-gray-400 mt-1">ระบบบริหารหมู่บ้านจัดสรร</p>
+          <h1 className="text-2xl font-bold text-white">แมกไม้ลีลาวดี</h1>
+          <p className="text-gray-400 mt-1">ระบบจัดการหมู่บ้าน</p>
         </div>
         
         {/* Login Card */}

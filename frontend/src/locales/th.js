@@ -1067,7 +1067,7 @@ const th = {
 
   // ── Mobile Layout (Bottom Nav + Header) ────────────────────
   mobileLayout: {
-    appName: 'Moobaan Smart',
+    appName: 'แมกไม้ลีลาวดี',
     houseNo: 'บ้านเลขที่',
     resident: 'ลูกบ้าน',
     logout: 'ออกจากระบบ',

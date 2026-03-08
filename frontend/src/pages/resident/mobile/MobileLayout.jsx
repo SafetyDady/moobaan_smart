@@ -17,7 +17,7 @@
  */
 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, BarChart3, CreditCard, History, User, LogOut } from 'lucide-react';
+import { Home, BarChart3, CreditCard, History, User, LogOut, TreePine } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import ConfirmModal from '../../../components/ConfirmModal';
@@ -78,8 +78,8 @@ export default function MobileLayout({ children }) {
       {/* Header - Enhanced with better spacing */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div>
-          <h1 className="text-lg font-bold text-primary-400 flex items-center gap-2">
-            <Home size={20} className="text-primary-500" />
+          <h1 className="text-lg font-bold text-emerald-400 flex items-center gap-2">
+            <TreePine size={20} className="text-emerald-500" />
             {t('mobileLayout.appName')}
           </h1>
           <p className="text-xs text-gray-400 mt-0.5">
