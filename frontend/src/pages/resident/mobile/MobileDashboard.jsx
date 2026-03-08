@@ -5,6 +5,7 @@ import { useRole } from '../../../contexts/RoleContext';
 import MobileLayout from './MobileLayout';
 import InvoiceTable from './InvoiceTable';
 import BankAccountCard from '../../../components/BankAccountCard';
+import PaymentTimeline from '../../../components/PaymentTimeline';
 import { Home, Loader2, CreditCard, AlertTriangle } from 'lucide-react';
 import { SkeletonMobileList } from '../../../components/Skeleton';
 import PullToRefresh from '../../../components/PullToRefresh';
@@ -18,6 +19,7 @@ export default function MobileDashboard() {
 
   // Phase 4.3: Server-side blocking check (replaces client-side isBlockingPayin)
   const [hasBlockingPayin, setHasBlockingPayin] = useState(false);
+  const [latestPayin, setLatestPayin] = useState(null);
 
   useEffect(() => {
     // Guard: Only load data when currentHouseId is ready
@@ -35,15 +37,20 @@ export default function MobileDashboard() {
     }
     
     try {
-      const [invoicesRes, blockingRes, summaryRes] = await Promise.all([
+      const [invoicesRes, blockingRes, summaryRes, payinsRes] = await Promise.all([
         invoicesAPI.list({ house_id: currentHouseId }),
         payinsAPI.blockingCheck(currentHouseId),
         api.get('/api/dashboard/summary'),
+        payinsAPI.list({ page: 1, page_size: 1 }),
       ]);
       setInvoices(invoicesRes.data);
       // Phase 4.3: Use server-side blocking check result
       setHasBlockingPayin(blockingRes.data?.has_blocking || false);
       setSummary(summaryRes.data);
+      // Latest payment for timeline (skip DRAFT)
+      const items = payinsRes.data?.items || payinsRes.data || [];
+      const latest = items.find(p => p.status !== 'DRAFT');
+      setLatestPayin(latest || null);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -155,8 +162,15 @@ export default function MobileDashboard() {
         </div>
       )}
 
+      {/* Payment Timeline (latest payment status) */}
+      {latestPayin && (
+        <div className="px-4 mt-3">
+          <PaymentTimeline payin={latestPayin} />
+        </div>
+      )}
+
       {/* Invoice Table Section */}
-      <div className="px-4 mb-6">
+      <div className="px-4 mb-6 mt-3">
         <h2 className="text-xl font-bold text-white mb-4">{t('mobileDashboard.invoiceTitle')}</h2>
         <InvoiceTable invoices={invoices} />
       </div>

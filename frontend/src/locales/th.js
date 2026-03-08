@@ -1095,6 +1095,17 @@ const th = {
     copied: 'คัดลอกแล้ว!',
   },
 
+  // ── Payment Timeline (Resident Dashboard) ──────────────────
+  timeline: {
+    title: 'รายการล่าสุด',
+    submitted: 'แจ้งชำระแล้ว',
+    reviewing: 'รอตรวจสอบ',
+    reviewingDetail: 'ฝ่ายการเงินกำลังตรวจสอบ',
+    rejected: 'ถูกปฏิเสธ',
+    confirmed: 'ยืนยันแล้ว',
+    confirmedDetail: 'บันทึกเข้าระบบเรียบร้อย',
+  },
+
   // ── Invoice Table (Resident) ───────────────────────────────
   invoiceTable: {
     cycle: 'รอบบิล',
