@@ -31,6 +31,7 @@ export default function PayIns() {
   const [deleteReason, setDeleteReason] = useState('');
   const [reverseReason, setReverseReason] = useState('');
   const [bankTransactions, setBankTransactions] = useState([]);
+  const [alreadyMatchedTxns, setAlreadyMatchedTxns] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [matchDebugInfo, setMatchDebugInfo] = useState(null);
   const [posting, setPosting] = useState(null); // payin id currently being posted
@@ -66,8 +67,10 @@ export default function PayIns() {
       // Use the new Pay-in Centric endpoint that returns pre-filtered candidates
       const response = await bankReconciliationAPI.getCandidatesForPayin(payin.id);
       const candidates = response.data.candidates || [];
-      
+      const alreadyMatched = response.data.already_matched || [];
+
       setBankTransactions(candidates);
+      setAlreadyMatchedTxns(alreadyMatched);
       
       // Log debug info to console for troubleshooting
       if (response.data.debug) {
@@ -668,6 +671,45 @@ export default function PayIns() {
               )}
             </div>
 
+            {/* Already Matched Transactions (grayed out, informational) */}
+            {alreadyMatchedTxns.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-yellow-400 mb-2">
+                  {t('payins.alreadyMatchedTitle')} ({alreadyMatchedTxns.length})
+                </h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {alreadyMatchedTxns.map((txn) => {
+                    const txnDate = new Date(txn.effective_at);
+                    return (
+                      <div key={txn.id} className="border border-gray-700 rounded p-3 bg-gray-800/50 opacity-70">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="text-gray-400 font-medium mb-1">
+                              ฿{parseFloat(txn.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {txnDate.toLocaleDateString('th-TH')} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </div>
+                            {txn.description && (
+                              <div className="text-xs text-gray-600 mt-1">{txn.description}</div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/30">
+                              {t('payins.alreadyMatchedBadge')} #{txn.matched_payin_id}
+                            </span>
+                            {txn.matched_house_code && (
+                              <p className="text-xs text-gray-500 mt-1">{t('payins.house')} {txn.matched_house_code}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Close Button */}
             <div className="flex justify-end">
               <button
@@ -675,6 +717,7 @@ export default function PayIns() {
                   setShowMatchModal(false);
                   setSelectedPayin(null);
                   setBankTransactions([]);
+                  setAlreadyMatchedTxns([]);
                 }}
                 className="btn-secondary px-6"
               >

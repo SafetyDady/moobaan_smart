@@ -283,27 +283,27 @@ async def get_candidate_transactions_for_payin(
                 detail=f"Cannot compute transfer_datetime: {str(e)}"
             )
         
-        # Get all unmatched credit transactions
-        all_unmatched = db.query(BankTransaction).filter(
-            BankTransaction.matched_payin_id.is_(None),
+        # Get all credit transactions (both matched and unmatched)
+        all_credits = db.query(BankTransaction).filter(
             BankTransaction.credit > 0,
         ).all()
-        
+
         # Filter candidates based on matching criteria
         candidates = []
+        already_matched = []  # Txns that match criteria but already paired
         payin_amount = float(payin.amount)
-        
+
         # Debug: track rejection reasons and near-misses
         debug_info = {
             "payin_time_utc": payin_time.isoformat() if payin_time else None,
             "payin_time_tzinfo": str(payin_time.tzinfo) if payin_time else None,
-            "total_unmatched_credit": len(all_unmatched),
+            "total_unmatched_credit": sum(1 for t in all_credits if t.matched_payin_id is None),
             "amount_matches": 0,
             "near_misses": [],  # Txns that matched amount but not time
             "errors": [],
         }
-        
-        for txn in all_unmatched:
+
+        for txn in all_credits:
             try:
                 # Amount must match exactly (±0.01 tolerance)
                 txn_amount = float(txn.credit)
@@ -342,7 +342,17 @@ async def get_candidate_transactions_for_payin(
                 txn_dict['time_diff_seconds'] = time_diff_seconds
                 txn_dict['amount_diff'] = amount_diff
                 txn_dict['is_perfect_match'] = amount_diff < 0.01 and time_diff_seconds <= 60
-                candidates.append(txn_dict)
+
+                if txn.matched_payin_id is not None:
+                    # Already matched — include for admin visibility
+                    txn_dict['matched_payin_id'] = txn.matched_payin_id
+                    # Get matched payin's house code for context
+                    matched_payin = db.query(PayinReport).filter(PayinReport.id == txn.matched_payin_id).first()
+                    if matched_payin and matched_payin.house:
+                        txn_dict['matched_house_code'] = matched_payin.house.house_code
+                    already_matched.append(txn_dict)
+                else:
+                    candidates.append(txn_dict)
             except Exception as e:
                 debug_info["errors"].append({
                     "txn_id": str(txn.id)[:8] if txn else "?",
@@ -361,6 +371,7 @@ async def get_candidate_transactions_for_payin(
                 "transfer_datetime": payin_time.isoformat(),
             },
             "candidates": candidates,
+            "already_matched": already_matched,
             "count": len(candidates),
             "criteria": {
                 "amount_tolerance": "±0.01",

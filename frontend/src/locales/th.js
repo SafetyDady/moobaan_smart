@@ -460,6 +460,8 @@ const th = {
     amountMatches: 'จำนวนที่ตรงกัน',
     errorOccurred: 'ข้อผิดพลาด:',
     perfectMatch: 'ตรงกันสมบูรณ์',
+    alreadyMatchedTitle: 'รายการที่ตรงกันแต่จับคู่ไปแล้ว',
+    alreadyMatchedBadge: 'จับคู่แล้วกับรายการ',
     amountDiff: 'ส่วนต่าง',
     timeDiff: 'ห่างกัน',
     channelLabel: 'ช่องทาง',
