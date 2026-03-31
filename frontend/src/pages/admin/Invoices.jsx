@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FileText, Search, X, Image } from 'lucide-react';
-import { invoicesAPI, housesAPI, creditNotesAPI } from '../../api/client';
+import { invoicesAPI, housesAPI, creditNotesAPI, payinsAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
 import CreditNoteModal from '../../components/CreditNoteModal';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -606,7 +606,7 @@ export default function Invoices() {
                                 )}
                                 {payment.payin?.slip_url && (
                                   <button
-                                    onClick={() => setSlipViewUrl(payment.payin.slip_url)}
+                                    onClick={() => setSlipViewUrl(payinsAPI.slipUrl(payment.payin.id))}
                                     className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-lg hover:bg-blue-600/30 transition-colors"
                                   >
                                     <Image size={12} />
