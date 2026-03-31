@@ -708,6 +708,13 @@ const th = {
     file: 'ไฟล์',
     importBtn: 'นำเข้า',
     transactionsDeleted: 'ลบรายการสำเร็จ',
+    searchTitle: 'ค้นหารายการธนาคาร',
+    searchAmount: 'ยอดเงิน',
+    searchDate: 'วันที่',
+    clearSearch: 'ล้างผลค้นหา',
+    searchNoResults: 'ไม่พบรายการที่ตรงกัน',
+    matchedWithPayin: 'จับคู่แล้วกับรายการ',
+    unmatched: 'ยังไม่จับคู่',
   },
 
   // ── Expense Reconciliation ───────────────────────────────

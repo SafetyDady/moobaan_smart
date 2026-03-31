@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, Lightbulb, ClipboardList, Calendar, XCircle, Loader2, X as XIcon } from 'lucide-react';
+import { AlertTriangle, Lightbulb, ClipboardList, Calendar, XCircle, Loader2, X as XIcon, Search } from 'lucide-react';
 import { bankStatementsAPI, bankAccountsAPI } from '../../api/client';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -35,6 +35,12 @@ const BankStatements = () => {
   // Pagination for transactions
   const { sortConfig: txnSortConfig, requestSort: txnRequestSort, sortedData: sortedTransactions } = useSort(transactions);
   const pagedTransactions = usePagination(sortedTransactions);
+
+  // Transaction search
+  const [searchAmount, setSearchAmount] = useState('');
+  const [searchDate, setSearchDate] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // New bank account form
   const [showAddAccount, setShowAddAccount] = useState(false);
@@ -77,6 +83,24 @@ const BankStatements = () => {
     } catch (err) {
       console.error('Failed to load batches:', err);
       setBatches([]); // Ensure array on error
+    }
+  };
+
+  const handleSearchTransactions = async (e) => {
+    e.preventDefault();
+    if (!searchAmount && !searchDate) return;
+    setSearchLoading(true);
+    try {
+      const params = {};
+      if (searchAmount) params.amount = parseFloat(searchAmount);
+      if (searchDate) params.date = searchDate;
+      const response = await bankStatementsAPI.searchTransactions(params);
+      setSearchResults(response.data);
+    } catch (err) {
+      console.error('Search failed:', err);
+      setSearchResults({ transactions: [], count: 0 });
+    } finally {
+      setSearchLoading(false);
     }
   };
 
@@ -362,6 +386,112 @@ const BankStatements = () => {
           <pre className="whitespace-pre-wrap font-sans text-sm">{error}</pre>
         </div>
       )}
+
+      {/* Transaction Search */}
+      <div className="card p-4 mb-6">
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Search size={18} className="text-blue-400" />
+          {t('bankStatements.searchTitle')}
+        </h2>
+        <form onSubmit={handleSearchTransactions} className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">{t('bankStatements.searchAmount')}</label>
+            <input
+              type="number"
+              step="0.01"
+              value={searchAmount}
+              onChange={(e) => setSearchAmount(e.target.value)}
+              placeholder="600"
+              className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white w-32 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">{t('bankStatements.searchDate')}</label>
+            <input
+              type="date"
+              value={searchDate}
+              onChange={(e) => setSearchDate(e.target.value)}
+              className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={searchLoading || (!searchAmount && !searchDate)}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded text-sm flex items-center gap-2"
+          >
+            {searchLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+            {t('common.search')}
+          </button>
+          {searchResults && (
+            <button
+              type="button"
+              onClick={() => { setSearchResults(null); setSearchAmount(''); setSearchDate(''); }}
+              className="text-gray-400 hover:text-white text-sm px-3 py-2"
+            >
+              {t('bankStatements.clearSearch')}
+            </button>
+          )}
+        </form>
+
+        {/* Search Results */}
+        {searchResults && (
+          <div className="mt-4">
+            <p className="text-sm text-gray-400 mb-2">
+              {`พบ ${searchResults.count} รายการ`}
+            </p>
+            {searchResults.transactions.length === 0 ? (
+              <p className="text-yellow-400 text-sm">{t('bankStatements.searchNoResults')}</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {searchResults.transactions.map((txn) => {
+                  const txnDate = new Date(txn.effective_at);
+                  const isMatched = txn.is_matched;
+                  return (
+                    <div
+                      key={txn.id}
+                      className={`border rounded p-3 ${
+                        isMatched ? 'border-yellow-500/50 bg-yellow-900/10' : 'border-gray-600 bg-gray-800/50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-white font-medium">
+                            ฿{parseFloat(txn.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-gray-400 text-sm ml-3">
+                            {txnDate.toLocaleDateString('th-TH')} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                          {txn.description && (
+                            <span className="text-gray-500 text-xs ml-2">{txn.description}</span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {isMatched ? (
+                            <div>
+                              <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/30">
+                                {t('bankStatements.matchedWithPayin')} #{txn.matched_payin_id}
+                              </span>
+                              {txn.matched_payin_house_code && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {t('payins.house')} {txn.matched_payin_house_code} • {txn.matched_payin_status}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-400">
+                              {t('bankStatements.unmatched')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Add Bank Account Form */}
       {showAddAccount && (

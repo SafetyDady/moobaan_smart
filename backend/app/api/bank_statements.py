@@ -521,6 +521,59 @@ async def get_batch_transactions(
     }
 
 
+# ===== Search Transactions Across All Batches =====
+
+@router.get("/transactions/search")
+async def search_transactions(
+    amount: Optional[float] = None,
+    date: Optional[str] = None,
+    current_user: User = Depends(require_role(["super_admin", "accounting"])),
+    db: Session = Depends(get_db),
+):
+    """
+    Search credit transactions across all batches by amount and/or date.
+    Returns matched payin info so admin can trace which payin claimed each transaction.
+    """
+    from sqlalchemy import func, cast, Date
+
+    query = db.query(BankTransaction).filter(BankTransaction.credit > 0)
+
+    if amount is not None:
+        query = query.filter(
+            func.abs(BankTransaction.credit - amount) < 0.02
+        )
+
+    if date:
+        try:
+            search_date = datetime.strptime(date, "%Y-%m-%d").date()
+            query = query.filter(
+                cast(BankTransaction.effective_at, Date) == search_date
+            )
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    transactions = query.order_by(BankTransaction.effective_at.desc()).limit(50).all()
+
+    results = []
+    for txn in transactions:
+        txn_dict = txn.to_dict()
+        # Add matched payin details for admin visibility
+        if txn.matched_payin_id:
+            matched_payin = db.query(PayinReport).filter(PayinReport.id == txn.matched_payin_id).first()
+            if matched_payin:
+                from app.db.models.house import House
+                house = db.query(House).filter(House.id == matched_payin.house_id).first()
+                txn_dict['matched_payin_house_code'] = house.house_code if house else None
+                txn_dict['matched_payin_status'] = matched_payin.status.value if hasattr(matched_payin.status, 'value') else str(matched_payin.status)
+                txn_dict['matched_payin_amount'] = float(matched_payin.amount)
+        results.append(txn_dict)
+
+    return {
+        "transactions": results,
+        "count": len(results),
+    }
+
+
 # ===== Delete Batch Endpoint =====
 
 @router.delete("/batches/{batch_id}")
