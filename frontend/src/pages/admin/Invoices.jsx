@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, Search, X } from 'lucide-react';
 import { invoicesAPI, housesAPI, creditNotesAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
 import CreditNoteModal from '../../components/CreditNoteModal';
@@ -18,7 +18,9 @@ export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('auto');
-  
+  const [filterHouseCode, setFilterHouseCode] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   
@@ -50,7 +52,7 @@ export default function Invoices() {
 
   useEffect(() => {
     loadInvoices();
-  }, [activeTab]);
+  }, [activeTab, filterStatus]);
 
   useEffect(() => {
     loadHouses();
@@ -69,6 +71,19 @@ export default function Invoices() {
     try {
       setLoading(true);
       const params = { is_manual: activeTab === 'manual' };
+      if (filterStatus) params.status = filterStatus;
+      // Find house_id from house_code search
+      if (filterHouseCode.trim()) {
+        const match = houses.find(h => h.house_code === filterHouseCode.trim());
+        if (match) {
+          params.house_id = match.id;
+        } else {
+          // No exact match → show empty
+          setInvoices([]);
+          setLoading(false);
+          return;
+        }
+      }
       const response = await invoicesAPI.list(params);
       setInvoices(response.data);
     } catch (error) {
@@ -76,6 +91,15 @@ export default function Invoices() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = () => {
+    loadInvoices();
+  };
+
+  const handleClearFilters = () => {
+    setFilterHouseCode('');
+    setFilterStatus('');
   };
 
   const handleGenerateMonthly = async () => {
@@ -278,6 +302,62 @@ export default function Invoices() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <div className="flex-1 min-w-[160px] max-w-[240px]">
+          <label className="block text-gray-400 text-xs mb-1">{t('invoices.filterHouse')}</label>
+          <div className="relative">
+            <input
+              type="text"
+              value={filterHouseCode}
+              onChange={(e) => setFilterHouseCode(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder={t('invoices.filterHousePlaceholder')}
+              list="house-codes"
+              className="w-full pl-3 pr-8 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            <datalist id="house-codes">
+              {houses.map(h => (
+                <option key={h.id} value={h.house_code} />
+              ))}
+            </datalist>
+            <Search size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+          </div>
+        </div>
+
+        <div className="min-w-[160px]">
+          <label className="block text-gray-400 text-xs mb-1">{t('common.status')}</label>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            <option value="">{t('invoices.allStatuses')}</option>
+            <option value="ISSUED">{t('status.pending')}</option>
+            <option value="PAID">{t('status.paid')}</option>
+            <option value="PARTIALLY_PAID">{t('status.partial')}</option>
+            <option value="CREDITED">{t('invoices.statusCredited')}</option>
+          </select>
+        </div>
+
+        <button
+          onClick={handleSearch}
+          className="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-500 transition-colors"
+        >
+          {t('common.search')}
+        </button>
+
+        {(filterHouseCode || filterStatus) && (
+          <button
+            onClick={handleClearFilters}
+            className="px-3 py-2 text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
+          >
+            <X size={14} />
+            {t('invoices.clearFilters')}
+          </button>
+        )}
       </div>
 
       {/* Table */}

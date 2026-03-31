@@ -380,6 +380,11 @@ const th = {
     confirmCreditNote: 'ยืนยันใบลดหนี้',
     invoiceNumber: 'เลขที่ใบแจ้งหนี้',
     descriptionPlaceholder: 'เช่น ค่าปรับจอดรถผิดที่, ค่าซ่อมแซม',
+    filterHouse: 'ค้นหาบ้าน',
+    filterHousePlaceholder: 'พิมพ์เลขบ้าน...',
+    allStatuses: 'สถานะทั้งหมด',
+    statusCredited: 'ลดหนี้แล้ว',
+    clearFilters: 'ล้างตัวกรอง',
   },
 
   // ── Pay-ins ──────────────────────────────────────────────
