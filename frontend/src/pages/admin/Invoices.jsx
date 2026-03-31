@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Search, X } from 'lucide-react';
+import { FileText, Search, X, Image } from 'lucide-react';
 import { invoicesAPI, housesAPI, creditNotesAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
 import CreditNoteModal from '../../components/CreditNoteModal';
@@ -42,6 +42,7 @@ export default function Invoices() {
 
   const [showCreditNoteModal, setShowCreditNoteModal] = useState(false);
   const [creditNoteInvoice, setCreditNoteInvoice] = useState(null);
+  const [slipViewUrl, setSlipViewUrl] = useState(null);
 
   const toast = useToast();
 
@@ -566,20 +567,59 @@ export default function Invoices() {
                         {payments.map((payment, idx) => (
                           <div key={idx} className="bg-slate-700/50 rounded-lg p-4">
                             <div className="flex justify-between items-start">
-                              <div>
-                                <div className="text-green-400 font-bold">
-                                  ฿{payment.amount?.toLocaleString()}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-green-400 font-bold">
+                                    ฿{payment.amount?.toLocaleString()}
+                                  </span>
+                                  {payment.payin ? (
+                                    <>
+                                      <span className="text-gray-500">—</span>
+                                      <span className="text-gray-300 text-sm">
+                                        {t('invoices.payinRef')} #{payment.payin.id}
+                                      </span>
+                                      {payment.payin.house_code && (
+                                        <span className="text-gray-500 text-sm">
+                                          ({t('invoices.house')} {payment.payin.house_code})
+                                        </span>
+                                      )}
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                        payment.payin.status === 'ACCEPTED' ? 'bg-green-500/20 text-green-400' :
+                                        payment.payin.status === 'SUBMITTED' ? 'bg-yellow-500/20 text-yellow-400' :
+                                        'bg-gray-500/20 text-gray-400'
+                                      }`}>
+                                        {payment.payin.status === 'ACCEPTED' ? t('status.approved') :
+                                         payment.payin.status === 'SUBMITTED' ? t('status.pending') :
+                                         payment.payin.status}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-gray-500 text-sm">
+                                      Ledger #{payment.ledger?.id}
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="text-gray-400 text-sm mt-1">
-                                  Ledger #{payment.ledger_id || payment.income_transaction_id}
-                                </div>
+                                {payment.payin?.transfer_date && (
+                                  <div className="text-gray-500 text-xs mt-1">
+                                    {t('invoices.transferDate')}: {new Date(payment.payin.transfer_date).toLocaleDateString('th-TH')}
+                                  </div>
+                                )}
+                                {payment.payin?.slip_url && (
+                                  <button
+                                    onClick={() => setSlipViewUrl(payment.payin.slip_url)}
+                                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-lg hover:bg-blue-600/30 transition-colors"
+                                  >
+                                    <Image size={12} />
+                                    {t('invoices.viewSlip')}
+                                  </button>
+                                )}
                                 {payment.note && (
                                   <div className="text-gray-500 text-sm mt-1">
                                     {t('common.notes')}: {payment.note}
                                   </div>
                                 )}
                               </div>
-                              <div className="text-gray-400 text-sm">
+                              <div className="text-gray-400 text-sm text-right shrink-0 ml-3">
                                 {payment.applied_at ? new Date(payment.applied_at).toLocaleString('th-TH') : '-'}
                               </div>
                             </div>
@@ -727,6 +767,28 @@ export default function Invoices() {
         invoice={creditNoteInvoice}
         onSuccess={handleCreditNoteSuccess}
       />
+
+      {/* Slip Lightbox */}
+      {slipViewUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4"
+          onClick={() => setSlipViewUrl(null)}
+        >
+          <div className="relative max-w-2xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setSlipViewUrl(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 bg-slate-700 text-white rounded-full flex items-center justify-center hover:bg-slate-600 z-10"
+            >
+              ×
+            </button>
+            <img
+              src={slipViewUrl}
+              alt="Slip"
+              className="max-h-[85vh] rounded-lg shadow-2xl object-contain"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Generate Monthly Confirm Modal */}
       <ConfirmModal

@@ -661,7 +661,14 @@ async def get_invoice_payments(
                 "amount": float(ledger.amount) if ledger else 0,
                 "received_at": ledger.received_at.isoformat() if ledger else None,
                 "payin_id": payin.id if payin else None
-            } if ledger else None
+            } if ledger else None,
+            "payin": {
+                "id": payin.id,
+                "status": payin.status,
+                "slip_url": payin.slip_url,
+                "house_code": payin.house.house_code if payin.house else None,
+                "transfer_date": payin.transfer_date.isoformat() if payin.transfer_date else None,
+            } if payin else None
         })
     
     return {

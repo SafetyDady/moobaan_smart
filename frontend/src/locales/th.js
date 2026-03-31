@@ -385,6 +385,9 @@ const th = {
     allStatuses: 'สถานะทั้งหมด',
     statusCredited: 'ลดหนี้แล้ว',
     clearFilters: 'ล้างตัวกรอง',
+    payinRef: 'PayIn',
+    viewSlip: 'ดูสลิป',
+    transferDate: 'วันโอน',
   },
 
   // ── Pay-ins ──────────────────────────────────────────────
