@@ -3,7 +3,6 @@ import { FileText, Search, X, Image } from 'lucide-react';
 import { invoicesAPI, housesAPI, creditNotesAPI, payinsAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
 import CreditNoteModal from '../../components/CreditNoteModal';
-import ConfirmModal from '../../components/ConfirmModal';
 import { useToast } from '../../components/Toast';
 import { SkeletonTable, SkeletonBlock } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
@@ -50,6 +49,10 @@ export default function Invoices() {
   const { sortConfig, requestSort, sortedData: sortedInvoices } = useSort(invoices);
   const paged = usePagination(sortedInvoices);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
+  const now = new Date();
+  const [generateYear, setGenerateYear] = useState(now.getFullYear());
+  const [generateMonth, setGenerateMonth] = useState(now.getMonth() + 1);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     loadInvoices();
@@ -105,12 +108,18 @@ export default function Invoices() {
 
   const handleGenerateMonthly = async () => {
     try {
-      await invoicesAPI.generateMonthly();
-      toast.success(t('invoices.generateSuccess'));
+      setGenerating(true);
+      const res = await invoicesAPI.generateMonthly({ year: generateYear, month: generateMonth });
+      const count = res.data?.count ?? 0;
+      const cycle = res.data?.cycle ?? `${generateYear}-${String(generateMonth).padStart(2, '0')}`;
+      toast.success(`${t('invoices.generateSuccess')} (${cycle}: ${count})`);
+      setConfirmGenerate(false);
       loadInvoices();
     } catch (error) {
       console.error('Failed to generate invoices:', error);
-      toast.error(t('invoices.generateFailed'));
+      toast.error(error.response?.data?.detail || t('invoices.generateFailed'));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -790,16 +799,85 @@ export default function Invoices() {
         </div>
       )}
 
-      {/* Generate Monthly Confirm Modal */}
-      <ConfirmModal
-        open={confirmGenerate}
-        title={t('invoices.confirmGenerate')}
-        message={t('invoices.confirmGenerateMsg')}
-        variant="info"
-        confirmText={t('common.create')}
-        onConfirm={handleGenerateMonthly}
-        onCancel={() => setConfirmGenerate(false)}
-      />
+      {/* Generate Monthly Modal — with year/month picker */}
+      {confirmGenerate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">{t('invoices.confirmGenerate')}</h2>
+              <button
+                onClick={() => !generating && setConfirmGenerate(false)}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-gray-300 text-sm">{t('invoices.selectCyclePrompt')}</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-400 text-xs mb-1">{t('invoices.month')}</label>
+                  <select
+                    value={generateMonth}
+                    onChange={(e) => setGenerateMonth(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    {[
+                      'มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                      'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'
+                    ].map((name, idx) => (
+                      <option key={idx + 1} value={idx + 1}>
+                        {String(idx + 1).padStart(2, '0')} - {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-xs mb-1">{t('invoices.year')}</label>
+                  <select
+                    value={generateYear}
+                    onChange={(e) => setGenerateYear(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    {Array.from({ length: 5 }).map((_, i) => {
+                      const y = now.getFullYear() - 2 + i;
+                      return (
+                        <option key={y} value={y}>{y} ({y + 543})</option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+
+              <div className="bg-slate-700/40 rounded-lg p-3 text-sm">
+                <span className="text-gray-400">{t('invoices.cycle')}:&nbsp;</span>
+                <span className="text-white font-medium">
+                  {generateYear}-{String(generateMonth).padStart(2, '0')}
+                </span>
+              </div>
+
+              <p className="text-yellow-400 text-xs">{t('invoices.duplicateWarning')}</p>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-700 flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmGenerate(false)}
+                disabled={generating}
+                className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleGenerateMonthly}
+                disabled={generating}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors disabled:opacity-50"
+              >
+                {generating ? t('common.creating') : t('common.create')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </AdminPageWrapper>
   );

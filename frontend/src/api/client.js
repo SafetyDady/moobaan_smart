@@ -171,7 +171,7 @@ export const invoicesAPI = {
   createManual: (data) => apiClient.post('/api/invoices/manual', data),
   update: (id, data) => apiClient.put(`/api/invoices/${id}`, data),
   delete: (id) => apiClient.delete(`/api/invoices/${id}`),
-  generateMonthly: () => apiClient.post('/api/invoices/generate-monthly'),
+  generateMonthly: (params) => apiClient.post('/api/invoices/generate-monthly', null, { params }),
   // Apply Payment APIs (Phase 3)
   getAllocatableLedgers: (houseId) => 
     apiClient.get('/api/invoices/allocatable-ledgers', { params: houseId ? { house_id: houseId } : {} }),
