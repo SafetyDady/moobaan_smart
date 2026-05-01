@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Search, X, Image } from 'lucide-react';
+import { FileText, Search, X, Image, Trash2 } from 'lucide-react';
 import { invoicesAPI, housesAPI, creditNotesAPI, payinsAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
 import CreditNoteModal from '../../components/CreditNoteModal';
@@ -42,6 +42,8 @@ export default function Invoices() {
   const [showCreditNoteModal, setShowCreditNoteModal] = useState(false);
   const [creditNoteInvoice, setCreditNoteInvoice] = useState(null);
   const [slipViewUrl, setSlipViewUrl] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const toast = useToast();
 
@@ -120,6 +122,27 @@ export default function Invoices() {
       toast.error(error.response?.data?.detail || t('invoices.generateFailed'));
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDeleteClick = (invoice, e) => {
+    e?.stopPropagation();
+    setDeleteTarget(invoice);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setDeleting(true);
+      await invoicesAPI.delete(deleteTarget.id);
+      toast.success(t('invoices.deleteSuccess'));
+      setDeleteTarget(null);
+      loadInvoices();
+    } catch (error) {
+      console.error('Failed to delete invoice:', error);
+      toast.error(error.response?.data?.detail || t('invoices.deleteFailed'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -449,6 +472,15 @@ export default function Invoices() {
                             + {t('invoices.creditNote')}
                           </button>
                         )}
+                        {paid === 0 && (
+                          <button
+                            onClick={(e) => handleDeleteClick(inv, e)}
+                            className="px-2 py-1 bg-red-600/80 text-white text-xs rounded hover:bg-red-600 transition-colors inline-flex items-center"
+                            title={t('common.delete')}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -776,6 +808,53 @@ export default function Invoices() {
         invoice={creditNoteInvoice}
         onSuccess={handleCreditNoteSuccess}
       />
+
+      {/* Confirm Delete Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-slate-700">
+              <h2 className="text-xl font-bold text-white">{t('invoices.confirmDelete')}</h2>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className="text-gray-300 text-sm">{t('invoices.confirmDeleteMsg')}</p>
+              <div className="bg-slate-700/50 rounded-lg p-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">{t('invoices.house')}:</span>
+                  <span className="text-white font-medium">{deleteTarget.house_number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">{t('invoices.cycle')}:</span>
+                  <span className="text-white font-medium">
+                    {deleteTarget.is_manual ? (deleteTarget.manual_reason || t('invoices.manual')) : deleteTarget.cycle}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">{t('invoices.total')}:</span>
+                  <span className="text-white font-medium">฿{deleteTarget.total?.toLocaleString()}</span>
+                </div>
+              </div>
+              <p className="text-red-400 text-xs">{t('invoices.deleteWarning')}</p>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-700 flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50"
+              >
+                {deleting ? t('common.loading') : t('common.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Slip Lightbox */}
       {slipViewUrl && (
