@@ -59,6 +59,13 @@ export default function SubmitPayment() {
         toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน');
         return;
       }
+
+      // Validate amount is a positive finite number (parseFloat('') === NaN)
+      const amountNum = parseFloat(formData.amount);
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        toast.warning('กรุณากรอกจำนวนเงินที่ถูกต้อง (มากกว่า 0)');
+        return;
+      }
       
       console.log('✅ VALIDATION PASSED');
     } catch (validationError) {
@@ -268,7 +275,7 @@ export default function SubmitPayment() {
               type="number"
               required
               step="0.01"
-              min="0"
+              min="1"
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               className="input w-full"

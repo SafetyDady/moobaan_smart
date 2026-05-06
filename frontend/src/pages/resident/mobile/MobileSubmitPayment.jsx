@@ -101,6 +101,14 @@ export default function MobileSubmitPayment() {
         return;
       }
 
+      // Validate amount (parseFloat('') === NaN — must catch explicitly)
+      const amountNum = parseFloat(formData.amount);
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        setError(t('mobileSubmitPayment.invalidAmount'));
+        setSubmitting(false);
+        return;
+      }
+
       // Validate date
       if (!formData.transfer_date) {
         setError(t('mobileSubmitPayment.noDate'));
@@ -145,7 +153,7 @@ export default function MobileSubmitPayment() {
           slipUrl = uploadRes.data.slip_url;
         }
         const jsonData = {
-          amount: parseFloat(formData.amount),
+          amount: amountNum,
           transfer_date: `${year}-${month}-${day}`,
           transfer_hour: hour,
           transfer_minute: minute,
@@ -160,7 +168,7 @@ export default function MobileSubmitPayment() {
       } else {
         // For create, use FormData
         const submitFormData = new FormData();
-        submitFormData.append('amount', parseFloat(formData.amount));
+        submitFormData.append('amount', amountNum);
         submitFormData.append('paid_at', paidAtISO);
         
         if (formData.slip_image) {
@@ -305,7 +313,7 @@ export default function MobileSubmitPayment() {
               type="number"
               inputMode="decimal"
               step="0.01"
-              min="0"
+              min="1"
               required
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}

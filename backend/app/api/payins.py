@@ -370,9 +370,9 @@ async def create_payin_report(
                 }
             )
         
-        # Validate amount
-        if amount <= 0:
-            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        # Validate amount (catches NaN/Inf — math.isnan(x) is True for NaN, and NaN <= 0 is False)
+        if amount is None or math.isnan(amount) or math.isinf(amount) or amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be a positive number")
         
         # Parse paid_at (ISO datetime string) → normalize to UTC
         from dateutil import parser as date_parser
@@ -509,6 +509,12 @@ async def update_payin_report(
     
     # Update fields if provided
     if payin.amount is not None:
+        try:
+            amt = float(payin.amount)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Amount must be a positive number")
+        if math.isnan(amt) or math.isinf(amt) or amt <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be a positive number")
         existing.amount = payin.amount
     
     # Collect transfer_hour / transfer_minute (update individually first)
