@@ -1,8 +1,25 @@
+import math
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File, Form, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+
+def _safe_float(value, fallback: float = 0.0) -> float:
+    """Convert Decimal/None to JSON-safe float (NaN/Inf → fallback)."""
+    if value is None:
+        return fallback
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    if math.isnan(f) or math.isinf(f):
+        return fallback
+    return f
 from app.core.timezone import ensure_utc, utc_now, assert_utc
 from app.models import (
     PayInReport as PayInReportSchema, PayInReportCreate, PayInReportUpdate,
@@ -66,12 +83,24 @@ async def list_payin_reports(
         query = query.filter(PayinReportModel.status == status)
     
     payins = query.order_by(PayinReportModel.created_at.desc()).all()
-    
+
+    # Hotfix: log records with non-finite amount so we can fix the data later
+    for p in payins:
+        try:
+            f = float(p.amount) if p.amount is not None else 0.0
+            if math.isnan(f) or math.isinf(f):
+                logger.error(
+                    "PayinReport id=%s has non-finite amount=%r (house_id=%s, status=%s)",
+                    p.id, p.amount, p.house_id, p.status
+                )
+        except Exception:
+            logger.error("PayinReport id=%s has invalid amount=%r", p.id, p.amount)
+
     result = [{
         "id": payin.id,
         "house_id": payin.house_id,
         "house_number": payin.house.house_code,
-        "amount": float(payin.amount),
+        "amount": _safe_float(payin.amount),
         "transfer_date": payin.transfer_date,
         "transfer_hour": payin.transfer_hour,
         "transfer_minute": payin.transfer_minute,
@@ -202,7 +231,7 @@ async def get_payin_report(
         "id": payin.id,
         "house_id": payin.house_id,
         "house_number": payin.house.house_code,
-        "amount": float(payin.amount),
+        "amount": _safe_float(payin.amount),
         "transfer_date": payin.transfer_date,
         "transfer_hour": payin.transfer_hour,
         "transfer_minute": payin.transfer_minute,
