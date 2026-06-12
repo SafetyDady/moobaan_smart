@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     PROJECT_NAME_TH: str = "หมู่บ้านสมาร์ท"
     PROJECT_NAME_EN: str = "Smart Village"
     ACCOUNTING_CONTACT: str = "Tel: 02-xxx-xxxx Email: accounting@village.com"
-    
+
     class Config:
         env_file = ".env"
     
