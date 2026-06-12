@@ -7,6 +7,12 @@
 
 ## 2026-06-12
 
+### Push docs commit `3342e64` + ยืนยัน production เขียว + พบ URL backend ใน docs ผิด
+- push commit docs (context files + .env.example + whitespace) → **Vercel READY + Railway แข็งแรง** (`/health` 200, `/ready` 200 database ok) — production ไม่กระทบ
+- **พบ docs ผิด:** CLAUDE.md เขียน backend URL เป็น `moobaan-smart-production.up.railway.app` (มีขีด) แต่ **URL จริงคือ `moobaansmart-production.up.railway.app`** (ไม่มีขีด — ยืนยันจาก JS bundle ของ frontend production) → แก้ใน CLAUDE.md/AGENTS.md แล้ว (รอ push รอบหน้า)
+- **health endpoints:** `/health` (liveness), `/ready` (DB check), `/api/system/status` — ไม่ใช่ `/api/health`
+- **เครื่องใหม่:** ตั้ง git identity (`SafetyDady <sanchai5651@gmail.com>`) + เคลียร์ `index.lock` ค้าง (lock ตาย 7 ชม. ไม่มี git process)
+
 ### ตรวจ env: local ≠ production + คีย์หลุดในแชต + พบ config เสี่ยง
 - **local `.env` ไม่ใช่ backup ของ production** — มีแค่ค่า dev: `DATABASE_URL`→local db, `SECRET_KEY`→ค่า dev (ขึ้นต้น `secret` ซึ่ง prod จะ reject), ขาดคีย์ integration ทั้งหมด (R2 5 ตัว, LINE 2, SMSMKT 3, OTP_*, token config). ค่าจริงอยู่บน **Railway dashboard เท่านั้น**
 - **🔴 คีย์ production หลุดในแชต (ผู้ใช้วางค่า Railway env ลงแชต) → ต้อง rotate:** `SECRET_KEY`, `R2_ACCESS_KEY_ID`+`R2_SECRET_ACCESS_KEY`, `LINE_CHANNEL_SECRET`, `PROD_ADMIN_PASSWORD` (ค่าเดิมอ่อนมาก). `DATABASE_URL` ปลอดภัย (เป็น reference `${{Postgres_moobaan.DATABASE_URL}}`)

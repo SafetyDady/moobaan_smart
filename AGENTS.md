@@ -31,7 +31,7 @@
 ## Project Overview
 ระบบจัดการการเงินหมู่บ้านจัดสรร **แมกไม้ลีลาวดี** (Housing Estate Finance Management)
 - **Live:** https://moobaan-smart.vercel.app
-- **Backend API:** https://moobaan-smart-production.up.railway.app
+- **Backend API:** https://moobaansmart-production.up.railway.app
 
 ## Tech Stack
 - **Backend:** FastAPI + SQLAlchemy 2.0 + PostgreSQL (psycopg3) + Alembic
