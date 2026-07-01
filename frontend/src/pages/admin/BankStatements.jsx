@@ -366,7 +366,7 @@ const BankStatements = () => {
     <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">{t('bankStatements.title')}</h1>
+        <h1 className="text-2xl font-bold text-white">{t('bankStatements.title')}</h1>
         <button
           onClick={() => setShowAddAccount(!showAddAccount)}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
@@ -389,7 +389,7 @@ const BankStatements = () => {
 
       {/* Transaction Search */}
       <div className="card p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
           <Search size={18} className="text-blue-400" />
           {t('bankStatements.searchTitle')}
         </h2>
@@ -495,8 +495,8 @@ const BankStatements = () => {
 
       {/* Add Bank Account Form */}
       {showAddAccount && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">{t('bankStatements.addNewAccount')}</h2>
+        <div className="card p-6 mb-6">
+          <h2 className="text-xl font-semibold text-white mb-4">{t('bankStatements.addNewAccount')}</h2>
           <form onSubmit={handleAddAccount} className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">{t('bankStatements.bankCode')}</label>
@@ -504,7 +504,7 @@ const BankStatements = () => {
                 type="text"
                 value={newAccount.bank_code}
                 onChange={(e) => setNewAccount({...newAccount, bank_code: e.target.value})}
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
                 placeholder="e.g., KBANK, SCB"
                 required
               />
@@ -515,7 +515,7 @@ const BankStatements = () => {
                 type="text"
                 value={newAccount.account_no_masked}
                 onChange={(e) => setNewAccount({...newAccount, account_no_masked: e.target.value})}
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
                 placeholder="e.g., xxx-x-xxxxx-1234"
                 required
               />
@@ -525,7 +525,7 @@ const BankStatements = () => {
               <select
                 value={newAccount.account_type}
                 onChange={(e) => setNewAccount({...newAccount, account_type: e.target.value})}
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
               >
                 <option value="CASHFLOW">{t('bankStatements.cashflow')}</option>
                 <option value="SAVINGS">{t('bankStatements.savings')}</option>
@@ -543,8 +543,8 @@ const BankStatements = () => {
       )}
 
       {/* Upload Form */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">{t('bankStatements.uploadCsv')}</h2>
+      <div className="card p-6 mb-6">
+        <h2 className="text-xl font-semibold text-white mb-4">{t('bankStatements.uploadCsv')}</h2>
         
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
@@ -552,7 +552,7 @@ const BankStatements = () => {
             <select
               value={selectedAccount}
               onChange={(e) => setSelectedAccount(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="input w-full"
               disabled={safeAccounts.length === 0}
             >
               <option value="">
@@ -572,7 +572,7 @@ const BankStatements = () => {
               type="number"
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value))}
-              className="w-full border rounded px-3 py-2"
+              className="input w-full"
               min="2020"
               max="2030"
             />
@@ -583,7 +583,7 @@ const BankStatements = () => {
             <select
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value))}
-              className="w-full border rounded px-3 py-2"
+              className="input w-full"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                 <option key={m} value={m}>
@@ -600,7 +600,7 @@ const BankStatements = () => {
               type="file"
               accept=".csv"
               onChange={handleFileChange}
-              className="w-full border rounded px-3 py-2"
+              className="input w-full"
             />
           </div>
         </div>
@@ -616,8 +616,8 @@ const BankStatements = () => {
 
       {/* Preview Section */}
       {preview && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">{t('common.preview')}</h2>
+        <div className="card p-6 mb-6">
+          <h2 className="text-xl font-semibold text-white mb-4">{t('common.preview')}</h2>
 
           {/* Validation Messages */}
           {preview.validation?.errors?.length > 0 && (
@@ -644,50 +644,50 @@ const BankStatements = () => {
 
           {/* Summary */}
           <div className="grid grid-cols-4 gap-4 mb-4 text-sm">
-            <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">{t('bankStatements.transactions')}</div>
+            <div className="bg-slate-700 p-3 rounded">
+              <div className="text-gray-400">{t('bankStatements.transactions')}</div>
               <div className="text-xl font-bold">{preview.transaction_count}</div>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">{t('bankStatements.dateRange')}</div>
+            <div className="bg-slate-700 p-3 rounded">
+              <div className="text-gray-400">{t('bankStatements.dateRange')}</div>
               <div className="font-semibold">
                 {formatDate(preview.date_range_start)} - {formatDate(preview.date_range_end)}
               </div>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">{t('bankStatements.openingBalance')}</div>
+            <div className="bg-slate-700 p-3 rounded">
+              <div className="text-gray-400">{t('bankStatements.openingBalance')}</div>
               <div className="font-semibold">{formatCurrency(preview.opening_balance)}</div>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <div className="text-gray-600">{t('bankStatements.closingBalance')}</div>
+            <div className="bg-slate-700 p-3 rounded">
+              <div className="text-gray-400">{t('bankStatements.closingBalance')}</div>
               <div className="font-semibold">{formatCurrency(preview.closing_balance)}</div>
             </div>
           </div>
 
           {/* Transaction Table */}
           <div className="overflow-x-auto mb-4">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-slate-700">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.dateCol')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.descriptionCol')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.descriptionExtra')}</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.debit')}</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.credit')}</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.balance')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.channelCol')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.dateCol')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.descriptionCol')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.descriptionExtra')}</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">{t('bankStatements.debit')}</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">{t('bankStatements.credit')}</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">{t('bankStatements.balance')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.channelCol')}</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-slate-800 divide-y divide-gray-700">
                 {preview.transactions.map((txn, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
+                  <tr key={idx} className="hover:bg-slate-700">
                     <td className="px-4 py-2 text-sm whitespace-nowrap">{formatDateTime(txn.effective_at)}</td>
                     <td className="px-4 py-2 text-sm">{txn.description}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600">{txn.details || '-'}</td>
-                    <td className="px-4 py-2 text-sm text-right text-red-600">
+                    <td className="px-4 py-2 text-sm text-gray-400">{txn.details || '-'}</td>
+                    <td className="px-4 py-2 text-sm text-right text-red-400">
                       {txn.debit ? formatCurrency(txn.debit) : '-'}
                     </td>
-                    <td className="px-4 py-2 text-sm text-right text-green-600">
+                    <td className="px-4 py-2 text-sm text-right text-green-400">
                       {txn.credit ? formatCurrency(txn.credit) : '-'}
                     </td>
                     <td className="px-4 py-2 text-sm text-right font-medium">
@@ -714,30 +714,30 @@ const BankStatements = () => {
       )}
 
       {/* Existing Batches */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">{t('bankStatements.importedBatches')}</h2>
+      <div className="card p-6">
+        <h2 className="text-xl font-semibold text-white mb-4">{t('bankStatements.importedBatches')}</h2>
         
         {safeBatches.length === 0 ? (
-          <p className="text-gray-500">{t('bankStatements.noImportedData')}</p>
+          <p className="text-gray-400">{t('bankStatements.noImportedData')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-slate-700">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.date')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.account')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.period')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.file')}</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.transactions')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.status')}</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.actions')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('common.date')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.account')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.period')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.file')}</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">{t('bankStatements.transactions')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('common.status')}</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('common.actions')}</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-slate-800 divide-y divide-gray-700">
                 {safeBatches.map((batch) => {
                   const account = safeAccounts.find(a => a.id === batch.bank_account_id);
                   return (
-                    <tr key={batch.id} className="hover:bg-gray-50">
+                    <tr key={batch.id} className="hover:bg-slate-700">
                       <td className="px-4 py-2 text-sm">{formatDate(batch.uploaded_at)}</td>
                       <td className="px-4 py-2 text-sm">
                         {account?.bank_code} - {account?.account_no_masked}
@@ -781,12 +781,12 @@ const BankStatements = () => {
 
       {/* Transactions View Section */}
       {selectedBatchId && (
-        <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="card p-6 mt-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 className="text-xl font-semibold">{t('bankStatements.batchTransactions')}</h2>
+              <h2 className="text-xl font-semibold text-white">{t('bankStatements.batchTransactions')}</h2>
               {batchInfo && (
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-gray-400 mt-1">
                   {batchInfo.filename} • {batchInfo.year}-{String(batchInfo.month).padStart(2, '0')}
                   {batchInfo.date_range_start && batchInfo.date_range_end && (
                     <> • {formatDate(batchInfo.date_range_start)} - {formatDate(batchInfo.date_range_end)}</>
@@ -796,7 +796,7 @@ const BankStatements = () => {
             </div>
             <button
               onClick={handleCloseTransactions}
-              className="text-gray-600 hover:text-gray-800 font-medium"
+              className="text-gray-400 hover:text-white font-medium"
             >
               <XIcon size={14} className="inline mr-1" />Close
             </button>
@@ -804,7 +804,7 @@ const BankStatements = () => {
 
           {transactionsLoading && (
             <div className="text-center py-8">
-              <p className="text-gray-600">{t('common.loading')}</p>
+              <p className="text-gray-400">{t('common.loading')}</p>
             </div>
           )}
 
@@ -815,50 +815,50 @@ const BankStatements = () => {
           )}
 
           {!transactionsLoading && !transactionsError && transactions.length === 0 && (
-            <p className="text-gray-500 text-center py-8">{t('bankStatements.noTransactions')}</p>
+            <p className="text-gray-400 text-center py-8">{t('bankStatements.noTransactions')}</p>
           )}
 
           {!transactionsLoading && !transactionsError && transactions.length > 0 && (
             <div>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-400 mb-4">
                 {t('common.total')}: {transactions.length} {t('bankStatements.transactions')}
               </p>
               
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead className="bg-slate-700">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.date')}</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.description')}</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.additionalDetail')}</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.debit')}</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.credit')}</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t('bankStatements.balance')}</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('bankStatements.channel')}</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('common.date')}</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('common.description')}</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.additionalDetail')}</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">{t('bankStatements.debit')}</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">{t('bankStatements.credit')}</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">{t('bankStatements.balance')}</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">{t('bankStatements.channel')}</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-slate-800 divide-y divide-gray-700">
                     {pagedTransactions.currentItems.map((txn) => (
-                      <tr key={txn.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-sm text-gray-900 font-medium whitespace-nowrap">
+                      <tr key={txn.id} className="hover:bg-slate-700">
+                        <td className="px-4 py-2 text-sm text-gray-100 font-medium whitespace-nowrap">
                           {formatDateTime(txn.effective_at)}
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-800">
+                        <td className="px-4 py-2 text-sm text-gray-200">
                           {txn.description}
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-600">
+                        <td className="px-4 py-2 text-sm text-gray-400">
                           {txn.raw_row && txn.raw_row.length > 12 ? txn.raw_row[12] : '-'}
                         </td>
-                        <td className="px-4 py-2 text-sm text-right text-red-600">
+                        <td className="px-4 py-2 text-sm text-right text-red-400">
                           {txn.debit ? formatCurrency(txn.debit) : '-'}
                         </td>
-                        <td className="px-4 py-2 text-sm text-right text-green-600">
+                        <td className="px-4 py-2 text-sm text-right text-green-400">
                           {txn.credit ? formatCurrency(txn.credit) : '-'}
                         </td>
-                        <td className="px-4 py-2 text-sm text-right font-medium text-gray-900">
+                        <td className="px-4 py-2 text-sm text-right font-medium text-gray-100">
                           {txn.balance ? formatCurrency(txn.balance) : '-'}
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-600">
+                        <td className="px-4 py-2 text-sm text-gray-400">
                           {txn.channel || '-'}
                         </td>
                       </tr>
