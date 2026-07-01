@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
-from app.core.timezone import assert_utc
+from app.core.timezone import assert_utc, BANGKOK_TZ
 import uuid
 
 from app.db.session import get_db
@@ -265,10 +265,16 @@ async def upload_and_preview_csv(
     date_range_end = max(txn['effective_at'] for txn in transactions).isoformat() if transactions else None
     
     # Check for year/month mismatch warning
+    # Compare against Bangkok-local dates (month boundaries are Asia/Bangkok per timezone
+    # policy); effective_at is UTC, so convert before comparing to avoid false mismatches
+    # for transactions near the day boundary.
     if transactions and (year or month):
-        first_date = min(txn['effective_at'] for txn in transactions)
-        last_date = max(txn['effective_at'] for txn in transactions)
-        
+        def _bkk(dt):
+            return dt.astimezone(BANGKOK_TZ) if dt.tzinfo is not None else dt
+
+        first_date = _bkk(min(txn['effective_at'] for txn in transactions))
+        last_date = _bkk(max(txn['effective_at'] for txn in transactions))
+
         # Add warning if dates don't match selected month/year
         if first_date.year != year or first_date.month != month or last_date.year != year or last_date.month != month:
             validation_result.warnings.append(

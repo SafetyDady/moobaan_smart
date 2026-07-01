@@ -7,6 +7,7 @@ from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 from app.db.models.bank_statement_batch import BankStatementBatch
 from app.db.models.bank_transaction import BankTransaction
+from app.core.timezone import BANGKOK_TZ
 import calendar
 
 
@@ -91,8 +92,18 @@ class BankStatementValidator:
         transaction_dates = []
         
         # ===== HARD ERROR: Check all transaction dates fall within selected month =====
+        # Month boundaries are Asia/Bangkok (see timezone policy). effective_at is stored
+        # as UTC, so convert to Bangkok before extracting the calendar date — otherwise a
+        # transaction just after Thai midnight (e.g. 01:51 ICT = 18:51 UTC previous day)
+        # would be judged against the wrong month and wrongly rejected.
         for idx, txn in enumerate(transactions):
-            txn_date = txn['effective_at'].date() if isinstance(txn['effective_at'], datetime) else txn['effective_at']
+            effective_at = txn['effective_at']
+            if isinstance(effective_at, datetime):
+                if effective_at.tzinfo is not None:
+                    effective_at = effective_at.astimezone(BANGKOK_TZ)
+                txn_date = effective_at.date()
+            else:
+                txn_date = effective_at
             transaction_dates.append(txn_date)
             
             if txn_date.year != year or txn_date.month != month:
