@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-07-01
+
+### fix(bank-statements): แปลงหน้าเป็น dark theme + เติม i18n key ที่หาย — `fd4951d` (deployed Vercel)
+- **อาการ:** หน้า `/admin/statements` ตัวหนังสือจางมองไม่เห็น + หัวตารางโชว์ key ดิบ `BANKSTATEMENTS.ACCOUNT` / `common.view`
+- **สาเหตุ:** เป็นหน้าเดียวในแอปที่ยังใช้การ์ดสีขาว (`bg-white`) แต่หัวข้อ/เซลล์ตารางไม่กำหนดสีตัวอักษร เลยรับสีขาวจาก global theme (`:root color: rgba(255,255,255,0.87)` ใน `index.css`) → ขาวบนขาว มองไม่เห็น; ส่วนแอปที่เหลือใช้ระบบ `.card` (พื้น slate-800) อยู่แล้ว
+- **แก้:** [BankStatements.jsx](frontend/src/pages/admin/BankStatements.jsx) แปลงทั้งหน้าเป็น dark theme มาตรฐานแอป (`.card`/`.input`, ตาราง slate-700, ตัวอักษรอ่อน, debit/credit → red-400/green-400) + [th.js](frontend/src/locales/th.js) เติม key `common.view`='ดู', `bankStatements.account`='บัญชี', `bankStatements.period`='งวด' (JSX เรียก key เหล่านี้แต่ไม่มีใน locale — มี `batchAccountCol`/`batchPeriodCol` แต่คนละชื่อ)
+- **บทเรียน:** หน้าใหม่ทุกหน้า**ต้องใช้ dark theme** (`.card`, ตัวอักษร `text-white`/`text-gray-300/400`) ตาม CLAUDE.md "Dark theme throughout" — อย่าใช้ `bg-white` + ปล่อยตัวอักษรไม่กำหนดสี (จะรับสีขาวจาก global แล้วหายไปบนพื้นขาว); ถ้าเพิ่ม UI text ใหม่ต้องเติม key ใน `locales/th.js` ทุกครั้ง
+- **verify:** `npm run build` ผ่าน (ไม่มี error)
+
+### fix(bank-statements): month validation ต้องเทียบเวลาไทย ไม่ใช่ UTC — `14c6500` (deployed + ยืนยันใช้ได้)
+- **อาการ:** อัปโหลด Bank Statement CSV เดือน มิ.ย. → ถูกบล็อก `Transaction #1 (date: 2026-05-31) falls outside selected month 2026-06` + warning `doesn't match CSV date range` ทั้งที่รายการอยู่ในเดือน มิ.ย. จริง
+- **สาเหตุ:** `effective_at` เก็บใน DB เป็น **UTC** (ถูกตาม policy) แต่โค้ด validate เดือนเรียก `.date()`/`.month` บนค่า UTC ตรง ๆ โดยไม่แปลงกลับเป็น Asia/Bangkok → รายการหลังเที่ยงคืนไทย (เช่น 01:51 ICT = 18:51 UTC ของวันก่อนหน้า) ถูกตัดสินว่าอยู่คนละเดือน แล้ว reject ผิด
+- **ละเมิด policy ตัวเอง:** `timezone.py` ข้อ 3 "All business month boundaries = Asia/Bangkok" — โมดูลอื่น (payins, dashboard, invoices, payin_state) แปลง `.astimezone(BANGKOK_TZ)` ก่อนตัดสินอยู่แล้ว มีแค่ 2 จุดใน bank statement import ที่ลืม
+- **แก้ 2 จุด:** [bank_statement_validator.py:95](backend/app/services/bank_statement_validator.py:95) (error ที่บล็อก import) + [bank_statements.py:269](backend/app/api/bank_statements.py:269) (preview warning) → แปลงเป็น Bangkok ก่อนดึง date/month; DB ยังเก็บ UTC เหมือนเดิม ไม่ต้อง migrate batch เก่า
+- **เทสต์:** เพิ่ม `backend/test_bank_import_timezone.py` (4 เคส: หลังเที่ยงคืนไทยผ่าน / เดือนผิดจริงยังบล็อก / ปลายเดือนดึกผ่าน / CSV พ.ศ. end-to-end) — ผ่านครบ
+- **วิธีนำไปใช้ (ย้ำบทเรียน):** ทุกที่ที่ตัดสิน "อยู่เดือน/วันไหน" ต้อง `.astimezone(BANGKOK_TZ)` ก่อนเสมอ — อย่าเทียบ date/month บน datetime UTC ตรง ๆ
+- **rollback point:** ก่อน push = `c8c8020` (ถ้าต้องดึงกลับใช้ `git revert 14c6500` ปลอดภัยกว่า force-push)
+- **⚠️ พบระหว่างทาง — venv พัง (เปลี่ยน PC ใหม่):** `backend/.venv` ผูก Python 3.13 (`C:\Python313`) ที่ถูกถอนไป เครื่องใหม่เหลือแค่ 3.14 → venv ย้ายเครื่องไม่ได้ (ฝัง path interpreter เต็ม) จึงพัง ไม่เกี่ยวกับ Docker
+  - **production ใช้ Docker/Python 3.11** (`backend/Dockerfile` → `python:3.11-slim`, Railway build ด้วย `railway.json` builder=DOCKERFILE) — คนละชั้นกับ venv ไม่กระทบ
+  - **ทางแก้ local (เลือกทางใดทางหนึ่ง):** (1) ใช้ Docker ไปเลย `cd docker && docker compose up` (มี db+backend+frontend, Python 3.11 ตรง prod ที่สุด) หรือ (2) สร้าง venv ใหม่ด้วย **Python 3.11** ให้ตรง prod (`py -3.11 -m venv .venv` + `pip install -r requirements.txt`) — อย่าใช้ 3.14 (ใหม่เกิน dep บางตัวอาจไม่มี wheel + พฤติกรรมต่างจาก prod)
+
+---
+
 ## 2026-06-12
 
 ### Push docs commit `3342e64` + ยืนยัน production เขียว + พบ URL backend ใน docs ผิด
