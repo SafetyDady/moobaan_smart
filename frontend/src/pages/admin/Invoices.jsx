@@ -383,14 +383,15 @@ export default function Invoices() {
                 <SortableHeader label={t('invoices.outstanding')} sortKey="outstanding" sortConfig={sortConfig} onSort={requestSort} />
                 <SortableHeader label={t('common.status')} sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
                 <SortableHeader label={t('invoices.dueDate')} sortKey="due_date" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.paidDate')} sortKey="paid_at" sortConfig={sortConfig} onSort={requestSort} />
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <SkeletonTable rows={5} cols={8} />
+                <SkeletonTable rows={5} cols={9} />
               ) : invoices.length === 0 ? (
-                <EmptyState icon={<FileText size={32} />} colSpan={8} />
+                <EmptyState icon={<FileText size={32} />} colSpan={9} />
               ) : (
                 paged.currentItems.map((inv) => {
                   const paid = inv.paid || 0;
@@ -431,6 +432,11 @@ export default function Invoices() {
                         </span>
                       </td>
                       <td className="text-gray-300">{new Date(inv.due_date).toLocaleDateString('th-TH')}</td>
+                      <td className={inv.paid_at ? 'text-gray-300 whitespace-nowrap' : 'text-gray-500'}>
+                        {inv.paid_at
+                          ? new Date(inv.paid_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+                          : '-'}
+                      </td>
                       <td className="space-x-1">
                         {canApply && (
                           <button
@@ -610,7 +616,7 @@ export default function Invoices() {
                                 </div>
                                 {payment.payin?.transfer_date && (
                                   <div className="text-gray-500 text-xs mt-1">
-                                    {t('invoices.transferDate')}: {new Date(payment.payin.transfer_date).toLocaleDateString('th-TH')}
+                                    {t('invoices.transferDate')}: {new Date(payment.payin.transfer_date).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                                   </div>
                                 )}
                                 {payment.payin?.slip_url && (
@@ -628,8 +634,17 @@ export default function Invoices() {
                                   </div>
                                 )}
                               </div>
-                              <div className="text-gray-400 text-sm text-right shrink-0 ml-3">
-                                {payment.applied_at ? new Date(payment.applied_at).toLocaleString('th-TH') : '-'}
+                              <div className="text-right shrink-0 ml-3 space-y-0.5">
+                                <div className="text-gray-300 text-sm whitespace-nowrap">
+                                  {t('invoices.receivedAt')}: {payment.ledger?.received_at
+                                    ? new Date(payment.ledger.received_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+                                    : '-'}
+                                </div>
+                                <div className="text-gray-500 text-xs whitespace-nowrap">
+                                  {t('invoices.recordedAt')}: {payment.applied_at
+                                    ? new Date(payment.applied_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+                                    : '-'}
+                                </div>
                               </div>
                             </div>
                           </div>

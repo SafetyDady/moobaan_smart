@@ -110,6 +110,27 @@ class Invoice(Base):
         """Calculate remaining amount to be paid (considering credits)"""
         return self.get_remaining_balance()
 
+    def get_last_payment_at(self):
+        """Return the actual receipt time of the most recent ACTIVE payment (None if unpaid).
+
+        Uses the linked income_transaction.received_at (the real money-received time,
+        sourced from the bank statement / pay-in) rather than InvoicePayment.applied_at
+        (which is only when an accountant linked the payment to the invoice). For an
+        invoice paid in several instalments this returns the latest instalment's
+        received_at — hence "last payment". Full per-payment history stays in the
+        invoice detail view.
+        """
+        times = [
+            payment.income_transaction.received_at
+            for payment in (self.payments or [])
+            if (not hasattr(payment, 'status') or payment.status is None or payment.status.value == 'ACTIVE')
+            and payment.income_transaction is not None
+            and payment.income_transaction.received_at is not None
+        ]
+        if not times:
+            return None
+        return max(times)
+
     def update_status(self):
         """Update invoice status based on payments and credits
         

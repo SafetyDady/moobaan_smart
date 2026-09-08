@@ -166,6 +166,7 @@ class Invoice(BaseModel):
     outstanding: Optional[float] = None
     status: str  # Changed from InvoiceStatus to str to accept any status value
     due_date: date
+    paid_at: Optional[datetime] = None  # Timestamp of the most recent payment (None if unpaid)
     items: List[InvoiceItem]
     created_at: datetime
     # Phase D.1: Manual invoice fields

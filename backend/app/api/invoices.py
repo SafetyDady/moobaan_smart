@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from app.core.timezone import BANGKOK_TZ, utc_now
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel, Field
 from app.models import Invoice as InvoiceSchema, InvoiceCreate, InvoiceType, InvoiceStatus, InvoiceItem
 from app.db.models import (
@@ -115,7 +115,11 @@ async def list_invoices(
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
 ):
     """List all invoices with optional filters. Supports server-side pagination."""
-    query = db.query(InvoiceDB)
+    # Eager-load payments and their ledger so get_last_payment_at() / get_total_paid()
+    # don't trigger a per-invoice (N+1) query for the "วันที่ชำระล่าสุด" column.
+    query = db.query(InvoiceDB).options(
+        selectinload(InvoiceDB.payments).selectinload(InvoicePayment.income_transaction)
+    )
     
     if house_id:
         query = query.filter(InvoiceDB.house_id == house_id)
@@ -170,6 +174,7 @@ async def list_invoices(
             outstanding=outstanding_amount,
             status=actual_status,
             due_date=inv.due_date,
+            paid_at=inv.get_last_payment_at(),
             items=[
                 InvoiceItem(
                     id=0,
