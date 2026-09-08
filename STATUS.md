@@ -5,9 +5,13 @@
 **หลักนำทาง:** ของที่ deploy แล้ว **ห้ามพัง** · owner รีวิว + deploy เอง อย่า push/commit โดยไม่ถาม
 
 ## กำลังทำอยู่
-- **2026-09-08 — Codex: credit settlement phase 1 ผ่านรีวิว; owner อนุมัติ commit/push แล้ว (รอยืนยัน deployment).** ลดได้เฉพาะยอดค้างจริง; แก้ full credit + serialize credit/payment/FIFO/bank reversal. PostgreSQL 20 tests + paid-at 7 tests ผ่าน. Base/rollback reference `0f9d67f`. รายละเอียดใน `KNOWLEDGE-LOG.md` และ `backend/test_credit_settlement_postgres.py`. งานรวมสูตร Decimal, สถานะ UI/API/filter และ export ยังแยกค้างอยู่.
+- **2026-09-08 — Credit/settlement cleanup ครบ 3 เฟสแล้ว. P1 (`44fc26f`) push+deploy แล้ว; P2 (`abbcaa7`) + P3 (`6eacde6`) commit แล้วแต่ยัง "ไม่ push" รอ owner สั่ง** — push จะ deploy ทั้ง Railway + Vercel. Rollback point ก่อน P2/P3 = `44fc26f`.
+  - ⚠️ P2/P3 ยังไม่ได้รัน PG suite ซ้ำ (เครื่องนี้ไม่ใช้ Docker/ไม่มี PG) — ยืนยันแทนด้วย: ไม่แตะไฟล์ locking/FIFO/bank + พิสูจน์สูตร credit cap เท่าเดิม 6,000 เคส + unit tests 4 ชุดผ่าน. ถ้าต้องการความมั่นใจสูงสุดก่อน push ให้รัน `backend/test_credit_settlement_postgres.py` ด้วย PostgreSQL for Windows (EDB) ก่อน
 
 ## ทำเสร็จแล้ว (ล่าสุด → เก่า)
+- `6eacde6` feat(reports): export ใบแจ้งหนี้ตรงหน้าจอ — Excel 11 คอลัมน์ (+ชำระแล้ว/เครดิต/ค้างชำระ/วันครบกำหนด/วันที่ชำระล่าสุด), สถานะไทยจาก canonical, `issue_date` แทน `created_at`, เงินเป็นเซลล์ตัวเลข, เวลาไทย, ปุ่มส่ง filter ปัจจุบัน, PDF ย่อ 8 คอลัมน์ + 8 tests (2026-09-08, **ยังไม่ push**)
+- `abbcaa7` fix(invoices): canonical settlement status ที่เดียวใช้ทุกที่ — แก้ "จ่ายครบโชว์เครดิตแล้ว"/"ลดหนี้บางส่วนโชว์ชำระบางส่วน", filter CREDITED ไม่ยิง enum, รวม Decimal เป็น single source, UI เลิกคำนวณเอง + 12 tests (2026-09-08, **ยังไม่ push**)
+- `44fc26f` fix(credits): ลดหนี้ได้ไม่เกินยอดค้างจริง + serialize credit/payment/FIFO/bank reversal ด้วย row lock, Decimal money, PG suite 20 เคส (2026-09-08, deployed)
 - `b645e0e` feat(invoices): เพิ่มคอลัมน์ "วันที่ชำระล่าสุด" (ใช้ `received_at` เวลารับเงินจริง ไม่ใช่ `applied_at`) + payment history แยกเวลารับเงิน/บันทึกเข้าบิล ทุก timestamp เป็นเวลาไทย + eager load กัน N+1 + unit test 7 เคส (2026-09-08, deployed + ยืนยันใช้ได้)
 - `fd4951d` fix(bank-statements): แปลงหน้า `/admin/statements` เป็น dark theme (เดิมตัวหนังสือขาวบนขาว มองไม่เห็น) + เติม i18n key ที่หาย `common.view`/`bankStatements.account`/`period` (2026-07-01, deployed Vercel)
 - `14c6500` fix(bank-statements): validate month boundary เป็น Asia/Bangkok ไม่ใช่ UTC — แก้บั๊ก import CSV เดือน มิ.ย. ถูก reject ผิด + เพิ่ม regression test (2026-07-01, deployed + ยืนยันใช้ได้)
