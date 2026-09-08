@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-09-08
+
+### feat(invoices): เพิ่มคอลัมน์ "วันที่ชำระล่าสุด" + แยกเวลารับเงิน/บันทึกเข้าบิลในประวัติ — `b645e0e` (deployed, ยืนยันใช้ได้)
+- **สิ่งที่ทำ:** เพิ่มคอลัมน์ "วันที่ชำระล่าสุด" ในตารางจัดการใบแจ้งหนี้ + ปรับ payment history ให้แสดง "เวลารับเงิน" (received_at) คู่กับ "บันทึกเข้าบิล" (applied_at)
+- **แหล่งเวลาที่ถูกต้อง (บทเรียนสำคัญ):** ในการชำระบิล มี timestamp 2 ชั้น อย่าสับสน
+  - `InvoicePayment.applied_at` = เวลาที่**เจ้าหน้าที่ผูกยอดเข้าบิล** (record time) — ไม่ใช่เวลาชำระจริง
+  - `InvoicePayment.income_transaction.received_at` = **เวลารับเงินจริง** (จากสเตทเมนต์/pay-in, not null, มี tz) ← ตัวนี้คือ "เวลาที่ชำระ"
+  - ยังมี `income_transaction.bank_transaction.effective_at` (เวลาธนาคาร = source of truth) และ `payin.transfer_date` (datetime มี tz — **ไม่ใช่ date ล้วน** ตามที่เคยเข้าใจผิด)
+- **helper `Invoice.get_last_payment_at()`:** คืน `max(received_at)` ของ payment ที่ ACTIVE เท่านั้น (ตัด REVERSED); คอลัมน์เดียวแทนหลาย payment ไม่ได้ จึงตั้งชื่อ "ล่าสุด" — ความหมายแม่นยำ = "เวลารับเงินล่าสุดของรายการที่นำมาชำระบิลนี้" (ไม่ใช่ "เวลาปิดยอด" เพราะเคสรับเงินล่วงหน้า/ปิดด้วยเครดิตโน้ต received_at ≠ วันปิดบิล)
+- **timezone display (บทเรียน):** `toLocaleString('th-TH')` กำหนดแค่ภาษา **ไม่กำหนด timezone** → ผู้ดูต่างเขตเวลาเห็นเวลาต่างกัน; ต้องใส่ `{ timeZone: 'Asia/Bangkok' }` เสมอเมื่อแสดง timestamp (DB เก็บ UTC ตาม policy) — ยืนยันด้วย node ว่าผลตรงกันทุกเครื่อง
+- **perf:** เพิ่ม `selectinload(Invoice.payments → InvoicePayment.income_transaction)` ใน list API กัน N+1 (house/credit-notes ยังมี N+1 เดิม แต่ไม่ได้เพิ่มจากงานนี้)
+- **ไม่ต้อง migration** — ใช้คอลัมน์ที่มีอยู่แล้ว (`received_at`, `applied_at`)
+- **เทสต์:** `backend/test_invoice_paid_at.py` (7 เคส: ไม่มี payment, ลำดับรับเงิน≠ลำดับผูกยอด, REVERSED ล่าสุดถูกข้าม, ledger หาย, status None, UTC→Bangkok) — ผ่านครบ
+- **ข้อจำกัดที่รับทราบ:** เทสต์ใช้ข้อมูลจำลอง ยังไม่ยืนยันกับ DB จริง/หน้าจริงตอน review (ยืนยันบน production หลัง deploy แล้วว่าใช้ได้)
+
+---
+
 ## 2026-07-01
 
 ### fix(bank-statements): แปลงหน้าเป็น dark theme + เติม i18n key ที่หาย — `fd4951d` (deployed Vercel)
