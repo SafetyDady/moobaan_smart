@@ -10,15 +10,18 @@ import { t } from '../hooks/useLocale';
  * 
  * Usage:
  *   <ExportButton reportType="invoices" period="2026-01" />
+ *   <ExportButton reportType="invoices" filters={{ is_manual: false, house_id: 3 }} />
  *   <ExportButton reportType="houses" />
- * 
+ *
  * Props:
  *   - reportType: "invoices" | "payins" | "houses" | "members" | "expenses"
  *   - period: optional YYYY-MM filter
  *   - status: optional status filter
+ *   - filters: optional extra query params, so the export matches the filters
+ *     the user is currently looking at (e.g. house_id, is_manual, status)
  *   - className: optional additional CSS classes
  */
-export default function ExportButton({ reportType, period, status, className = '' }) {
+export default function ExportButton({ reportType, period, status, filters, className = '' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(null); // 'pdf' or 'xlsx'
 
@@ -30,6 +33,10 @@ export default function ExportButton({ reportType, period, status, className = '
       const params = { format };
       if (period) params.period = period;
       if (status) params.status = status;
+      // Carry the caller's active filters through (false is meaningful, e.g. is_manual)
+      Object.entries(filters || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') params[key] = value;
+      });
 
       const response = await api.get(`/api/reports/export/${reportType}`, {
         params,

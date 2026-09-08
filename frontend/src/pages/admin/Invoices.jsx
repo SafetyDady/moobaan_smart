@@ -255,6 +255,14 @@ export default function Invoices() {
     }
   };
 
+  // Export what the user is currently looking at — same filters as loadInvoices().
+  const exportFilters = { is_manual: activeTab === 'manual' };
+  if (filterStatus) exportFilters.status = filterStatus;
+  if (filterHouseCode.trim()) {
+    const houseMatch = houses.find(h => h.house_code === filterHouseCode.trim());
+    if (houseMatch) exportFilters.house_id = houseMatch.id;
+  }
+
   return (
     <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
@@ -263,7 +271,7 @@ export default function Invoices() {
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('invoices.title')}</h1>
           <p className="text-gray-400">{t('invoices.subtitle')}</p>
         </div>
-        <ExportButton reportType="invoices" />
+        <ExportButton reportType="invoices" filters={exportFilters} />
       </div>
 
       {/* Tabs */}

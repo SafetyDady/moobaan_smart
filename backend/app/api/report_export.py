@@ -11,7 +11,7 @@ Endpoints:
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import and_, desc, extract
 from typing import Optional
 from datetime import datetime
@@ -20,11 +20,21 @@ import logging
 
 from app.db.session import get_db
 from app.core.deps import require_admin_or_accounting
+from app.core.timezone import BANGKOK_TZ
 from app.db.models import (
     User, Invoice, InvoiceStatus, PayinReport, PayinStatus,
-    House, HouseStatus, Expense, ExpenseStatus
+    House, HouseStatus, Expense, ExpenseStatus, InvoicePayment
 )
 from app.db.models.house_member import HouseMember
+
+# Canonical settlement status (Invoice.get_settlement_status) → Thai label,
+# so the export reads the same as the invoice table on screen.
+SETTLEMENT_STATUS_TH = {
+    "ISSUED": "รอดำเนินการ",
+    "PARTIALLY_PAID": "ชำระบางส่วน",
+    "PAID": "ชำระแล้ว",
+    "CREDITED": "เครดิตแล้ว",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -40,29 +50,55 @@ def fmt_baht(val):
     return f"฿{val:,.2f}"
 
 
+def _to_bangkok(dt):
+    """Timestamps are stored in UTC; business dates are Asia/Bangkok.
+
+    Plain ``date`` objects have no tzinfo and are already calendar dates,
+    so they pass through untouched.
+    """
+    if getattr(dt, "tzinfo", None) is not None:
+        return dt.astimezone(BANGKOK_TZ)
+    return dt
+
+
 def fmt_date(dt):
-    """Format datetime to Thai-friendly string"""
+    """Format datetime to Thai-friendly string (Asia/Bangkok)"""
     if not dt:
         return "-"
     if isinstance(dt, str):
         return dt
-    return dt.strftime("%d/%m/%Y")
+    return _to_bangkok(dt).strftime("%d/%m/%Y")
 
 
 def fmt_datetime(dt):
-    """Format datetime with time"""
+    """Format datetime with time (Asia/Bangkok)"""
     if not dt:
         return "-"
     if isinstance(dt, str):
         return dt
-    return dt.strftime("%d/%m/%Y %H:%M")
+    return _to_bangkok(dt).strftime("%d/%m/%Y %H:%M")
 
 
 # ─── Data Fetchers ──────────────────────────────────────────────────────
 
-def fetch_invoices(db: Session, period: Optional[str] = None):
-    """Fetch invoice data for export"""
-    query = db.query(Invoice)
+def fetch_invoices(
+    db: Session,
+    period: Optional[str] = None,
+    status: Optional[str] = None,
+    house_id: Optional[int] = None,
+    is_manual: Optional[bool] = None,
+):
+    """Fetch invoice data for export.
+
+    Mirrors the invoice table on screen: same money figures, the same canonical
+    settlement status, and the same filters the user is looking at. Money cells
+    stay numeric so the spreadsheet can total them.
+    """
+    query = db.query(Invoice).options(
+        selectinload(Invoice.payments).selectinload(InvoicePayment.income_transaction),
+        selectinload(Invoice.credit_notes),
+        selectinload(Invoice.house),
+    )
     if period:
         # period format: "YYYY-MM" → filter by cycle_year and cycle_month
         try:
@@ -73,21 +109,51 @@ def fetch_invoices(db: Session, period: Optional[str] = None):
             )
         except (ValueError, AttributeError):
             pass  # Invalid period format, skip filter
+
+    if house_id:
+        query = query.filter(Invoice.house_id == house_id)
+    if is_manual is not None:
+        query = query.filter(Invoice.is_manual == is_manual)
+
     query = query.order_by(desc(Invoice.created_at))
     invoices = query.all()
 
-    headers = ["เลขที่", "บ้าน", "งวด", "จำนวนเงิน", "สถานะ", "วันที่สร้าง"]
+    # Settlement status is computed, not stored, so filter it in Python —
+    # the same rule the list API applies.
+    status_filter = None
+    if status:
+        status_filter = {"PENDING": "ISSUED", "CANCELLED": "CREDITED"}.get(
+            status.upper(), status.upper()
+        )
+
+    headers = [
+        "เลขที่", "บ้าน", "งวด", "ยอดรวม", "ชำระแล้ว", "เครดิต/ลดหนี้",
+        "ค้างชำระ", "สถานะ", "วันที่ออกบิล", "วันครบกำหนด", "วันที่ชำระล่าสุด",
+    ]
     rows = []
     for inv in invoices:
+        settlement = inv.get_settlement_status()
+        if status_filter and settlement != status_filter:
+            continue
         house_code = inv.house.house_code if inv.house else "-"
-        inv_period = f"{inv.cycle_year}-{inv.cycle_month:02d}" if inv.cycle_year and inv.cycle_month else "-"
+        if inv.is_manual:
+            inv_period = "พิเศษ"
+        elif inv.cycle_year and inv.cycle_month:
+            inv_period = f"{inv.cycle_year}-{inv.cycle_month:02d}"
+        else:
+            inv_period = "-"
         rows.append([
             str(inv.id),
             house_code,
             inv_period,
-            fmt_baht(inv.total_amount),
-            inv.status.value if inv.status else "-",
-            fmt_date(inv.created_at),
+            float(inv.total_amount),
+            inv.get_total_paid(),
+            inv.get_total_credited(),
+            inv.get_remaining_balance(),
+            SETTLEMENT_STATUS_TH.get(settlement, settlement),
+            fmt_date(inv.issue_date),
+            fmt_date(inv.due_date),
+            fmt_datetime(inv.get_last_payment_at()),
         ])
     return headers, rows, f"invoices_{period or 'all'}"
 
@@ -183,10 +249,29 @@ def fetch_expenses(db: Session, period: Optional[str] = None):
     return headers, rows, f"expenses_{period or 'all'}"
 
 
+def drop_columns(headers: list, rows: list, drop: Optional[list], money_columns: Optional[list]):
+    """Remove columns by index and re-map money column indices to the new layout.
+
+    Used to give the PDF a narrower set than the spreadsheet.
+    """
+    drop_set = set(drop or [])
+    if not drop_set:
+        return headers, rows, money_columns
+    keep = [i for i in range(len(headers)) if i not in drop_set]
+    new_headers = [headers[i] for i in keep]
+    new_rows = [[row[i] for i in keep] for row in rows]
+    new_money = [keep.index(i) for i in (money_columns or []) if i in keep]
+    return new_headers, new_rows, new_money
+
+
 # ─── PDF Generator ──────────────────────────────────────────────────────
 
-def generate_pdf(title: str, headers: list, rows: list) -> io.BytesIO:
-    """Generate PDF report using reportlab"""
+def generate_pdf(title: str, headers: list, rows: list, money_columns: Optional[list] = None) -> io.BytesIO:
+    """Generate PDF report using reportlab.
+
+    Money cells arrive as numbers (so Excel can total them); the PDF renders
+    them as Baht text.
+    """
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import getSampleStyleSheet
@@ -243,7 +328,13 @@ def generate_pdf(title: str, headers: list, rows: list) -> io.BytesIO:
     elements.append(Spacer(1, 5*mm))
 
     # Table data
-    table_data = [headers] + rows
+    money_cols = set(money_columns or [])
+    display_rows = [
+        [fmt_baht(value) if idx in money_cols else ("-" if value is None else str(value))
+         for idx, value in enumerate(row)]
+        for row in rows
+    ]
+    table_data = [headers] + display_rows
 
     # Calculate column widths
     available_width = landscape(A4)[0] - 30*mm
@@ -284,8 +375,12 @@ def generate_pdf(title: str, headers: list, rows: list) -> io.BytesIO:
 
 # ─── Excel Generator ────────────────────────────────────────────────────
 
-def generate_excel(title: str, headers: list, rows: list) -> io.BytesIO:
-    """Generate Excel report using openpyxl"""
+def generate_excel(title: str, headers: list, rows: list, money_columns: Optional[list] = None) -> io.BytesIO:
+    """Generate Excel report using openpyxl.
+
+    Money columns are written as real numbers with a currency format so the
+    spreadsheet can sum and filter them.
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -326,11 +421,16 @@ def generate_excel(title: str, headers: list, rows: list) -> io.BytesIO:
 
     # Data rows
     alt_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+    money_cols = set(money_columns or [])
     for row_idx, row_data in enumerate(rows, 5):
         for col_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.border = thin_border
-            cell.alignment = Alignment(vertical="center")
+            if (col_idx - 1) in money_cols:
+                cell.number_format = '#,##0.00'
+                cell.alignment = Alignment(vertical="center", horizontal="right")
+            else:
+                cell.alignment = Alignment(vertical="center")
             if (row_idx - 5) % 2 == 1:
                 cell.fill = alt_fill
 
@@ -351,7 +451,15 @@ def generate_excel(title: str, headers: list, rows: list) -> io.BytesIO:
 # ─── Export Endpoint ────────────────────────────────────────────────────
 
 REPORT_TYPES = {
-    "invoices": {"title": "รายงานใบแจ้งหนี้", "fetcher": fetch_invoices},
+    # money_columns: written as numbers in Excel, rendered as Baht in PDF.
+    # pdf_drop_columns: trimmed from the PDF only — 11 columns do not fit A4,
+    # so the PDF keeps the on-screen set and Excel keeps the full detail.
+    "invoices": {
+        "title": "รายงานใบแจ้งหนี้",
+        "fetcher": fetch_invoices,
+        "money_columns": [3, 4, 5, 6],
+        "pdf_drop_columns": [0, 5, 8],  # เลขที่, เครดิต/ลดหนี้, วันที่ออกบิล
+    },
     "payins": {"title": "รายงานการชำระเงิน", "fetcher": fetch_payins},
     "houses": {"title": "รายงานบ้านทั้งหมด", "fetcher": fetch_houses},
     "members": {"title": "รายงานสมาชิก", "fetcher": fetch_members},
@@ -365,6 +473,8 @@ async def export_report(
     format: str = Query("xlsx", pattern="^(pdf|xlsx)$", description="Export format: pdf or xlsx"),
     period: Optional[str] = Query(None, description="Filter by period (YYYY-MM)"),
     status: Optional[str] = Query(None, description="Filter by status"),
+    house_id: Optional[int] = Query(None, description="Filter by house (invoices)"),
+    is_manual: Optional[bool] = Query(None, description="Manual vs auto-monthly invoices"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_accounting),
 ):
@@ -385,7 +495,9 @@ async def export_report(
     # Fetch data based on report type
     try:
         if report_type == "invoices":
-            headers, rows, filename = config["fetcher"](db, period=period)
+            headers, rows, filename = config["fetcher"](
+                db, period=period, status=status, house_id=house_id, is_manual=is_manual,
+            )
         elif report_type == "payins":
             headers, rows, filename = config["fetcher"](db, status_filter=status)
         elif report_type == "expenses":
@@ -397,13 +509,17 @@ async def export_report(
         raise HTTPException(status_code=500, detail="Failed to fetch report data")
 
     # Generate file
+    money_columns = config.get("money_columns")
     try:
         if format == "pdf":
-            buffer = generate_pdf(title, headers, rows)
+            headers, rows, money_columns = drop_columns(
+                headers, rows, config.get("pdf_drop_columns"), money_columns,
+            )
+            buffer = generate_pdf(title, headers, rows, money_columns=money_columns)
             media_type = "application/pdf"
             ext = "pdf"
         else:
-            buffer = generate_excel(title, headers, rows)
+            buffer = generate_excel(title, headers, rows, money_columns=money_columns)
             media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             ext = "xlsx"
     except Exception as e:
