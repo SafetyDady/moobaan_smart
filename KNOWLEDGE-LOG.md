@@ -7,7 +7,7 @@
 
 ## 2026-09-08
 
-### Phase 3 — export ใบแจ้งหนี้ให้ตรงหน้าจอ — `6eacde6` (committed, ยังไม่ push)
+### Phase 3 — export ใบแจ้งหนี้ให้ตรงหน้าจอ — `6eacde6` (deployed + owner ยืนยัน Excel ใช้ได้)
 - **เดิม export มี 6 คอลัมน์** ที่ไม่ตรงตาราง: ไม่มี ชำระแล้ว/เครดิต/ค้างชำระ, สถานะเป็น enum ดิบ, จำนวนเงินเป็น "ข้อความ", วันที่เป็น UTC, และ**ไม่ส่ง filter ที่ผู้ใช้ดูอยู่** (export ทั้งหมดเสมอ)
 - **แก้:** Excel 11 คอลัมน์ (เพิ่ม ชำระแล้ว / เครดิต-ลดหนี้ / ค้างชำระ / วันครบกำหนด / วันที่ชำระล่าสุด) + สถานะไทยจาก `get_settlement_status()` → อ่านตรงกับหน้าจอ
 - **เปลี่ยน "วันที่สร้าง" (`created_at` = เวลาระบบบันทึก record) → "วันที่ออกบิล" (`issue_date` = business date)** — ตัวหลังคือสิ่งที่รายงานบัญชีต้องการ (owner ยืนยัน)
@@ -17,7 +17,7 @@
 - **บทเรียน:** เพิ่ม/แก้คอลัมน์บนหน้าจอเมื่อไร **ต้องเช็ก export ด้วย** ไม่งั้น 2 ที่ drift; และปุ่ม export ต้องส่ง filter ปัจจุบันเสมอ (ไม่งั้นได้ไฟล์ที่ไม่ตรงกับสิ่งที่เห็น)
 - เทสต์: `backend/test_report_export.py` (8 เคส — tz, เซลล์ตัวเลข, PDF trim + remap money index, สถานะไทย)
 
-### Phase 2 — canonical settlement status ที่เดียวใช้ทุกที่ — `abbcaa7` (committed, ยังไม่ push)
+### Phase 2 — canonical settlement status ที่เดียวใช้ทุกที่ — `abbcaa7` (deployed + ยืนยันใช้ได้)
 - **ปัญหา:** สถานะถูกคำนวณ 3 ที่และไม่ตรงกัน — UI เช็ค `outstanding === 0` ก่อน ทำให้**บิลที่จ่ายครบโชว์ "เครดิตแล้ว"** และ**บิลลดหนี้บางส่วนที่ยังไม่จ่ายโชว์ "ชำระบางส่วน"**; filter ยังส่ง `CREDITED` เข้า enum PostgreSQL ที่ไม่มีค่านี้ (เสี่ยง query error)
 - **แก้:** `Invoice.get_settlement_status()` เป็นกฎเดียว (CREDITED/PAID/PARTIALLY_PAID/ISSUED); `update_status()` persist ตามนั้น — **DB เก็บ `CANCELLED` สำหรับเครดิตเต็ม เพราะ enum ไม่มี CREDITED** (CREDITED เป็นค่าระดับ API)
 - รวม money helper เป็น Decimal ชุดเดียว — `get_remaining_balance_decimal()` เป็น **single source ของ credit cap** (credit note ใช้ตัวนี้ แทนสูตร inline)
@@ -26,7 +26,7 @@
 - เทสต์: `backend/test_invoice_settlement_status.py` (12 เคส รวม regression ของ 2 mislabel)
 - **หมายเหตุการยืนยัน (สำคัญ):** รัน PG suite ซ้ำไม่ได้ (เครื่องนี้ไม่ใช้ Docker และไม่มี PG) จึงยืนยันแทนด้วย (1) P2/P3 **ไม่แตะ** `invoice_locking.py`/`accounting.py`/`payins.py`/`bank_reconciliation.py` → การล็อกที่ PG suite ตรวจไว้ตอน P1 ไม่ถูกแก้ (2) พิสูจน์สูตร credit cap เดิม vs `get_remaining_balance_decimal()` **เท่ากันทุกเคสจาก 6,000 combinations** — ถ้าจะรัน PG suite รอบหน้าใช้ PostgreSQL for Windows (EDB) ชี้ `CREDIT_TEST_DATABASE_URL` ไป localhost ได้ ไม่ต้องใช้ Docker
 
-### Credit settlement phase 1 — Codex, reviewed; owner authorized commit/push (deployment verification pending)
+### Credit settlement phase 1 — Codex, reviewed by Claude — `44fc26f` (deployed + ยืนยันใช้ได้)
 - Owner explicitly confirmed: credit only the outstanding debt; full credit clears outstanding after prior credits and ACTIVE payments. Base/rollback reference: `0f9d67f40141ad5719d5356db18670949330f88c`.
 - Credit creation now locks the invoice, validates two-decimal finite money against current outstanding, and refreshes settlement status in the same transaction. Original invoice amount and existing historical entries are preserved.
 - All current invoice-payment insert paths participate: invoice apply API, accounting service + FIFO, pay-in FIFO, bank confirm/post. Bank reversal also participates. Lock existing ledger before invoices; acquire multiple invoice locks in ID order, then allocate in existing FIFO order. Expire cached payment/credit collections after locking.
