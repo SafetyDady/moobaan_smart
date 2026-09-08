@@ -72,14 +72,23 @@ class Invoice(Base):
         }
 
     def get_total_credited(self):
-        """Calculate total credit notes applied to this invoice (Phase D.2)"""
-        if not self.credit_notes:
-            return 0
-        return float(sum(
-            (Decimal(str(cn.credit_amount))
-            for cn in self.credit_notes 
-            if cn.status == 'applied'), Decimal('0')
-        ))
+        return float(self.get_total_credited_decimal())
+
+    def get_total_credited_decimal(self):
+        return sum((Decimal(str(cn.credit_amount))
+                    for cn in (self.credit_notes or []) if cn.status == 'applied'), Decimal('0'))
+
+    def get_total_paid_decimal(self):
+        return sum((Decimal(str(payment.amount)) for payment in (self.payments or [])
+                    if not hasattr(payment, 'status') or payment.status is None
+                    or payment.status.value == 'ACTIVE'), Decimal('0'))
+
+    def get_net_amount_decimal(self):
+        return max(Decimal('0'), Decimal(str(self.total_amount)) - self.get_total_credited_decimal())
+
+    def get_remaining_balance_decimal(self):
+        """Single source of truth for credit caps and settlement balances."""
+        return max(Decimal('0'), self.get_net_amount_decimal() - self.get_total_paid_decimal())
 
     def get_net_amount(self):
         """Calculate net payable amount after credits (Phase D.2)
@@ -87,25 +96,23 @@ class Invoice(Base):
         Formula: net_amount = total_amount - total_credited
         This NEVER modifies the original invoice amount.
         """
-        return float(max(Decimal('0'), Decimal(str(self.total_amount)) - Decimal(str(self.get_total_credited()))))
+        return float(self.get_net_amount_decimal())
 
     def get_remaining_balance(self):
         """Calculate remaining balance after credits AND payments (Phase D.2)
         
         Formula: remaining = net_amount - total_paid
         """
-        return float(max(Decimal('0'), Decimal(str(self.get_net_amount())) - Decimal(str(self.get_total_paid()))))
+        return float(self.get_remaining_balance_decimal())
 
     def is_fully_credited(self):
         """Check if invoice is fully credited (cancelled by credit note)"""
-        return self.get_total_credited() >= float(self.total_amount)
+        total = Decimal(str(self.total_amount))
+        return total > 0 and self.get_total_credited_decimal() >= total
 
     def get_total_paid(self):
         """Calculate total amount paid for this invoice (only ACTIVE payments)"""
-        if not self.payments:
-            return 0
-        return float(sum((Decimal(str(payment.amount)) for payment in self.payments
-                   if not hasattr(payment, 'status') or payment.status is None or payment.status.value == 'ACTIVE'), Decimal('0')))
+        return float(self.get_total_paid_decimal())
 
     def get_outstanding_amount(self):
         """Calculate remaining amount to be paid (considering credits)"""
@@ -132,27 +139,21 @@ class Invoice(Base):
             return None
         return max(times)
 
-    def update_status(self):
-        """Update invoice status based on payments and credits
-        
-        Phase D.3: Consider both payments AND credit notes
+    def get_settlement_status(self):
+        """Public status derived from current amounts, without mutating stored state.
+
+        Partial credits alone do not constitute payment. CREDITED is an API
+        value; PostgreSQL continues to store CANCELLED for fully credited bills.
         """
-        outstanding = self.get_outstanding_amount()
-        total_paid = self.get_total_paid()
-        total_credited = self.get_total_credited()
-        
-        # Fully credited = CANCELLED (via credit notes)
         if self.is_fully_credited():
-            self.status = InvoiceStatus.CANCELLED
-        # Outstanding = 0 and has payments = PAID
-        elif outstanding <= 0 and total_paid > 0:
-            self.status = InvoiceStatus.PAID
-        # Outstanding = 0 and no payments (shouldn't happen normally)
-        elif outstanding <= 0:
-            self.status = InvoiceStatus.PAID
-        # Has some payment but not fully paid
-        elif total_paid > 0:
-            self.status = InvoiceStatus.PARTIALLY_PAID
-        # No payment yet
-        else:
-            self.status = InvoiceStatus.ISSUED
+            return 'CREDITED'
+        if self.get_remaining_balance_decimal() <= 0:
+            return 'PAID'
+        if self.get_total_paid_decimal() > 0:
+            return 'PARTIALLY_PAID'
+        return 'ISSUED'
+
+    def update_status(self):
+        """Persist the canonical status only during an explicit settlement write."""
+        status = self.get_settlement_status()
+        self.status = InvoiceStatus.CANCELLED if status == 'CREDITED' else InvoiceStatus(status)

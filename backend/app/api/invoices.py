@@ -119,14 +119,18 @@ async def list_invoices(
     # Eager-load payments and their ledger so get_last_payment_at() / get_total_paid()
     # don't trigger a per-invoice (N+1) query for the "วันที่ชำระล่าสุด" column.
     query = db.query(InvoiceDB).options(
-        selectinload(InvoiceDB.payments).selectinload(InvoicePayment.income_transaction)
+        selectinload(InvoiceDB.payments).selectinload(InvoicePayment.income_transaction),
+        selectinload(InvoiceDB.credit_notes),
+        selectinload(InvoiceDB.house),
     )
     
     if house_id:
         query = query.filter(InvoiceDB.house_id == house_id)
     
     if status:
-        query = query.filter(InvoiceDB.status == status)
+        status = {'PENDING': 'ISSUED', 'CANCELLED': 'CREDITED'}.get(status.upper(), status.upper())
+        if status not in {'ISSUED', 'PAID', 'PARTIALLY_PAID', 'CREDITED'}:
+            raise HTTPException(status_code=400, detail="Invalid invoice status filter")
     
     # Filter by manual/auto-generated
     if is_manual is not None:
@@ -137,7 +141,10 @@ async def list_invoices(
     # Convert to schema format
     result = []
     for idx, inv in enumerate(invoices):
-        house = db.query(HouseDB).filter(HouseDB.id == inv.house_id).first()
+        actual_status = inv.get_settlement_status()
+        if status and actual_status != status:
+            continue
+        house = inv.house
         
         # Calculate paid and outstanding (now considering credits)
         paid_amount = inv.get_total_paid()
@@ -145,14 +152,6 @@ async def list_invoices(
         net_amount = inv.get_net_amount()
         outstanding_amount = inv.get_remaining_balance()
         is_fully_credited = inv.is_fully_credited()
-        
-        # Determine status from actual data
-        if is_fully_credited:
-            actual_status = "CREDITED"  # Cancelled by credit note
-        elif inv.status:
-            actual_status = inv.status.value
-        else:
-            actual_status = "ISSUED"
         
         # Determine invoice type and cycle based on is_manual
         if inv.is_manual:
@@ -503,7 +502,7 @@ async def get_invoice_detail(
         "total_amount": float(inv.total_amount),
         "paid_amount": total_paid,
         "outstanding_amount": outstanding,
-        "status": inv.status.value if inv.status else None,
+        "status": inv.get_settlement_status(),
         "notes": inv.notes,
         "created_at": inv.created_at.isoformat() if inv.created_at else None,
         "payments": payment_history
@@ -626,7 +625,7 @@ async def apply_payment_to_invoice(
             "total_amount": float(invoice.total_amount),
             "paid_amount": invoice.get_total_paid(),
             "outstanding_amount": new_outstanding,
-            "status": invoice.status.value if invoice.status else None
+            "status": invoice.get_settlement_status()
         },
         "ledger": {
             "id": ledger.id,

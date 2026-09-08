@@ -161,14 +161,10 @@ export default function Invoices() {
     }
   };
 
-  const getStatusBadge = (status, outstanding, total) => {
-    if (outstanding === 0 && total > 0) {
-      return 'bg-gray-500/20 text-gray-400';
-    }
-    if (outstanding > 0 && outstanding < total) {
-      return 'bg-orange-500/20 text-orange-400';
-    }
-    
+  // Trust the canonical settlement status from the API (get_settlement_status).
+  // Do NOT re-derive it from outstanding here: a fully PAID invoice also has
+  // outstanding === 0, and the old check labelled those as "credited".
+  const getStatusBadge = (status) => {
     const badges = {
       pending: 'bg-yellow-500/20 text-yellow-400',
       ISSUED: 'bg-yellow-500/20 text-yellow-400',
@@ -182,14 +178,7 @@ export default function Invoices() {
     return badges[status] || 'bg-yellow-500/20 text-yellow-400';
   };
 
-  const formatStatus = (status, outstanding, total) => {
-    if (outstanding === 0 && total > 0) {
-      return t('status.credited');
-    }
-    if (outstanding > 0 && outstanding < total) {
-      return t('status.partial');
-    }
-    
+  const formatStatus = (status) => {
     const labels = {
       pending: t('status.pending'),
       ISSUED: t('status.pending'),
@@ -427,8 +416,8 @@ export default function Invoices() {
                         ฿{outstanding.toLocaleString()}
                       </td>
                       <td>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(inv.status, outstanding, inv.total)}`}>
-                          {formatStatus(inv.status, outstanding, inv.total)}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(inv.status)}`}>
+                          {formatStatus(inv.status)}
                         </span>
                       </td>
                       <td className="text-gray-300">{new Date(inv.due_date).toLocaleDateString('th-TH')}</td>
@@ -523,13 +512,12 @@ export default function Invoices() {
                       <div>
                         <div className="text-gray-400 text-sm">{t('common.status')}</div>
                         <div className={`font-bold text-lg ${
-                          invoiceDetail.outstanding_amount === 0 ? 'text-gray-400' :
-                          invoiceDetail.outstanding_amount < invoiceDetail.total_amount ? 'text-orange-400' :
+                          invoiceDetail.status === 'CREDITED' ? 'text-gray-400' :
                           invoiceDetail.status === 'PAID' ? 'text-green-400' :
                           invoiceDetail.status === 'PARTIALLY_PAID' ? 'text-blue-400' :
                           'text-yellow-400'
                         }`}>
-                          {formatStatus(invoiceDetail.status, invoiceDetail.outstanding_amount || 0, invoiceDetail.total_amount || 0)}
+                          {formatStatus(invoiceDetail.status)}
                         </div>
                       </div>
                     </div>

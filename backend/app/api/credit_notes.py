@@ -89,10 +89,7 @@ async def create_credit_note(
         )
     
     # 3. Calculate remaining creditable amount
-    remaining_balance = max(Decimal("0"),
-        Decimal(str(invoice.total_amount))
-        - sum((cn.credit_amount for cn in invoice.credit_notes if cn.status == 'applied'), Decimal("0"))
-        - sum((p.amount for p in invoice.payments if p.status is None or p.status.value == 'ACTIVE'), Decimal("0")))
+    remaining_balance = invoice.get_remaining_balance_decimal()
     
     # 4. Determine credit amount
     if data.is_full_credit:
