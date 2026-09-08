@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 from app.core.timezone import utc_now
 
 from app.db.session import get_db
@@ -15,6 +16,7 @@ from app.core.deps import get_current_user, require_role
 from app.db.models.user import User
 from app.db.models.bank_transaction import BankTransaction, PostingStatus
 from app.db.models.payin_report import PayinReport, PayinStatus
+from app.services.invoice_locking import lock_invoices, lock_ledger
 
 
 router = APIRouter(prefix="/api/bank-statements", tags=["bank-reconciliation"])
@@ -474,7 +476,7 @@ async def confirm_and_post(
         )
     
     # 3. Detect target house and invoice
-    amount = float(bank_txn.credit)
+    amount = Decimal(str(bank_txn.credit))
     target_house_id = None
     target_invoice = None
     payin = None
@@ -496,23 +498,23 @@ async def confirm_and_post(
             }
         )
     
+    # Lock all candidate invoices in ID order; keep FIFO as a separate ordering.
+    locked_invoices = lock_invoices(db, house_id=target_house_id)
     # Find target invoice
     if data and data.invoice_id:
         # Admin specified which invoice
-        target_invoice = db.query(Invoice).filter(
-            Invoice.id == data.invoice_id,
-            Invoice.house_id == target_house_id,
-        ).first()
+        target_invoice = next((inv for inv in locked_invoices if inv.id == data.invoice_id), None)
         if not target_invoice:
             raise HTTPException(status_code=404, detail="Specified invoice not found for this house")
         if target_invoice.get_outstanding_amount() <= 0:
             raise HTTPException(status_code=400, detail="Specified invoice is already fully paid")
     else:
         # Auto-detect: exact match only
-        outstanding_invoices = db.query(Invoice).filter(
-            Invoice.house_id == target_house_id,
-            Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID]),
-        ).order_by(Invoice.due_date.asc()).all()
+        outstanding_invoices = sorted(
+            [inv for inv in locked_invoices
+             if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)],
+            key=lambda inv: (inv.due_date, inv.id),
+        )
         
         # Filter to only those with actual outstanding balance
         outstanding_invoices = [inv for inv in outstanding_invoices if inv.get_outstanding_amount() > 0]
@@ -520,13 +522,13 @@ async def confirm_and_post(
         if not outstanding_invoices:
             # No outstanding invoice — still post the ledger, but skip allocation
             pass
-        elif len(outstanding_invoices) == 1 and abs(outstanding_invoices[0].get_outstanding_amount() - amount) < 0.01:
+        elif len(outstanding_invoices) == 1 and abs(Decimal(str(outstanding_invoices[0].get_outstanding_amount())) - amount) < Decimal('0.01'):
             # EXACT MATCH: 1 invoice, exact amount
             target_invoice = outstanding_invoices[0]
         else:
             # AMBIGUOUS or partial — do FIFO allocation across invoices
             # Phase 1: Only auto-allocate if total outstanding >= amount (no overpay)
-            total_outstanding = sum(inv.get_outstanding_amount() for inv in outstanding_invoices)
+            total_outstanding = sum((Decimal(str(inv.get_outstanding_amount())) for inv in outstanding_invoices), Decimal('0'))
             if total_outstanding >= amount:
                 # FIFO across multiple invoices — this is safe
                 target_invoice = "FIFO"  # sentinel
@@ -571,11 +573,8 @@ async def confirm_and_post(
         # 5. FIFO Allocation
         allocations = []
         if target_invoice == "FIFO":
-            # Re-query for FIFO
-            fifo_invoices = db.query(Invoice).filter(
-                Invoice.house_id == target_house_id,
-                Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID]),
-            ).order_by(Invoice.due_date.asc()).all()
+            # Reuse the candidates locked above, preserving FIFO order.
+            fifo_invoices = outstanding_invoices
             
             remaining = amount
             for inv in fifo_invoices:
@@ -584,7 +583,7 @@ async def confirm_and_post(
                 outstanding = inv.get_outstanding_amount()
                 if outstanding <= 0:
                     continue
-                alloc_amount = min(remaining, outstanding)
+                alloc_amount = min(remaining, Decimal(str(outstanding)))
                 payment = InvoicePayment(
                     invoice_id=inv.id,
                     income_transaction_id=income_txn.id,
@@ -603,7 +602,7 @@ async def confirm_and_post(
                 
         elif target_invoice and target_invoice != "FIFO":
             # Single invoice exact match
-            alloc_amount = min(amount, target_invoice.get_outstanding_amount())
+            alloc_amount = min(amount, Decimal(str(target_invoice.get_outstanding_amount())))
             payment = InvoicePayment(
                 invoice_id=target_invoice.id,
                 income_transaction_id=income_txn.id,
@@ -712,20 +711,21 @@ async def reverse_posted_transaction(
         reversed_invoices = []
         
         if income_txn:
+            income_txn = lock_ledger(db, income_txn.id)
             # 3. Mark all InvoicePayments as REVERSED
             payments = db.query(InvoicePayment).filter(
                 InvoicePayment.income_transaction_id == income_txn.id,
                 InvoicePayment.status == PaymentStatus.ACTIVE,
             ).all()
             
-            affected_invoice_ids = set()
+            affected_invoice_ids = {payment.invoice_id for payment in payments}
+            locked_invoices = lock_invoices(db, invoice_ids=affected_invoice_ids)
             for payment in payments:
                 payment.status = PaymentStatus.REVERSED
-                affected_invoice_ids.add(payment.invoice_id)
             
             # 4. Recalc invoice status
-            for inv_id in affected_invoice_ids:
-                invoice = db.query(Invoice).filter(Invoice.id == inv_id).first()
+            for invoice in locked_invoices:
+                inv_id = invoice.id
                 if invoice:
                     db.flush()
                     db.refresh(invoice)

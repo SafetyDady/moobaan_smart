@@ -7,6 +7,16 @@
 
 ## 2026-09-08
 
+### Credit settlement phase 1 — Codex, reviewed; owner authorized commit/push (deployment verification pending)
+- Owner explicitly confirmed: credit only the outstanding debt; full credit clears outstanding after prior credits and ACTIVE payments. Base/rollback reference: `0f9d67f40141ad5719d5356db18670949330f88c`.
+- Credit creation now locks the invoice, validates two-decimal finite money against current outstanding, and refreshes settlement status in the same transaction. Original invoice amount and existing historical entries are preserved.
+- All current invoice-payment insert paths participate: invoice apply API, accounting service + FIFO, pay-in FIFO, bank confirm/post. Bank reversal also participates. Lock existing ledger before invoices; acquire multiple invoice locks in ID order, then allocate in existing FIFO order. Expire cached payment/credit collections after locking.
+- Decimal arithmetic prevents fractional-cent residuals. Service FIFO commits once for the batch instead of releasing locks between invoices.
+- PostgreSQL regression suite: `backend/test_credit_settlement_postgres.py`. Explicit localhost-only `CREDIT_TEST_DATABASE_URL`, database `moobaan_credit_test`, fresh random schema per run; verifies actual blocking through `pg_blocking_pids`, including a Session with cached old balances. No production data used.
+- Verified 2026-09-08: 20 PostgreSQL 16.15 integration/concurrency tests passed, plus all 7 existing invoice paid-at tests. Changed API/service imports and `git diff --check` passed. PostgreSQL schema is built from current models in an isolated schema, not a production migration rehearsal. Docker could not start; used the EDB PostgreSQL binary distribution on localhost port 55439 instead and stopped the test server after verification.
+- Existing legacy `AccountingService.issue_credit_note` is house-scoped and constructs fields absent from the current CreditNote model; it cannot successfully insert using the current model. Not redesigned in this invoice-scoped fix.
+- Owner authorized Phase 1 commit/push after review. Remaining separate work: consolidate the duplicated outstanding Decimal calculation, canonical list/detail/filter/UI status (including historical stale statuses), and export specification/implementation. No historical data repair or migration in phase 1. Push/deploy verification must be checked separately; this entry does not certify production deployment success.
+
 ### feat(invoices): เพิ่มคอลัมน์ "วันที่ชำระล่าสุด" + แยกเวลารับเงิน/บันทึกเข้าบิลในประวัติ — `b645e0e` (deployed, ยืนยันใช้ได้)
 - **สิ่งที่ทำ:** เพิ่มคอลัมน์ "วันที่ชำระล่าสุด" ในตารางจัดการใบแจ้งหนี้ + ปรับ payment history ให้แสดง "เวลารับเงิน" (received_at) คู่กับ "บันทึกเข้าบิล" (applied_at)
 - **แหล่งเวลาที่ถูกต้อง (บทเรียนสำคัญ):** ในการชำระบิล มี timestamp 2 ชั้น อย่าสับสน

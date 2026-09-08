@@ -5,7 +5,7 @@ Rules:
 - Credit notes are IMMUTABLE (no update/delete after creation)
 - credit_amount must be positive
 - credit_amount cannot exceed invoice remaining balance
-- is_full_credit = true means cancel entire invoice
+- is_full_credit = true clears only the remaining unpaid debt
 """
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Boolean, Text
 from sqlalchemy.orm import relationship

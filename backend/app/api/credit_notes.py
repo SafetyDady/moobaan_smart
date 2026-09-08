@@ -8,7 +8,7 @@ Endpoints:
 Rules:
 - Credit notes are IMMUTABLE (no PUT/DELETE endpoints)
 - credit_amount must be positive and <= remaining balance
-- Invoice is NEVER modified
+- Original invoice amount is preserved; settlement status is recalculated
 """
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
@@ -21,6 +21,7 @@ from app.db.models.user import User
 from app.core.deps import get_db, require_admin_or_accounting
 from app.core.period_lock import validate_period_not_locked
 from datetime import date
+from app.services.invoice_locking import lock_invoice
 
 
 router = APIRouter(prefix="/api/credit-notes", tags=["credit-notes"])
@@ -32,7 +33,7 @@ router = APIRouter(prefix="/api/credit-notes", tags=["credit-notes"])
 
 class CreditNoteCreate(BaseModel):
     invoice_id: int
-    credit_amount: float = Field(..., gt=0, description="Amount to credit (must be positive)")
+    credit_amount: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2, description="Amount to credit (must be positive)")
     reason: str = Field(..., min_length=1, description="Reason for credit note")
     is_full_credit: bool = Field(default=False, description="If true, credit entire remaining balance")
 
@@ -68,12 +69,12 @@ async def create_credit_note(
     - Invoice must exist
     - Invoice must not be fully credited already
     - credit_amount must be > 0 and <= remaining balance
-    - If is_full_credit = true, credit_amount = net_amount
+    - If is_full_credit = true, credit_amount = outstanding after active payments
     
-    IMPORTANT: Invoice record is NEVER modified.
+    The original invoice amount is preserved; settlement status is recalculated.
     """
     # 1. Validate invoice exists
-    invoice = db.query(InvoiceDB).filter(InvoiceDB.id == data.invoice_id).first()
+    invoice = lock_invoice(db, data.invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
@@ -88,12 +89,15 @@ async def create_credit_note(
         )
     
     # 3. Calculate remaining creditable amount
-    remaining_balance = invoice.get_remaining_balance()
+    remaining_balance = max(Decimal("0"),
+        Decimal(str(invoice.total_amount))
+        - sum((cn.credit_amount for cn in invoice.credit_notes if cn.status == 'applied'), Decimal("0"))
+        - sum((p.amount for p in invoice.payments if p.status is None or p.status.value == 'ACTIVE'), Decimal("0")))
     
     # 4. Determine credit amount
     if data.is_full_credit:
-        # Full credit: use net amount (total - already credited)
-        credit_amount = invoice.get_net_amount()
+        # Full credit clears only the currently outstanding debt.
+        credit_amount = remaining_balance
     else:
         credit_amount = data.credit_amount
     
@@ -101,10 +105,10 @@ async def create_credit_note(
     if credit_amount <= 0:
         raise HTTPException(status_code=400, detail="Credit amount must be greater than 0")
     
-    if credit_amount > invoice.get_net_amount():
+    if credit_amount > remaining_balance:
         raise HTTPException(
             status_code=400, 
-            detail=f"Credit amount (฿{credit_amount:,.2f}) exceeds remaining creditable amount (฿{invoice.get_net_amount():,.2f})"
+            detail=f"Credit amount (฿{credit_amount:,.2f}) exceeds outstanding balance (฿{remaining_balance:,.2f})"
         )
     
     # 6. Create credit note (IMMUTABLE after this point)
@@ -118,6 +122,9 @@ async def create_credit_note(
     )
     
     db.add(credit_note)
+    db.flush()
+    db.expire(invoice, ["credit_notes", "payments"])
+    invoice.update_status()
     db.commit()
     db.refresh(credit_note)
     

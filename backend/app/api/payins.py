@@ -987,6 +987,8 @@ async def apply_payin_fifo(
     """
     from app.db.models.invoice import Invoice as InvoiceDB, InvoiceStatus
     from app.db.models.invoice_payment import InvoicePayment
+    from app.services.invoice_locking import lock_ledger, lock_invoices
+    from decimal import Decimal
     
     # 1. Validate pay-in exists and is ACCEPTED
     payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
@@ -1009,9 +1011,12 @@ async def apply_payin_fifo(
             status_code=400,
             detail="Cannot apply: No ledger entry found for this pay-in"
         )
+    ledger = lock_ledger(db, ledger.id)
+    if ledger.status and ledger.status.value == 'REVERSED':
+        raise HTTPException(status_code=400, detail="Cannot apply a reversed ledger")
     
     # 3. Check remaining amount
-    remaining = ledger.get_unallocated_amount()
+    remaining = Decimal(str(ledger.get_unallocated_amount()))
     if remaining <= 0:
         return {
             "message": "Ledger already fully allocated",
@@ -1022,10 +1027,11 @@ async def apply_payin_fifo(
         }
     
     # 4. Get outstanding invoices for this house, ordered by due_date ASC (FIFO)
-    invoices = db.query(InvoiceDB).filter(
-        InvoiceDB.house_id == payin.house_id,
-        InvoiceDB.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID])
-    ).order_by(InvoiceDB.due_date.asc()).all()
+    invoices = sorted(
+        [inv for inv in lock_invoices(db, house_id=payin.house_id)
+         if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)],
+        key=lambda inv: (inv.due_date, inv.id),
+    )
     
     if not invoices:
         return {
@@ -1049,7 +1055,7 @@ async def apply_payin_fifo(
                 continue
             
             # Allocate minimum of remaining and outstanding
-            alloc_amount = min(remaining, outstanding)
+            alloc_amount = min(remaining, Decimal(str(outstanding)))
             
             # Create payment record (audit trail)
             payment = InvoicePayment(
@@ -1096,7 +1102,7 @@ async def apply_payin_fifo(
         "message": f"FIFO allocation completed. {len(allocations)} invoice(s) allocated.",
         "payin_id": payin_id,
         "ledger_id": ledger.id,
-        "initial_remaining": remaining + sum(a["amount"] for a in allocations),
+        "initial_remaining": float(remaining + sum((Decimal(str(a["amount"])) for a in allocations), Decimal('0'))),
         "remaining_amount": final_remaining,
         "total_allocated": sum(a["amount"] for a in allocations),
         "allocations": allocations

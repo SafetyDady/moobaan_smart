@@ -5,7 +5,7 @@
 **หลักนำทาง:** ของที่ deploy แล้ว **ห้ามพัง** · owner รีวิว + deploy เอง อย่า push/commit โดยไม่ถาม
 
 ## กำลังทำอยู่
-- ไม่มีงานค้างระหว่างทำ — งานล่าสุด (คอลัมน์ "วันที่ชำระล่าสุด" ในหน้าใบแจ้งหนี้) deploy + ยืนยันใช้ได้แล้ว
+- **2026-09-08 — Codex: credit settlement phase 1 ผ่านรีวิว; owner อนุมัติ commit/push แล้ว (รอยืนยัน deployment).** ลดได้เฉพาะยอดค้างจริง; แก้ full credit + serialize credit/payment/FIFO/bank reversal. PostgreSQL 20 tests + paid-at 7 tests ผ่าน. Base/rollback reference `0f9d67f`. รายละเอียดใน `KNOWLEDGE-LOG.md` และ `backend/test_credit_settlement_postgres.py`. งานรวมสูตร Decimal, สถานะ UI/API/filter และ export ยังแยกค้างอยู่.
 
 ## ทำเสร็จแล้ว (ล่าสุด → เก่า)
 - `b645e0e` feat(invoices): เพิ่มคอลัมน์ "วันที่ชำระล่าสุด" (ใช้ `received_at` เวลารับเงินจริง ไม่ใช่ `applied_at`) + payment history แยกเวลารับเงิน/บันทึกเข้าบิล ทุก timestamp เป็นเวลาไทย + eager load กัน N+1 + unit test 7 เคส (2026-09-08, deployed + ยืนยันใช้ได้)

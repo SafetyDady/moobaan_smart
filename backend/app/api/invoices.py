@@ -21,6 +21,7 @@ from app.db.models.user import User
 from app.core.period_lock import validate_period_not_locked
 from app.core.pagination import paginate_list
 from decimal import Decimal
+from app.services.invoice_locking import lock_invoice, lock_ledger
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
@@ -440,7 +441,7 @@ async def generate_monthly_invoices(
 class ApplyPaymentRequest(BaseModel):
     """Request to apply ledger (IncomeTransaction) to invoice"""
     income_transaction_id: int = Field(..., description="ID of the ledger entry (IncomeTransaction)")
-    amount: Decimal = Field(..., gt=0, description="Amount to apply (must be > 0)")
+    amount: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2, description="Amount to apply (must be > 0)")
     note: Optional[str] = Field(None, description="Optional note for this application")
 
 
@@ -527,8 +528,14 @@ async def apply_payment_to_invoice(
     
     Creates immutable InvoicePayment record and updates invoice status atomically.
     """
-    # 1. Validate invoice
-    invoice = db.query(InvoiceDB).filter(InvoiceDB.id == invoice_id).first()
+    # Settlement writers acquire ledger before invoice to avoid lock inversion.
+    ledger = lock_ledger(db, request.income_transaction_id)
+    if not ledger:
+        raise HTTPException(status_code=404, detail="Ledger entry (IncomeTransaction) not found")
+    if ledger.status and ledger.status.value == 'REVERSED':
+        raise HTTPException(status_code=400, detail="Cannot apply a reversed ledger")
+    # 1. Validate invoice using balances refreshed after the lock.
+    invoice = lock_invoice(db, invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
@@ -540,11 +547,8 @@ async def apply_payment_to_invoice(
         )
     
     # 2. Validate ledger (IncomeTransaction)
-    ledger = db.query(IncomeTransaction).filter(
-        IncomeTransaction.id == request.income_transaction_id
-    ).first()
-    if not ledger:
-        raise HTTPException(status_code=404, detail="Ledger entry (IncomeTransaction) not found")
+    if ledger.house_id != invoice.house_id:
+        raise HTTPException(status_code=400, detail="Ledger and invoice must belong to the same house")
     
     # 3. Verify ledger is from ACCEPTED pay-in
     payin = db.query(PayinReport).filter(PayinReport.id == ledger.payin_id).first()

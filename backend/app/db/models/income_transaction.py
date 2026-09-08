@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.session import Base
 import enum
+from decimal import Decimal
 
 
 class LedgerStatus(enum.Enum):
@@ -64,9 +65,9 @@ class IncomeTransaction(Base):
         """Calculate total amount applied to invoices (only ACTIVE payments)"""
         if not self.invoice_payments:
             return 0
-        return sum(float(payment.amount) for payment in self.invoice_payments 
-                   if not hasattr(payment, 'status') or payment.status is None or payment.status.value == 'ACTIVE')
+        return float(sum((Decimal(str(payment.amount)) for payment in self.invoice_payments
+                   if not hasattr(payment, 'status') or payment.status is None or payment.status.value == 'ACTIVE'), Decimal('0')))
 
     def get_unallocated_amount(self):
         """Calculate amount not yet applied to any invoice"""
-        return float(self.amount) - self.get_total_applied()
+        return float(Decimal(str(self.amount)) - Decimal(str(self.get_total_applied())))

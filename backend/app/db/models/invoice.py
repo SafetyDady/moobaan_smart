@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.session import Base
 import enum
+from decimal import Decimal
 
 
 class InvoiceStatus(enum.Enum):
@@ -74,11 +75,11 @@ class Invoice(Base):
         """Calculate total credit notes applied to this invoice (Phase D.2)"""
         if not self.credit_notes:
             return 0
-        return sum(
-            float(cn.credit_amount) 
+        return float(sum(
+            (Decimal(str(cn.credit_amount))
             for cn in self.credit_notes 
-            if cn.status == 'applied'  # Use string comparison for PostgreSQL enum
-        )
+            if cn.status == 'applied'), Decimal('0')
+        ))
 
     def get_net_amount(self):
         """Calculate net payable amount after credits (Phase D.2)
@@ -86,14 +87,14 @@ class Invoice(Base):
         Formula: net_amount = total_amount - total_credited
         This NEVER modifies the original invoice amount.
         """
-        return max(0, float(self.total_amount) - self.get_total_credited())
+        return float(max(Decimal('0'), Decimal(str(self.total_amount)) - Decimal(str(self.get_total_credited()))))
 
     def get_remaining_balance(self):
         """Calculate remaining balance after credits AND payments (Phase D.2)
         
         Formula: remaining = net_amount - total_paid
         """
-        return max(0, self.get_net_amount() - self.get_total_paid())
+        return float(max(Decimal('0'), Decimal(str(self.get_net_amount())) - Decimal(str(self.get_total_paid()))))
 
     def is_fully_credited(self):
         """Check if invoice is fully credited (cancelled by credit note)"""
@@ -103,8 +104,8 @@ class Invoice(Base):
         """Calculate total amount paid for this invoice (only ACTIVE payments)"""
         if not self.payments:
             return 0
-        return sum(float(payment.amount) for payment in self.payments
-                   if not hasattr(payment, 'status') or payment.status is None or payment.status.value == 'ACTIVE')
+        return float(sum((Decimal(str(payment.amount)) for payment in self.payments
+                   if not hasattr(payment, 'status') or payment.status is None or payment.status.value == 'ACTIVE'), Decimal('0')))
 
     def get_outstanding_amount(self):
         """Calculate remaining amount to be paid (considering credits)"""

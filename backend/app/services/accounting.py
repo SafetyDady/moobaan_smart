@@ -15,6 +15,7 @@ from calendar import monthrange
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from app.core.timezone import BANGKOK_TZ
+from app.services.invoice_locking import lock_invoice, lock_ledger, lock_invoices
 
 from app.db.models import (
     House, HouseStatus, Invoice, InvoiceStatus, PayinReport, PayinStatus,
@@ -187,7 +188,9 @@ class AccountingService:
         db: Session,
         income_transaction_id: int,
         invoice_id: int,
-        amount: Decimal
+        amount: Decimal,
+        *,
+        commit: bool = True,
     ) -> InvoicePayment:
         """
         Apply payment from IncomeTransaction to specific Invoice.
@@ -205,15 +208,18 @@ class AccountingService:
         Raises:
             ValueError: If payment cannot be applied
         """
+        amount = Decimal(str(amount))
         # Get IncomeTransaction
-        income_transaction = db.query(IncomeTransaction).filter(
-            IncomeTransaction.id == income_transaction_id
-        ).first()
+        income_transaction = lock_ledger(db, income_transaction_id)
         if not income_transaction:
             raise ValueError(f"IncomeTransaction {income_transaction_id} not found")
+        if income_transaction.status and income_transaction.status.value == 'REVERSED':
+            raise ValueError("Cannot apply a reversed ledger")
+        if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal('0.01')):
+            raise ValueError("Payment must be positive with at most two decimal places")
         
         # Get Invoice
-        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+        invoice = lock_invoice(db, invoice_id)
         if not invoice:
             raise ValueError(f"Invoice {invoice_id} not found")
         
@@ -222,7 +228,7 @@ class AccountingService:
             raise ValueError("Income transaction and invoice must be for the same house")
         
         # Check available amount in IncomeTransaction
-        available_amount = income_transaction.get_unallocated_amount()
+        available_amount = Decimal(str(income_transaction.get_unallocated_amount()))
         if amount > available_amount:
             raise ValueError(
                 f"Amount {amount} exceeds available amount {available_amount} "
@@ -230,7 +236,7 @@ class AccountingService:
             )
         
         # Check outstanding amount in Invoice
-        outstanding = invoice.get_outstanding_amount()
+        outstanding = Decimal(str(invoice.get_outstanding_amount()))
         if amount > outstanding:
             raise ValueError(
                 f"Amount {amount} exceeds outstanding amount {outstanding} "
@@ -247,11 +253,13 @@ class AccountingService:
             
             db.add(payment)
             db.flush()  # Get payment ID
+            db.expire(invoice, ["payments", "credit_notes"])
             
             # Update invoice status
             invoice.update_status()
             
-            db.commit()
+            if commit:
+                db.commit()
             return payment
             
         except Exception as e:
@@ -443,53 +451,48 @@ class AccountingService:
         Returns:
             List of created InvoicePayment records
         """
-        income_transaction = db.query(IncomeTransaction).filter(
-            IncomeTransaction.id == income_transaction_id
-        ).first()
-        
+        income_transaction = lock_ledger(db, income_transaction_id)
         if not income_transaction:
             raise ValueError(f"IncomeTransaction {income_transaction_id} not found")
-        
-        available_amount = income_transaction.get_unallocated_amount()
+        if income_transaction.status and income_transaction.status.value == 'REVERSED':
+            raise ValueError("Cannot apply a reversed ledger")
+        available_amount = Decimal(str(income_transaction.get_unallocated_amount()))
         if available_amount <= 0:
             return []  # Nothing to apply
         
         # Get unpaid invoices for this house, ordered by oldest first
-        unpaid_invoices = db.query(Invoice).filter(
-            and_(
-                Invoice.house_id == income_transaction.house_id,
-                Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID])
-            )
-        ).order_by(
-            Invoice.cycle_year.asc(),
-            Invoice.cycle_month.asc(),
-            Invoice.id.asc()
-        ).all()
+        unpaid_invoices = sorted(
+            [inv for inv in lock_invoices(db, house_id=income_transaction.house_id)
+             if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)],
+            key=lambda inv: (inv.cycle_year, inv.cycle_month, inv.id),
+        )
         
         payments_created = []
-        remaining_amount = available_amount
+        remaining_amount = Decimal(str(available_amount))
         
         for invoice in unpaid_invoices:
             if remaining_amount <= 0:
                 break
             
-            outstanding = invoice.get_outstanding_amount()
+            outstanding = Decimal(str(invoice.get_outstanding_amount()))
             if outstanding <= 0:
                 continue
             
             # Apply payment (partial or full)
-            amount_to_apply = min(remaining_amount, outstanding)
+            amount_to_apply = min(remaining_amount, Decimal(str(outstanding)))
             
             payment = AccountingService.apply_payment_to_invoice(
                 db=db,
                 income_transaction_id=income_transaction_id,
                 invoice_id=invoice.id,
-                amount=amount_to_apply
+                amount=amount_to_apply,
+                commit=False,
             )
             
             payments_created.append(payment)
             remaining_amount -= amount_to_apply
         
+        db.commit()
         return payments_created
     
     @staticmethod
