@@ -7,6 +7,11 @@
 
 ## 2026-09-09
 
+### Owner-approved invoice ordering deployed and checked on real Admin/resident dashboard
+- Owner explicitly authorized commit+push; app0f1913cd725acf433db32ada681e0e259e3309e6 includes ordering2filefix and accumulated historicalpilot documentation. Parent/code rollback4c4c5a4; no financialwriter or migration change. Railwaybd525bf2-f329-4690-9d91-19e3808e11f7 andVercelHy5PVNABD79o87YZwy4YEiKsqimm SUCCESS. Seed/resetfalse verifiedbeforepush, configunchanged.
+- Prepush15:24:02Bangkok DBbackup SHA256f51f4847d033ec5eca4c5e7afb3f42c69dd5574d92a3a9232df457c353e58af9,221835bytes,26tablesrestoredverified andequalsfinalpilotnotesstate. Postdeploy15:27:06 all26tablehashes/counts unchanged,health/ready200,15anonymousinvoiceGETs401 acrossbackend/bothaliases. No R2objectbytes inbackup.
+- ActualexistingChromeAdmin28/95 refreshed showsJan–Aug; clickedcycleheaderdescendingAug–Jan andreturnedascending. Residentdashboardreloaded showsJan–Aug,7paid/August600 andSeptemberpendingwarning. Does not alter intentionalunpaid-first PaymentHistory sort. No newLINE/R2test, productionfinancialwrite orotherhousecorrection. Seeinvoice-order-production-release.md andprivateinvoice-order-* evidence. Context-only follow-up commit has identical application source.
+
 ### Invoice list requires explicit ordering; Admin header keys must match API schema
 - Owner screenshots showed Feb/Jan/Mar/Apr/Aug/May/Jun/Jul on resident dashboard and Admin after historical updates. list_invoices query had no ORDER BY, so database row-return order was not a display contract. Added is_manual/year/month/due_date/id ascending before response pagination; monthly chronology stable and special bills ordered by due date. This changes reads only, not allocation FIFO or receipt dates.
 - Admin useSort previously had no initial sort, and month/house headers referenced nonexistent billing_month/house_code instead of actual cycle/house_number. Set initial cycle asc and correct keys. Resident dashboard passes the same list directly to InvoiceTable, so receives ordered results without additional frontend sorting. Separate resident PaymentHistory intentionally sorts unpaid-first/due-desc and remains unchanged.
