@@ -17,7 +17,8 @@ from app.db.models.invoice import InvoiceStatus as InvoiceStatusEnum
 from app.db.models.payin_report import PayinStatus
 from app.db.models.income_transaction import LedgerStatus
 from app.db.models.house import HouseStatus
-from app.core.deps import get_db, require_admin_or_accounting, get_current_user
+from app.core.deps import get_db, require_admin_or_accounting, get_current_user, get_house_id_from_token
+from app.core.report_access import require_report_house_access
 from app.db.models.user import User
 from app.core.period_lock import validate_period_not_locked
 from app.core.pagination import paginate_list
@@ -25,8 +26,35 @@ from decimal import Decimal
 from app.services.receipt_eligibility import allocation_error
 from app.db.models.bank_transaction import BankTransaction
 from app.services.invoice_locking import lock_invoice, lock_ledger
+from app.services.automatic_allocation import prepare_allocation, apply_prepared_funds
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
+
+
+def resolve_invoice_house(
+    house_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    token_house_id: Optional[int] = Depends(get_house_id_from_token),
+    db: Session = Depends(get_db),
+):
+    """Admin may list all houses; residents always use their selected active house."""
+    if current_user.role in ('super_admin', 'accounting'):
+        return house_id
+    selected_house = house_id if house_id is not None else token_house_id
+    require_report_house_access(selected_house, current_user, token_house_id, db)
+    return selected_house
+
+
+def require_invoice_read_access(
+    invoice_id: int,
+    current_user: User = Depends(get_current_user),
+    token_house_id: Optional[int] = Depends(get_house_id_from_token),
+    db: Session = Depends(get_db),
+):
+    invoice = db.get(InvoiceDB, invoice_id)
+    if invoice is None:
+        raise HTTPException(404, 'Invoice not found')
+    return require_report_house_access(invoice.house_id, current_user, token_house_id, db)
 
 
 # ============================================
@@ -75,6 +103,7 @@ async def create_manual_invoice(
     # Phase G.1: Check period lock for issue date
     validate_period_not_locked(db, date.today(), "invoice")
     
+    scope = prepare_allocation(db, [data.house_id])
     # Create manual invoice
     new_invoice = InvoiceDB(
         house_id=data.house_id,
@@ -91,6 +120,8 @@ async def create_manual_invoice(
     )
     
     db.add(new_invoice)
+    scope.invoices.append(new_invoice)
+    apply_prepared_funds(db, scope)
     db.commit()
     db.refresh(new_invoice)
     
@@ -112,7 +143,7 @@ async def create_manual_invoice(
 @router.get("")
 async def list_invoices(
     db: Session = Depends(get_db),
-    house_id: int = None,
+    house_id: Optional[int] = Depends(resolve_invoice_house),
     status: str = None,
     is_manual: bool = None,
     page: Optional[int] = Query(None, ge=1, description="Page number (1-indexed). Omit for all results."),
@@ -197,7 +228,7 @@ async def list_invoices(
     return paginate_list(result, page=page, page_size=page_size)
 
 
-@router.get("/allocatable-ledgers")
+@router.get("/allocatable-ledgers", dependencies=[Depends(require_admin_or_accounting)])
 async def get_allocatable_ledgers(
     house_id: Optional[int] = None,
     db: Session = Depends(get_db)
@@ -250,7 +281,7 @@ async def get_allocatable_ledgers(
     }
 
 
-@router.get("/{invoice_id}", response_model=InvoiceSchema)
+@router.get("/{invoice_id}", response_model=InvoiceSchema, dependencies=[Depends(require_invoice_read_access)])
 async def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
     """Get a specific invoice by ID"""
     inv = db.query(InvoiceDB).filter(InvoiceDB.id == invoice_id).first()
@@ -288,7 +319,7 @@ async def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
 
 
 
-@router.post("", response_model=InvoiceSchema)
+@router.post("", response_model=InvoiceSchema, dependencies=[Depends(require_admin_or_accounting)])
 async def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db)):
     """Create a new invoice (manual)"""
     
@@ -306,7 +337,10 @@ async def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid cycle format. Use YYYY-MM")
     
     # Calculate total from items
-    total = sum(item.amount for item in invoice.items)
+    total = sum((Decimal(str(item.amount)) for item in invoice.items), Decimal('0'))
+    if not total.is_finite() or total <= 0 or total != total.quantize(Decimal('0.01')):
+        raise HTTPException(status_code=400, detail="Invoice total must be positive with at most two decimal places")
+    scope = prepare_allocation(db, [invoice.house_id])
     
     # Create new invoice in database
     new_invoice = InvoiceDB(
@@ -321,6 +355,8 @@ async def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db)):
     )
     
     db.add(new_invoice)
+    scope.invoices.append(new_invoice)
+    apply_prepared_funds(db, scope)
     db.commit()
     db.refresh(new_invoice)
     
@@ -329,18 +365,21 @@ async def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db)):
         id=new_invoice.id,
         house_id=new_invoice.house_id,
         house_number=house.house_code,
-        invoice_type=InvoiceType(new_invoice.invoice_type),
+        invoice_type=InvoiceType.AUTO_MONTHLY,
         cycle=invoice.cycle,
         total=float(total),
-        status=InvoiceStatus.PENDING,
+        status=new_invoice.get_settlement_status(),
+        paid=new_invoice.get_total_paid(),
+        outstanding=new_invoice.get_remaining_balance(),
         due_date=new_invoice.due_date,
-        items=invoice.items,
+        items=[InvoiceItem(id=n, description=item.description, amount=item.amount)
+               for n, item in enumerate(invoice.items, 1)],
         created_at=new_invoice.created_at
     )
 
 
 
-@router.put("/{invoice_id}", response_model=InvoiceSchema)
+@router.put("/{invoice_id}", response_model=InvoiceSchema, dependencies=[Depends(require_admin_or_accounting)])
 async def update_invoice(invoice_id: int, invoice: InvoiceCreate, db: Session = Depends(get_db)):
     """Update an existing invoice"""
     
@@ -390,7 +429,7 @@ async def update_invoice(invoice_id: int, invoice: InvoiceCreate, db: Session = 
 
 
 
-@router.delete("/{invoice_id}")
+@router.delete("/{invoice_id}", dependencies=[Depends(require_admin_or_accounting)])
 async def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
     """Delete an invoice"""
     invoice = db.query(InvoiceDB).filter(InvoiceDB.id == invoice_id).first()
@@ -407,7 +446,7 @@ async def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
 @router.post("/generate-monthly")
 async def generate_monthly_invoices(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin_or_accounting),
     year: Optional[int] = None,
     month: Optional[int] = None
 ):
@@ -460,7 +499,7 @@ class ApplyPaymentRequest(BaseModel):
     note: Optional[str] = Field(None, description="Optional note for this application")
 
 
-@router.get("/{invoice_id}/detail")
+@router.get("/{invoice_id}/detail", dependencies=[Depends(require_invoice_read_access)])
 async def get_invoice_detail(
     invoice_id: int, 
     db: Session = Depends(get_db)
@@ -653,7 +692,7 @@ async def apply_payment_to_invoice(
     }
 
 
-@router.get("/{invoice_id}/payments")
+@router.get("/{invoice_id}/payments", dependencies=[Depends(require_invoice_read_access)])
 async def get_invoice_payments(
     invoice_id: int,
     db: Session = Depends(get_db)

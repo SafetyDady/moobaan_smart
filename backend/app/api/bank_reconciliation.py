@@ -17,6 +17,7 @@ from app.db.models.user import User
 from app.db.models.bank_transaction import BankTransaction, PostingStatus
 from app.db.models.payin_report import PayinReport, PayinStatus
 from app.services.invoice_locking import lock_invoices, lock_ledger
+from app.services.automatic_allocation import prepare_allocation, apply_prepared_funds
 
 
 router = APIRouter(prefix="/api/bank-statements", tags=["bank-reconciliation"])
@@ -418,9 +419,9 @@ async def confirm_and_post(
     Flow:
     1. Lock bank transaction row (SELECT FOR UPDATE)
     2. Idempotency: if already POSTED, return existing result
-    3. Detect exact-match invoice (or use specified invoice_id)
+    3. Prepare household funds and invoices (or preserve an Admin override)
     4. Create IncomeTransaction (ledger)
-    5. FIFO allocate to invoice(s)
+    5. FIFO allocate available household funds to invoice(s)
     6. Update invoice status
     7. Set posting_status = POSTED
     8. If matched pay-in exists, set status = ACCEPTED
@@ -428,8 +429,8 @@ async def confirm_and_post(
     Guards:
     - Only CREDIT transactions
     - Must be MATCHED or UNMATCHED (not already POSTED/REVERSED)
-    - Auto only when exact match (1 invoice, exact amount)
-    - Returns 409 AMBIGUOUS if multiple candidates
+    - Residents do not select invoices; automatic FIFO uses due_date/id
+    - Returns 409 AMBIGUOUS if the house cannot be established
     """
     from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
     from app.db.models.invoice_payment import InvoicePayment
@@ -446,7 +447,7 @@ async def confirm_and_post(
     # 1. Lock row (SELECT FOR UPDATE)
     bank_txn = db.query(BankTransaction).filter(
         BankTransaction.id == txn_uuid
-    ).with_for_update().first()
+    ).populate_existing().with_for_update().first()
     
     if not bank_txn:
         raise HTTPException(status_code=404, detail="Bank transaction not found")
@@ -499,7 +500,8 @@ async def confirm_and_post(
         )
     
     # Lock all candidate invoices in ID order; keep FIFO as a separate ordering.
-    locked_invoices = lock_invoices(db, house_id=target_house_id)
+    scope = prepare_allocation(db, [target_house_id])
+    locked_invoices = scope.invoices
     # Find target invoice
     if data and data.invoice_id:
         # Admin specified which invoice
@@ -508,34 +510,6 @@ async def confirm_and_post(
             raise HTTPException(status_code=404, detail="Specified invoice not found for this house")
         if target_invoice.get_outstanding_amount() <= 0:
             raise HTTPException(status_code=400, detail="Specified invoice is already fully paid")
-    else:
-        # Auto-detect: exact match only
-        outstanding_invoices = sorted(
-            [inv for inv in locked_invoices
-             if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)],
-            key=lambda inv: (inv.due_date, inv.id),
-        )
-        
-        # Filter to only those with actual outstanding balance
-        outstanding_invoices = [inv for inv in outstanding_invoices if inv.get_outstanding_amount() > 0]
-        
-        if not outstanding_invoices:
-            # No outstanding invoice — still post the ledger, but skip allocation
-            pass
-        elif len(outstanding_invoices) == 1 and abs(Decimal(str(outstanding_invoices[0].get_outstanding_amount())) - amount) < Decimal('0.01'):
-            # EXACT MATCH: 1 invoice, exact amount
-            target_invoice = outstanding_invoices[0]
-        else:
-            # AMBIGUOUS or partial — do FIFO allocation across invoices
-            # Phase 1: Only auto-allocate if total outstanding >= amount (no overpay)
-            total_outstanding = sum((Decimal(str(inv.get_outstanding_amount())) for inv in outstanding_invoices), Decimal('0'))
-            if total_outstanding >= amount:
-                # FIFO across multiple invoices — this is safe
-                target_invoice = "FIFO"  # sentinel
-            else:
-                # Overpayment scenario — still post ledger, allocate what we can
-                target_invoice = "FIFO"
-    
     # 4. ATOMIC TRANSACTION: Create ledger + allocate + update status
     try:
         # Handle re-post after reverse: if a REVERSED IncomeTransaction exists
@@ -570,63 +544,33 @@ async def confirm_and_post(
         db.add(income_txn)
         db.flush()  # Get income_txn.id
         
-        # 5. FIFO Allocation
-        allocations = []
-        if target_invoice == "FIFO":
-            # Reuse the candidates locked above, preserving FIFO order.
-            fifo_invoices = outstanding_invoices
-            
-            remaining = amount
-            for inv in fifo_invoices:
-                if remaining <= 0:
-                    break
-                outstanding = inv.get_outstanding_amount()
-                if outstanding <= 0:
-                    continue
-                alloc_amount = min(remaining, Decimal(str(outstanding)))
-                payment = InvoicePayment(
-                    invoice_id=inv.id,
-                    income_transaction_id=income_txn.id,
-                    amount=alloc_amount,
-                )
-                db.add(payment)
-                db.flush()
-                db.refresh(inv)
-                inv.update_status()
-                allocations.append({
-                    "invoice_id": inv.id,
-                    "amount": alloc_amount,
-                    "new_status": inv.status.value,
-                })
-                remaining -= alloc_amount
-                
-        elif target_invoice and target_invoice != "FIFO":
-            # Single invoice exact match
-            alloc_amount = min(amount, Decimal(str(target_invoice.get_outstanding_amount())))
-            payment = InvoicePayment(
-                invoice_id=target_invoice.id,
-                income_transaction_id=income_txn.id,
-                amount=alloc_amount,
-            )
-            db.add(payment)
-            db.flush()
-            db.refresh(target_invoice)
-            target_invoice.update_status()
-            allocations.append({
-                "invoice_id": target_invoice.id,
-                "amount": alloc_amount,
-                "new_status": target_invoice.status.value,
-            })
-        
-        # 6. Update bank transaction posting_status
+        # Confirm source state before evaluating automatic allocation eligibility.
         bank_txn.posting_status = PostingStatus.POSTED
-        
-        # 7. If matched pay-in, set to ACCEPTED
         if payin:
             payin.status = PayinStatusEnum.ACCEPTED
             payin.accepted_by = current_user.id
             payin.accepted_at = utc_now()
-        
+        db.flush()
+        allocations = []
+        if target_invoice is not None:
+            # Existing Admin-only explicit override; residents cannot call this API.
+            alloc_amount = min(amount, target_invoice.get_remaining_balance_decimal())
+            payment = InvoicePayment(invoice_id=target_invoice.id,
+                income_transaction_id=income_txn.id, amount=alloc_amount)
+            db.add(payment)
+            db.flush()
+            db.expire(target_invoice, ["payments", "credit_notes"])
+            target_invoice.update_status()
+            allocations.append({"invoice_id": target_invoice.id, "amount": alloc_amount,
+                                "new_status": target_invoice.status.value})
+        else:
+            scope.ledgers.append(income_txn)
+            for payment in apply_prepared_funds(db, scope):
+                inv = next(i for i in scope.invoices if i.id == payment.invoice_id)
+                allocations.append({"invoice_id": inv.id, "amount": payment.amount,
+                                    "income_transaction_id": payment.income_transaction_id,
+                                    "new_status": inv.status.value})
+
         db.commit()
         db.refresh(income_txn)
         

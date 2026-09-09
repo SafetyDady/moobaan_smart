@@ -38,6 +38,7 @@ from app.core.deps import (
 from app.core.uploads import save_slip_file, get_slip_download_url
 from app.core.period_lock import validate_period_not_locked
 from app.core.pagination import paginate_list
+from app.services.automatic_allocation import prepare_allocation, apply_prepared_funds
 
 router = APIRouter(prefix="/api/payin-reports", tags=["payin-reports"])
 
@@ -671,6 +672,16 @@ async def accept_payin_report(
             detail="Cannot accept pay-in: Must be matched with bank statement first. Please use Match function before accepting."
         )
     
+    from app.db.models import BankTransaction, PostingStatus
+    bank = (db.query(BankTransaction).filter(BankTransaction.id == payin.matched_statement_txn_id)
+            .populate_existing().with_for_update().first())
+    if not bank or bank.matched_payin_id != payin.id:
+        raise HTTPException(status_code=400, detail="Pay-in bank match changed; review required")
+    scope = prepare_allocation(db, [payin.house_id])
+    db.refresh(payin)
+    if not payin.can_be_reviewed():
+        raise HTTPException(status_code=400, detail="Pay-in is no longer reviewable")
+
     # PRECONDITION 4: Check if IncomeTransaction already exists (safety check for idempotency)
     existing_income = db.query(IncomeTransaction).filter(
         IncomeTransaction.payin_id == payin_id
@@ -716,6 +727,9 @@ async def accept_payin_report(
         )
         
         db.add(income_transaction)
+        bank.posting_status = PostingStatus.POSTED
+        scope.ledgers.append(income_transaction)
+        apply_prepared_funds(db, scope)
         db.commit()  # Atomic commit: both succeed or both fail
         db.refresh(payin)
         db.refresh(income_transaction)
@@ -970,24 +984,21 @@ async def apply_payin_fifo(
     current_user: User = Depends(require_admin_or_accounting)
 ):
     """
-    Apply pay-in to invoices using FIFO (First In First Out) algorithm.
+    Apply eligible unused household funds using FIFO, anchored by an accepted pay-in.
     
     Algorithm:
     1. Get IncomeTransaction (ledger) from the accepted pay-in
     2. Get outstanding invoices for the same house, ordered by due_date ASC
-    3. Allocate remaining ledger amount to invoices until depleted
+    3. Allocate older eligible household funds first, without rewriting existing links
     4. Create InvoicePayment records (audit trail)
     5. Update invoice statuses
     
     Rules:
     - Allocation is within SAME house only (no cross-house)
-    - Only pending/partial invoices are eligible
+    - Eligibility uses actual debt, not cached invoice status
     - Cannot exceed invoice outstanding
     - Cannot exceed ledger remaining
     """
-    from app.db.models.invoice import Invoice as InvoiceDB, InvoiceStatus
-    from app.db.models.invoice_payment import InvoicePayment
-    from app.services.invoice_locking import lock_ledger, lock_invoices
     from decimal import Decimal
     
     # 1. Validate pay-in exists and is ACCEPTED
@@ -1011,99 +1022,31 @@ async def apply_payin_fifo(
             status_code=400,
             detail="Cannot apply: No ledger entry found for this pay-in"
         )
-    ledger = lock_ledger(db, ledger.id)
+    scope = prepare_allocation(db, [ledger.house_id])
     if ledger.status and ledger.status.value == 'REVERSED':
         raise HTTPException(status_code=400, detail="Cannot apply a reversed ledger")
-    
-    # 3. Check remaining amount
-    remaining = Decimal(str(ledger.get_unallocated_amount()))
-    if remaining <= 0:
-        return {
-            "message": "Ledger already fully allocated",
-            "payin_id": payin_id,
-            "ledger_id": ledger.id,
-            "remaining_amount": 0,
-            "allocations": []
-        }
-    
-    # 4. Get outstanding invoices for this house, ordered by due_date ASC (FIFO)
-    invoices = sorted(
-        [inv for inv in lock_invoices(db, house_id=payin.house_id)
-         if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)],
-        key=lambda inv: (inv.due_date, inv.id),
-    )
-    
-    if not invoices:
-        return {
-            "message": "No outstanding invoices found for this house",
-            "payin_id": payin_id,
-            "ledger_id": ledger.id,
-            "remaining_amount": remaining,
-            "allocations": []
-        }
-    
-    # 5. FIFO Allocation Loop
-    allocations = []
     try:
-        for invoice in invoices:
-            if remaining <= 0:
-                break
-            
-            # Calculate invoice outstanding (considering credits)
-            outstanding = invoice.get_outstanding_amount()
-            if outstanding <= 0:
-                continue
-            
-            # Allocate minimum of remaining and outstanding
-            alloc_amount = min(remaining, Decimal(str(outstanding)))
-            
-            # Create payment record (audit trail)
-            payment = InvoicePayment(
-                invoice_id=invoice.id,
-                income_transaction_id=ledger.id,
-                amount=alloc_amount
-            )
-            db.add(payment)
-            
-            # Flush to update relationships
-            db.flush()
-            db.refresh(invoice)
-            
-            # Update invoice status
-            invoice.update_status()
-            
-            # Track allocation
+        initial_remaining = ledger.get_unallocated_amount()
+        payments = apply_prepared_funds(db, scope)
+        allocations = []
+        for payment in payments:
+            invoice = next(inv for inv in scope.invoices if inv.id == payment.invoice_id)
             allocations.append({
-                "invoice_id": invoice.id,
-                "amount": float(alloc_amount),
+                "invoice_id": invoice.id, "income_transaction_id": payment.income_transaction_id,
+                "amount": float(payment.amount),
                 "invoice_cycle": f"{invoice.cycle_year}/{invoice.cycle_month:02d}" if not invoice.is_manual else "Manual",
-                "invoice_due_date": invoice.due_date.isoformat() if invoice.due_date else None,
-                "new_outstanding": invoice.get_outstanding_amount(),
-                "new_status": invoice.status.value
+                "invoice_due_date": invoice.due_date.isoformat(),
+                "new_outstanding": invoice.get_outstanding_amount(), "new_status": invoice.status.value,
             })
-            
-            # Decrease remaining
-            remaining -= alloc_amount
-        
         db.commit()
-        
-    except Exception as e:
+        db.refresh(ledger)
+        return {
+            "message": f"Household FIFO allocation completed. {len(allocations)} allocation(s).",
+            "payin_id": payin_id, "ledger_id": ledger.id,
+            "initial_remaining": initial_remaining, "remaining_amount": ledger.get_unallocated_amount(),
+            "total_allocated": float(sum((p.amount for p in payments), Decimal('0'))),
+            "allocation_scope": "household", "allocations": allocations,
+        }
+    except Exception:
         db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"FIFO allocation failed: {str(e)}"
-        )
-    
-    # Refresh ledger to get updated state
-    db.refresh(ledger)
-    final_remaining = ledger.get_unallocated_amount()
-    
-    return {
-        "message": f"FIFO allocation completed. {len(allocations)} invoice(s) allocated.",
-        "payin_id": payin_id,
-        "ledger_id": ledger.id,
-        "initial_remaining": float(remaining + sum((Decimal(str(a["amount"])) for a in allocations), Decimal('0'))),
-        "remaining_amount": final_remaining,
-        "total_allocated": sum(a["amount"] for a in allocations),
-        "allocations": allocations
-    }
+        raise

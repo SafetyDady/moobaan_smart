@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func, and_, or_
 from app.core.timezone import BANGKOK_TZ
 from app.services.invoice_locking import lock_invoice, lock_ledger, lock_invoices
+from app.services.automatic_allocation import prepare_allocation, apply_prepared_funds
 from app.services.accounting_reports import (
     month_dates, month_snapshot, monthly_statement, range_statement, dated_outstanding,
 )
@@ -70,6 +71,7 @@ class AccountingService:
 
         # Get all houses
         houses = db.query(House).all()
+        scope = prepare_allocation(db, [house.id for house in houses])
         created_invoices = []
         
         # Calculate dates
@@ -82,7 +84,8 @@ class AccountingService:
                 and_(
                     Invoice.house_id == house.id,
                     Invoice.cycle_year == year,
-                    Invoice.cycle_month == month
+                    Invoice.cycle_month == month,
+                    Invoice.is_manual.is_(False),
                 )
             ).first()
             
@@ -105,6 +108,12 @@ class AccountingService:
             db.add(invoice)
             created_invoices.append(invoice)
         
+        if created_invoices:
+            created_houses = {inv.house_id for inv in created_invoices}
+            scope.house_ids = tuple(sorted(created_houses))
+            scope.ledgers = [entry for entry in scope.ledgers if entry.house_id in created_houses]
+            scope.invoices = [inv for inv in scope.invoices if inv.house_id in created_houses] + created_invoices
+            apply_prepared_funds(db, scope)
         db.commit()
         return created_invoices
 
@@ -151,6 +160,16 @@ class AccountingService:
             )
         # ============================================
         
+        from app.db.models import BankTransaction, PostingStatus
+        bank = (db.query(BankTransaction).filter(BankTransaction.id == payin.matched_statement_txn_id)
+                .populate_existing().with_for_update().first())
+        if not bank or bank.matched_payin_id != payin.id:
+            raise ValueError("Pay-in bank match changed; review required")
+        scope = prepare_allocation(db, [payin.house_id])
+        db.refresh(payin)
+        if not payin.can_be_accepted():
+            raise ValueError("Pay-in is no longer eligible for acceptance")
+
         # Verify house exists and get house status
         house = db.query(House).filter(House.id == payin.house_id).first()
         if not house:
@@ -174,10 +193,14 @@ class AccountingService:
                 house_id=payin.house_id,
                 payin_id=payin_id,
                 amount=payin.amount,
-                received_at=payin.transfer_date
+                received_at=bank.effective_at,
+                reference_bank_transaction_id=bank.id,
             )
             
             db.add(income_transaction)
+            bank.posting_status = PostingStatus.POSTED
+            scope.ledgers.append(income_transaction)
+            apply_prepared_funds(db, scope)
             db.commit()
             
             return income_transaction
@@ -414,59 +437,25 @@ class AccountingService:
         income_transaction_id: int
     ) -> List[InvoicePayment]:
         """
-        Auto-apply payment to oldest unpaid invoices using FIFO method.
+        Auto-apply unused household funds to oldest due invoices using FIFO.
         
         Args:
             db: Database session
-            income_transaction_id: ID of IncomeTransaction to apply
+            income_transaction_id: Receipt identifying the household (not an invoice selection)
             
         Returns:
             List of created InvoicePayment records
         """
-        income_transaction = lock_ledger(db, income_transaction_id)
+        income_transaction = db.get(IncomeTransaction, income_transaction_id)
         if not income_transaction:
             raise ValueError(f"IncomeTransaction {income_transaction_id} not found")
+        scope = prepare_allocation(db, [income_transaction.house_id])
         if income_transaction.status and income_transaction.status.value == 'REVERSED':
             raise ValueError("Cannot apply a reversed ledger")
-        available_amount = Decimal(str(income_transaction.get_unallocated_amount()))
-        if available_amount <= 0:
-            return []  # Nothing to apply
-        
-        # Get unpaid invoices for this house, ordered by oldest first
-        unpaid_invoices = sorted(
-            [inv for inv in lock_invoices(db, house_id=income_transaction.house_id)
-             if inv.get_remaining_balance_decimal() > 0],
-            key=lambda inv: (inv.cycle_year, inv.cycle_month, inv.id),
-        )
-        
-        payments_created = []
-        remaining_amount = Decimal(str(available_amount))
-        
-        for invoice in unpaid_invoices:
-            if remaining_amount <= 0:
-                break
-            
-            outstanding = Decimal(str(invoice.get_outstanding_amount()))
-            if outstanding <= 0:
-                continue
-            
-            # Apply payment (partial or full)
-            amount_to_apply = min(remaining_amount, Decimal(str(outstanding)))
-            
-            payment = AccountingService.apply_payment_to_invoice(
-                db=db,
-                income_transaction_id=income_transaction_id,
-                invoice_id=invoice.id,
-                amount=amount_to_apply,
-                commit=False,
-            )
-            
-            payments_created.append(payment)
-            remaining_amount -= amount_to_apply
-        
+        payments_created = apply_prepared_funds(db, scope)
         db.commit()
         return payments_created
-    
+
     @staticmethod
     def _get_month_end_date(year: int, month: int) -> date:
         """Get the last day of the specified month"""

@@ -31,6 +31,7 @@ from app.core.report_access import require_report_house_access
 from app.core.config import Settings
 from app.db.models import User, House, Invoice, PayinReport, IncomeTransaction, CreditNote
 from app.services.accounting import AccountingService
+from app.services.automatic_allocation import prepare_allocation, apply_prepared_funds
 from app.services.statement_generator import StatementPDFGenerator, StatementExcelGenerator
 
 
@@ -85,6 +86,7 @@ async def create_invoice(
 ):
     """Create a manual invoice (accounting/admin only)."""
     try:
+        scope = prepare_allocation(db, [invoice_data.house_id])
         # Check if invoice already exists
         existing = db.query(Invoice).filter(
             Invoice.house_id == invoice_data.house_id,
@@ -119,6 +121,8 @@ async def create_invoice(
         )
         
         db.add(invoice)
+        scope.invoices.append(invoice)
+        apply_prepared_funds(db, scope)
         db.commit()
         db.refresh(invoice)
         

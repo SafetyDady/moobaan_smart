@@ -411,8 +411,10 @@ class SettlementPostgresTests(unittest.TestCase):
 
     def test_race_bank_then_credit(self):
         self.bank_fixture()
+        # Household auto-allocation now consumes the fixture's older unused
+        # 1,000 as well; the invoice is fully paid before the competing credit.
         self.assertEqual(self.race(lambda db: self.bank_post(db),
-            lambda db: self.credit(db, '400')), (400, 0, 200))
+            lambda db: self.credit(db, '400')), (600, 0, 0))
 
     def test_race_credit_then_payin_fifo(self):
         self.assertEqual(self.race(lambda db: self.credit(db, '400'),
