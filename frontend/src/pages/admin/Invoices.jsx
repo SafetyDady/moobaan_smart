@@ -50,7 +50,7 @@ export default function Invoices() {
   const toast = useToast();
 
   // Pagination
-  const { sortConfig, requestSort, sortedData: sortedInvoices } = useSort(invoices);
+  const { sortConfig, requestSort, sortedData: sortedInvoices } = useSort(invoices, { key: 'cycle', direction: 'asc' });
   const paged = usePagination(sortedInvoices);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const now = new Date();
@@ -408,8 +408,8 @@ export default function Invoices() {
           <table className="table">
             <thead>
               <tr>
-                <SortableHeader label={t('invoices.house')} sortKey="house_code" sortConfig={sortConfig} onSort={requestSort} />
-                <SortableHeader label={t('invoices.cycle')} sortKey="billing_month" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.house')} sortKey="house_number" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableHeader label={t('invoices.cycle')} sortKey="cycle" sortConfig={sortConfig} onSort={requestSort} />
                 <SortableHeader label={t('invoices.total')} sortKey="total" sortConfig={sortConfig} onSort={requestSort} />
                 <SortableHeader label={t('invoices.paid')} sortKey="paid" sortConfig={sortConfig} onSort={requestSort} />
                 <SortableHeader label={t('invoices.outstanding')} sortKey="outstanding" sortConfig={sortConfig} onSort={requestSort} />

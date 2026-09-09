@@ -170,7 +170,13 @@ async def list_invoices(
     if is_manual is not None:
         query = query.filter(InvoiceDB.is_manual == is_manual)
     
-    invoices = query.all()
+    # Stable display order before pagination; updates must not move billing cycles.
+    # Monthly invoices use their cycle, while manual invoices use their due date.
+    invoices = query.order_by(
+        InvoiceDB.is_manual.asc(),
+        InvoiceDB.cycle_year.asc(), InvoiceDB.cycle_month.asc(),
+        InvoiceDB.due_date.asc(), InvoiceDB.id.asc(),
+    ).all()
     
     # Convert to schema format
     result = []
