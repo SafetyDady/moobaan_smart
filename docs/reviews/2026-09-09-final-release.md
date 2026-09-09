@@ -1,5 +1,7 @@
 # ชุด release สุดท้าย — รออนุมัติ commit/push
 
+> Historical preparation record. Owner subsequently approved; code `67e7a57` deployed successfully on9September2026. Current outcome and post-deploy evidence: [production-release](2026-09-09-production-release.md).
+
 หลังเจ้าของให้ดำเนินการต่อ ได้ปิดความเสี่ยงseed/resetตามค่าที่เสนอ และแก้หัวรายงานให้ใช้ข้อมูลที่ทราบจริง ขั้นเตรียมreleaseเสร็จแล้ว ยังไม่commit/push/deployโค้ดและยังไม่ซ่อมallocation
 
 ## เปลี่ยน production config แล้ว

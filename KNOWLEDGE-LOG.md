@@ -7,6 +7,13 @@
 
 ## 2026-09-09
 
+### Approved production release — deployed, DB unchanged
+- Owner explicitly approved final commit/push. Release `67e7a57eee1f8053b8d269e66f1a1d46b25580f9` matches approved tree `73a8745ead07921439beeca850800211ee16f6aa`; parent/rollback `f367d8832c266ad9c9010bd1fb04a1b0fcafcab6`. Railway and Vercel deployment statuses SUCCESS for this exact commit.
+- Refreshed pre-push backup at10:31:18 Bangkok:26public tables restored and fingerprint-verified, SHA256 `34852a2efcd59d27766fdbca99cf51e9e8626dd683bd518f9ae0a661d7068105`. Post-deploy read-only snapshot comparison shows no changed public table. Alembic remains p5_1_notifications. No financial/source-data/allocation writes; R2 attachment bytes are outside this DB backup.
+- Health/ready200;6accounting alias requests plus legacy invoices require authentication401. Both frontend domains serve identical JS. Initial literal local/prod asset comparison failed because build URLs differ and Windows source embeds CRLF; exact text matches after only these known transformations. Do not claim byte-identical local/CI builds or dismiss unexplained asset differences.
+- Browser checks reuse existing Admin/resident sessions: Admin invoices load; resident28/73 has8monthly invoices totaling4,800THB, independently matched to live SQL. This does not exercise a new LINE OAuth login or all production resident report downloads; all-house access/download coverage remains the pre-release restored-DB matrix.
+- Keep seed/reset false when rolling back code; never restore an old DB over new transactions. Allocation repair28/95/62houses remains separate. See production-release report; previous preparation entries describe historical pre-deployment state.
+
 ### Final release — seed/reset disabled and report identity corrected
 - Owner said continue after the concrete seed/reset proposal. Applied only RUN_PROD_SEED=false and PROD_RESET_ADMIN_PASSWORD=false via Railway variableCollectionUpsert with replace=false/skipDeploys=true. Read-back at10:25:43 Bangkok confirms false/false, all other variables unchanged, active deployment unchanged7c6d5c98-918b-4744-b3cc-ab4de9d4454d. No restart/code deploy, no financial writes. Keep these flags off during any later rollback.
 - English name/contact details were not supplied; used known Thai community nameหมู่บ้านแมกไม้ลีลาวดี and neutralกรุณาติดต่อฝ่ายบัญชี/นิติบุคคล. Config default English empty; both PDF/XLSX join only nonempty project names. Removed fictitious phone/email defaults. Only these report default fields in core/config.py changed, not DB/auth settings.
