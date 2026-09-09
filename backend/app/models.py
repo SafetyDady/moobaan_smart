@@ -331,12 +331,19 @@ class StatementRow(BaseModel):
 class StatementSummary(BaseModel):
     """
     Footer summary for financial statement.
-    All values computed from ledger + snapshot.
+    All values computed from the same dated cash records as the rows.
     """
     invoice_total: float    # Sum of invoices in period
     payment_total: float    # Sum of payments in period
     credit_total: float     # Sum of credit notes in period
-    closing_balance: float  # From snapshot only (NOT calculated here)
+    closing_balance: float  # opening + invoice - confirmed receipts - applied credits
+
+
+class PendingPayinContext(BaseModel):
+    scope: str = 'current'
+    count: int
+    amount: float
+    excluded_from_confirmed_receipts: bool = True
 
 
 class FinancialStatement(BaseModel):
@@ -344,9 +351,9 @@ class FinancialStatement(BaseModel):
     Complete financial statement for a house over a date range.
     
     IMPORTANT: This is a READ-ONLY presentation combining:
-    - Opening balance from Phase 2.3 snapshot
+    - Opening balance before the requested Bangkok start date
     - Ledger transactions in period
-    - Closing balance from Phase 2.3 snapshot
+    - Closing balance through the requested Bangkok end date
     
     No data is stored - all values derived on-demand.
     """
@@ -355,7 +362,8 @@ class FinancialStatement(BaseModel):
     owner_name: Optional[str] = None
     start_date: date
     end_date: date
-    opening_balance: float  # From snapshot (NOT calculated)
-    closing_balance: float  # From snapshot (NOT calculated)
+    opening_balance: float  # Derived from currently valid records before start_date
+    closing_balance: float  # Derived through end_date, inclusive
     rows: List[StatementRow]  # Transactions sorted by date ASC
     summary: StatementSummary
+    pending_payins: Optional[PendingPayinContext] = None

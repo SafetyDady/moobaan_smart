@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from app.models import DashboardSummary
 from app.core.deps import get_db, get_current_user, get_house_id_from_token, security
 from app.db.models import User, Invoice, HouseMember, House
@@ -58,7 +58,9 @@ async def get_dashboard_summary(
             )
         
         # Get ALL invoices for user's house (for total billed calculation)
-        all_invoices = db.query(Invoice).filter(
+        all_invoices = db.query(Invoice).options(
+            selectinload(Invoice.payments), selectinload(Invoice.credit_notes),
+        ).filter(
             Invoice.house_id == membership.house_id,
         ).all()
         
@@ -66,8 +68,7 @@ async def get_dashboard_summary(
         total_billed = sum(inv.get_net_amount() for inv in all_invoices)
         
         # total_outstanding = remaining balance on unpaid invoices only
-        unpaid_invoices = [inv for inv in all_invoices 
-                          if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)]
+        unpaid_invoices = [inv for inv in all_invoices if inv.get_remaining_balance_decimal() > 0]
         total_outstanding = sum(inv.get_outstanding_amount() for inv in unpaid_invoices)
         
         # Get total income (payments received) — only POSTED ledger entries
@@ -93,7 +94,10 @@ async def get_dashboard_summary(
             total_residents=1,
             pending_invoices=len(unpaid_invoices),
             total_outstanding=total_outstanding,
-            pending_payins=0,      # TODO: Get from payin_reports
+            pending_payins=db.query(PayinReport).filter(
+                PayinReport.house_id == membership.house_id,
+                PayinReport.status.in_([PayinStatus.PENDING, PayinStatus.SUBMITTED]),
+            ).count(),
             overdue_invoices=0,    # TODO: Filter by due_date
             recent_payments=len(income_transactions),
             monthly_revenue=0.0
@@ -105,15 +109,16 @@ async def get_dashboard_summary(
         active_houses = [h for h in houses if h.house_status == HouseStatus.ACTIVE]
         
         # Get ALL invoices for total billed, then filter for unpaid
-        all_invoices = db.query(Invoice).all()
+        all_invoices = db.query(Invoice).options(
+            selectinload(Invoice.payments), selectinload(Invoice.credit_notes),
+        ).all()
         total_billed = sum(inv.get_net_amount() for inv in all_invoices)
         
-        unpaid_invoices = [inv for inv in all_invoices 
-                          if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)]
+        unpaid_invoices = [inv for inv in all_invoices if inv.get_remaining_balance_decimal() > 0]
         total_outstanding = sum(inv.get_outstanding_amount() for inv in unpaid_invoices)
         
         # Count overdue invoices (due_date < today and not paid)
-        today = date.today()
+        today = datetime.now(BANGKOK_TZ).date()
         overdue_invoices = [inv for inv in unpaid_invoices if inv.due_date and inv.due_date < today]
         
         # Get total income from all POSTED ledger entries
@@ -124,7 +129,7 @@ async def get_dashboard_summary(
         
         # Count pending payins
         pending_payins = db.query(PayinReport).filter(
-            PayinReport.status == PayinStatus.PENDING
+            PayinReport.status.in_([PayinStatus.PENDING, PayinStatus.SUBMITTED])
         ).count()
         
         # Calculate current balance: money received - money invoiced
@@ -157,7 +162,6 @@ async def get_village_summary(
     """
     from sqlalchemy import func, case
     from app.db.models.expense import Expense, ExpenseStatus
-    from app.db.models.invoice_payment import InvoicePayment
     from app.db.models.bank_transaction import BankTransaction
     from app.db.models.bank_statement_batch import BankStatementBatch
     from dateutil.relativedelta import relativedelta
@@ -201,32 +205,14 @@ async def get_village_summary(
         month_expense = 0
         statement_period = None
     
-    # ── Debtor count & total debt (ISSUED or PARTIALLY_PAID invoices) ──
-    # FIX: InvoiceStatus has no UNPAID — use ISSUED + PARTIALLY_PAID
-    unpaid_statuses = [InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID]
-    
-    debtor_count = db.query(func.count(func.distinct(Invoice.house_id)))\
-        .filter(Invoice.status.in_(unpaid_statuses))\
-        .scalar() or 0
-    
-    # FIX: Calculate actual remaining debt (total_amount - paid - credited)
-    # Use subquery to get paid amounts per invoice
-    paid_subq = db.query(
-        InvoicePayment.invoice_id,
-        func.coalesce(func.sum(InvoicePayment.amount), 0).label("total_paid")
-    ).group_by(InvoicePayment.invoice_id).subquery()
-    
-    total_debt_rows = db.query(
-        Invoice.total_amount,
-        func.coalesce(paid_subq.c.total_paid, 0).label("paid")
-    ).outerjoin(
-        paid_subq, Invoice.id == paid_subq.c.invoice_id
-    ).filter(
-        Invoice.status.in_(unpaid_statuses)
+    # Use the same active-payment/credit calculation as invoice and resident views.
+    # Stored status can be stale; never use it as the source of debt amounts/counts.
+    debt_invoices = db.query(Invoice).options(
+        selectinload(Invoice.payments), selectinload(Invoice.credit_notes),
     ).all()
-    
-    total_debt = sum(float(row.total_amount) - float(row.paid) for row in total_debt_rows)
-    total_debt = max(0, total_debt)
+    debts = [(inv.house_id, inv.get_remaining_balance_decimal()) for inv in debt_invoices]
+    debtor_count = len({house_id for house_id, amount in debts if amount > 0})
+    total_debt = float(sum((amount for _, amount in debts), Decimal('0')))
     
     # ── Monthly stats from BankStatementBatch (last 12 months) ──
     monthly_income = []
@@ -267,17 +253,19 @@ async def get_village_summary(
     
     # Recent income with house info for description
     recent_income = db.query(IncomeTransaction)\
+        .filter(IncomeTransaction.status == LedgerStatus.POSTED)\
         .order_by(IncomeTransaction.received_at.desc())\
         .limit(3)\
         .all()
     
     for inc in recent_income:
         # FIX: IncomeTransaction has no 'period' field — derive from received_at
-        month_label = thai_months.get(inc.received_at.month, "") if inc.received_at else ""
+        received_local = inc.received_at.astimezone(BANGKOK_TZ) if inc.received_at else None
+        month_label = thai_months.get(received_local.month, "") if received_local else ""
         activities.append({
             "icon": "🏠",
             "description": f"รับชำระค่าส่วนกลาง {month_label}".strip(),
-            "timestamp": inc.received_at.strftime("%d/%m/%Y %H:%M") if inc.received_at else "",
+            "timestamp": received_local.strftime("%d/%m/%Y %H:%M") if inc.received_at else "",
             "sort_key": inc.received_at.isoformat() if inc.received_at else "",
             "amount": float(inc.amount),
             "type": "income"

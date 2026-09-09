@@ -57,7 +57,7 @@ export default function PaymentHistory() {
   // Filter payins
   const filteredPayins = payins.filter(payin => {
     if (payinFilter === 'all') return true;
-    if (payinFilter === 'pending') return payin.status === 'PENDING';
+    if (payinFilter === 'pending') return ['PENDING', 'SUBMITTED'].includes(payin.status);
     if (payinFilter === 'accepted') return payin.status === 'ACCEPTED';
     if (payinFilter === 'rejected') return payin.status === 'REJECTED_NEEDS_FIX';
     return true;

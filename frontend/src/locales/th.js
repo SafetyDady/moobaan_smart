@@ -368,6 +368,10 @@ const th = {
     paidDate: 'วันที่ชำระล่าสุด',
     receivedAt: 'เวลารับเงิน',
     recordedAt: 'บันทึกเข้าบิล',
+    allocationReversed: 'ยกเลิกการผูกยอดแล้ว — ไม่นับเป็นยอดชำระ',
+    unallocatedNotice: 'บ้านนี้มีเงินรับแล้วที่ยังไม่ได้นำไปชำระใบแจ้งหนี้',
+    unallocatedHelp: 'ตรวจสอบรายการก่อนเรียกเก็บเงินเพิ่ม หากมีบิลค้าง ให้กดชำระเงินที่บิลและเลือกรายการรับเงินที่ถูกต้อง',
+    unallocatedCheckFailed: 'ตรวจสอบยอดรับเงินที่ยังไม่ได้ผูกบิลไม่สำเร็จ กรุณาค้นหาอีกครั้งก่อนเรียกเก็บเงินเพิ่ม',
     noInvoicesFound: 'ไม่พบใบแจ้งหนี้',
     invoiceDetail: 'รายละเอียดใบแจ้งหนี้',
     applyPayment: 'ชำระเงิน',
@@ -1074,6 +1078,7 @@ const th = {
   },
   // ── Cash Flow ──────────────────────────────────────────────
   cashFlow: {
+    confirmedReceiptCount: 'รายการรับเงินยืนยัน',
     balanced: 'สมดุล',
     gapOverExplain: 'เงินสดรับมากกว่ายอดลูกหนี้',
     gapUnderExplain: 'เงินสดรับน้อยกว่ายอดลูกหนี้',
@@ -1110,6 +1115,11 @@ const th = {
 
   // ── Mobile Dashboard ───────────────────────────────────────
   mobileDashboard: {
+    pendingReview: 'รอตรวจสอบการชำระ',
+    pendingEvidence: 'สลิปที่ส่งแล้วและกำลังรอตรวจสอบ',
+    pendingEvidenceUnit: 'รายการ',
+    pendingExcluded: 'ยอดข้างต้นยังไม่หักสลิปรอตรวจสอบ โปรดรอผลก่อนชำระซ้ำ',
+
     overpaid: 'ชำระเกิน',
     outstanding: 'ยอดค้างชำระ',
     paid: 'ชำระแล้ว',

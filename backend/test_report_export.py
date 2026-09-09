@@ -93,10 +93,13 @@ def test_drop_columns_noop_without_config():
 
 
 def test_pdf_renders_with_numeric_money():
-    buf = generate_pdf("รายงานใบแจ้งหนี้", HEADERS, ROWS, money_columns=MONEY)
+    headers, rows, money = drop_columns(HEADERS, ROWS,
+        REPORT_TYPES['invoices']['pdf_drop_columns'], MONEY)
+    buf = generate_pdf("รายงานใบแจ้งหนี้", headers, rows, money_columns=money)
     data = buf.getvalue()
     assert data.startswith(b"%PDF"), "not a PDF"
     assert len(data) > 1000
+    assert b'Sarabun' in data, 'PDF must embed the bundled Thai font, not fall back to Helvetica'
     print(f"✅ PDF generated from numeric rows ({len(data):,} bytes)")
 
 

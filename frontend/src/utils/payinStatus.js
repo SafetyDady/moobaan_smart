@@ -262,6 +262,7 @@ export const formatThaiDate = (value, options = {}) => {
     day: 'numeric',
     month: 'short',
     year: '2-digit',
+    timeZone: 'Asia/Bangkok',
     ...options,
   };
   
@@ -286,6 +287,7 @@ export const formatThaiTime = (value) => {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
+      timeZone: 'Asia/Bangkok',
     });
   } catch {
     return '-';

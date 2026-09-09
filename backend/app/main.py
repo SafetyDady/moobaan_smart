@@ -41,6 +41,7 @@ from app.api.bank_statements import router as bank_statements_router
 from app.api.bank_reconciliation import router as bank_reconciliation_router
 from app.api.auth import router as auth_router
 from app.api.accounting import router as accounting_router
+from app.api.accounting import report_router as accounting_report_router
 from app.api.users import router as users_router
 from app.api.credit_notes import router as credit_notes_router
 from app.api.promotions import router as promotions_router
@@ -168,6 +169,7 @@ app.include_router(bank_accounts_router)
 app.include_router(bank_statements_router)
 app.include_router(bank_reconciliation_router)
 app.include_router(accounting_router)
+app.include_router(accounting_report_router)
 app.include_router(users_router)
 app.include_router(credit_notes_router)
 app.include_router(promotions_router)

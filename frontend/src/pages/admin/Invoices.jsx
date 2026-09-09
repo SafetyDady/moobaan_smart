@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FileText, Search, X, Image } from 'lucide-react';
 import { invoicesAPI, housesAPI, creditNotesAPI, payinsAPI } from '../../api/client';
 import ApplyPaymentModal from '../../components/ApplyPaymentModal';
@@ -16,6 +16,10 @@ import ExportButton from '../../components/ExportButton';
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exportFilters, setExportFilters] = useState(null);
+  const [unallocatedLedgers, setUnallocatedLedgers] = useState([]);
+  const [unallocatedFailed, setUnallocatedFailed] = useState(false);
+  const invoiceRequestId = useRef(0);
   const [activeTab, setActiveTab] = useState('auto');
   const [filterHouseCode, setFilterHouseCode] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -71,29 +75,47 @@ export default function Invoices() {
     }
   };
 
-  const loadInvoices = async () => {
+  const loadInvoices = async (overrides = {}) => {
+    const requestId = ++invoiceRequestId.current;
+    const houseCode = overrides.houseCode ?? filterHouseCode;
+    const status = overrides.status ?? filterStatus;
     try {
       setLoading(true);
+      setUnallocatedLedgers([]);
+      setUnallocatedFailed(false);
       const params = { is_manual: activeTab === 'manual' };
-      if (filterStatus) params.status = filterStatus;
+      if (status) params.status = status;
       // Find house_id from house_code search
-      if (filterHouseCode.trim()) {
-        const match = houses.find(h => h.house_code === filterHouseCode.trim());
+      if (houseCode.trim()) {
+        const match = houses.find(h => h.house_code === houseCode.trim());
         if (match) {
           params.house_id = match.id;
         } else {
           // No exact match → show empty
           setInvoices([]);
+          setExportFilters(null);
           setLoading(false);
           return;
         }
       }
       const response = await invoicesAPI.list(params);
+      if (requestId !== invoiceRequestId.current) return;
       setInvoices(response.data);
+      setExportFilters(params);
+      if (params.house_id) {
+        try {
+          const credits = await invoicesAPI.getAllocatableLedgers(params.house_id);
+          if (requestId !== invoiceRequestId.current) return;
+          setUnallocatedLedgers(credits.data.ledgers || []);
+        } catch {
+          if (requestId === invoiceRequestId.current) setUnallocatedFailed(true);
+        }
+      }
     } catch (error) {
+      if (requestId === invoiceRequestId.current) setExportFilters(null);
       console.error('Failed to load invoices:', error);
     } finally {
-      setLoading(false);
+      if (requestId === invoiceRequestId.current) setLoading(false);
     }
   };
 
@@ -104,6 +126,7 @@ export default function Invoices() {
   const handleClearFilters = () => {
     setFilterHouseCode('');
     setFilterStatus('');
+    loadInvoices({ houseCode: '', status: '' });
   };
 
   const handleGenerateMonthly = async () => {
@@ -255,14 +278,6 @@ export default function Invoices() {
     }
   };
 
-  // Export what the user is currently looking at — same filters as loadInvoices().
-  const exportFilters = { is_manual: activeTab === 'manual' };
-  if (filterStatus) exportFilters.status = filterStatus;
-  if (filterHouseCode.trim()) {
-    const houseMatch = houses.find(h => h.house_code === filterHouseCode.trim());
-    if (houseMatch) exportFilters.house_id = houseMatch.id;
-  }
-
   return (
     <AdminPageWrapper>
     <div className="p-4 sm:p-6 lg:p-8">
@@ -271,7 +286,7 @@ export default function Invoices() {
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t('invoices.title')}</h1>
           <p className="text-gray-400">{t('invoices.subtitle')}</p>
         </div>
-        <ExportButton reportType="invoices" filters={exportFilters} />
+        <ExportButton reportType="invoices" filters={exportFilters} disabled={loading || exportFilters === null} />
       </div>
 
       {/* Tabs */}
@@ -366,6 +381,26 @@ export default function Invoices() {
           </button>
         )}
       </div>
+
+      {!loading && unallocatedFailed && (
+        <div role="alert" className="mb-4 rounded-lg bg-amber-500/10 p-4 text-amber-200 text-sm">
+          {t('invoices.unallocatedCheckFailed')}
+        </div>
+      )}
+      {!loading && unallocatedLedgers.length > 0 && (
+        <div role="status" className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-amber-100 text-sm">
+          <p className="font-medium">{t('invoices.unallocatedNotice')}</p>
+          <ul className="mt-2 space-y-1">
+            {unallocatedLedgers.map(ledger => (
+              <li key={ledger.id}>
+                {t('invoices.payinRef')} #{ledger.payin_id} · ฿{ledger.remaining.toLocaleString('th-TH')} · {t('invoices.receivedAt')}: {ledger.received_at
+                  ? new Date(ledger.received_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2">{t('invoices.unallocatedHelp')}</p>
+        </div>
+      )}
 
       {/* Table */}
       <div className="card">
@@ -580,9 +615,14 @@ export default function Invoices() {
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-green-400 font-bold">
+                                  <span className={payment.status === 'REVERSED' ? 'text-gray-500 line-through font-bold' : 'text-green-400 font-bold'}>
                                     ฿{payment.amount?.toLocaleString()}
                                   </span>
+                                  {payment.status === 'REVERSED' && (
+                                    <span className="text-amber-400 text-xs">
+                                      {t('invoices.allocationReversed')}
+                                    </span>
+                                  )}
                                   {payment.payin ? (
                                     <>
                                       <span className="text-gray-500">—</span>

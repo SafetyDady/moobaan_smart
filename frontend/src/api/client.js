@@ -152,7 +152,7 @@ export const housesAPI = {
   delete: (id) => apiClient.delete(`/api/houses/${id}`),
   downloadStatement: async (houseId, year, month, format) => {
     const response = await apiClient.get(
-      `/api/accounting/statement/${houseId}`,
+      `/api/accounting/statement/house/${houseId}`,
       { 
         params: { year, month, format },
         responseType: 'blob'

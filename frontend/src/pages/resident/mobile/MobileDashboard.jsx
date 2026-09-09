@@ -110,7 +110,7 @@ export default function MobileDashboard() {
                 ? 'bg-emerald-500/30 text-emerald-100' 
                 : 'bg-red-500/30 text-red-100'
             }`}>
-              {isOverpaid ? t('mobileDashboard.paid') : t('mobileDashboard.mustPay')}
+              {isOverpaid ? t('mobileDashboard.paid') : (summary?.pending_payins > 0 ? t('mobileDashboard.pendingReview') : t('mobileDashboard.mustPay'))}
             </span>
           </div>
           
@@ -126,6 +126,12 @@ export default function MobileDashboard() {
             </p>
           </div>
           
+          {summary?.pending_payins > 0 && (
+            <p className="text-yellow-100 text-sm mb-3" role="status">
+              {t('mobileDashboard.pendingEvidence')}: {summary.pending_payins} {t('mobileDashboard.pendingEvidenceUnit')}
+              <br />{t('mobileDashboard.pendingExcluded')}
+            </p>
+          )}
           {/* Action Button */}
           {!isOverpaid && (
             hasBlockingPayin ? (

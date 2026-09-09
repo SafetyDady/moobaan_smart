@@ -11,6 +11,8 @@ Provides production-ready statement generation with:
 import io
 import os
 import hashlib
+from pathlib import Path
+from xml.sax.saxutils import escape
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Dict, List, Any
@@ -30,6 +32,13 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 
 from app.core.config import Settings
+from app.core.timezone import BANGKOK_TZ
+
+
+def _project_label(settings: Settings) -> str:
+    """The English project name is optional; never print an empty separator."""
+    return ' / '.join(name.strip() for name in
+        (settings.PROJECT_NAME_TH, settings.PROJECT_NAME_EN) if name.strip())
 
 
 def _get_short_hash(text: str) -> str:
@@ -39,7 +48,7 @@ def _get_short_hash(text: str) -> str:
 
 def _format_currency(amount: Decimal) -> str:
     """Format currency with Thai comma formatting."""
-    return f"{amount:,.2f}"
+    return f"{amount if amount else 0:,.2f}"
 
 
 def _convert_to_buddhist_year(year: int) -> int:
@@ -73,22 +82,21 @@ class StatementPDFGenerator:
         self._setup_fonts()
     
     def _setup_fonts(self):
-        """Setup fonts with Thai support."""
-        # Try to register Thai font if available
-        try:
-            thai_font_path = os.path.join(os.path.dirname(__file__), "../../assets/fonts/THSarabun.ttf")
-            if os.path.exists(thai_font_path):
-                pdfmetrics.registerFont(TTFont('THSarabun', thai_font_path))
-                pdfmetrics.registerFont(TTFont('THSarabun-Bold', thai_font_path))
-                addMapping('THSarabun', 0, 0, 'THSarabun')
-                addMapping('THSarabun', 1, 0, 'THSarabun-Bold')
-                self.thai_font = 'THSarabun'
-            else:
-                # Fallback to Helvetica (may not display Thai correctly)
-                self.thai_font = 'Helvetica'
-        except:
-            # Fallback font
-            self.thai_font = 'Helvetica'
+        """Use deployed Thai fonts; fail explicitly if assets are missing."""
+        fonts = Path(__file__).resolve().parents[2] / 'assets' / 'fonts'
+        self.thai_font = 'StatementSarabun'
+        self.thai_bold = 'StatementSarabun-Bold'
+        for name, filename in [(self.thai_font, 'Sarabun-Regular.ttf'),
+                               (self.thai_bold, 'Sarabun-Bold.ttf')]:
+            pdfmetrics.registerFont(TTFont(name, str(fonts / filename)))
+        pdfmetrics.registerFontFamily(self.thai_font, normal=self.thai_font,
+            bold=self.thai_bold, italic=self.thai_font, boldItalic=self.thai_bold)
+
+    def _page_footer(self, canvas, doc):
+        canvas.saveState()
+        canvas.setFont(self.thai_font, 9)
+        canvas.drawCentredString(A4[0] / 2, 12 * mm, f'หน้า / Page {doc.page}')
+        canvas.restoreState()
     
     def generate_statement_pdf(self, statement: Dict[str, Any]) -> bytes:
         """Generate PDF statement from statement data."""
@@ -127,7 +135,7 @@ class StatementPDFGenerator:
         self._add_footer_disclaimers(elements, statement)
         
         # Build PDF
-        doc.build(elements)
+        doc.build(elements, onFirstPage=self._page_footer, onLaterPages=self._page_footer)
         
         # Return bytes
         buffer.seek(0)
@@ -167,7 +175,7 @@ class StatementPDFGenerator:
             alignment=TA_CENTER,
             spaceAfter=15
         )
-        elements.append(Paragraph(f"{self.settings.PROJECT_NAME_TH} / {self.settings.PROJECT_NAME_EN}", project_style))
+        elements.append(Paragraph(escape(_project_label(self.settings)), project_style))
         
         # Document info table
         header = statement['header']
@@ -178,10 +186,12 @@ class StatementPDFGenerator:
             ["House / บ้านเลขที่:", header['house_code']],
             ["Owner / เจ้าของ:", header['owner_name']],
             ["Document ID / เลขที่เอกสาร:", doc_id],
-            ["Generated / สร้างเอกสาร:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+            ["Generated / เวลาไทย:", datetime.now(BANGKOK_TZ).strftime("%Y-%m-%d %H:%M:%S")]
         ]
         
-        doc_table = Table(doc_data, colWidths=[60*mm, 90*mm])
+        cell_style = ParagraphStyle('StatementInfo', fontName=self.thai_font, fontSize=10, leading=14)
+        doc_data = [[Paragraph(escape(str(value or '')), cell_style) for value in row] for row in doc_data]
+        doc_table = Table(doc_data, colWidths=[60*mm, 110*mm])
         doc_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), self.thai_font),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
@@ -197,11 +207,11 @@ class StatementPDFGenerator:
         closing_balance = statement['header']['closing_balance']
         
         balance_data = [[
-            "ยอดคงค้างปลายเดือน / Closing Balance",
+            "ยอดคงเหลือปลายเดือน / Closing Balance",
             f"THB {_format_currency(closing_balance)}"
         ]]
         
-        balance_table = Table(balance_data, colWidths=[120*mm, 50*mm])
+        balance_table = Table(balance_data, colWidths=[120*mm, 50*mm], rowHeights=[12*mm])
         balance_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), self.thai_font),
             ('FONTSIZE', (0, 0), (-1, -1), 14),
@@ -239,7 +249,11 @@ class StatementPDFGenerator:
                 _format_currency(amount)
             ])
         
-        summary_table = Table(summary_data, colWidths=[70*mm, 70*mm, 30*mm])
+        cell_style = ParagraphStyle('StatementSummary', fontName=self.thai_font, fontSize=10, leading=14)
+        for row in summary_data:
+            row[:2] = [Paragraph(escape(str(value)), cell_style) for value in row[:2]]
+        summary_data[0][2] = Paragraph('จำนวนเงิน / Amount (THB)', cell_style)
+        summary_table = Table(summary_data, colWidths=[60*mm, 70*mm, 40*mm], repeatRows=1)
         summary_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), self.thai_font),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
@@ -249,8 +263,8 @@ class StatementPDFGenerator:
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), self.thai_bold),
+            ('FONTNAME', (0, -1), (-1, -1), self.thai_bold),
         ]))
         elements.append(summary_table)
     
@@ -285,7 +299,7 @@ class StatementPDFGenerator:
                 _format_currency(txn['running_balance'])
             ])
         
-        timeline_table = Table(timeline_data, colWidths=[25*mm, 45*mm, 35*mm, 30*mm, 35*mm])
+        timeline_table = Table(timeline_data, colWidths=[25*mm, 45*mm, 35*mm, 30*mm, 35*mm], repeatRows=1)
         timeline_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), self.thai_font),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -294,7 +308,7 @@ class StatementPDFGenerator:
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), self.thai_bold),
         ]))
         elements.append(timeline_table)
     
@@ -311,14 +325,21 @@ class StatementPDFGenerator:
         # Thai disclaimers
         thai_disclaimers = [
             "เอกสารฉบับนี้เป็นใบแจ้งยอดบัญชี มิใช่ใบเสร็จรับเงิน",
-            "ยอดคงค้างคำนวณจากข้อมูล ณ สิ้นเดือนที่ระบุ",
+            "ยอดคำนวณตามวันที่รายการที่ยังมีผลในระบบ ไม่ใช่เอกสารล็อกงวด",
+            "ยอดติดลบหมายถึงมีเงินรับเกินยอดหนี้สุทธิ สลิปที่รอตรวจสอบยังไม่รวมเป็นเงินรับ",
             "หากมีข้อสงสัย กรุณาติดต่อฝ่ายบัญชี/นิติบุคคล"
         ]
         
+        pending = statement.get('pending_payins', {})
+        if pending.get('count', 0):
+            thai_disclaimers.insert(0, f"สลิปรอตรวจสอบ ณ วันออกรายงาน: {pending['count']} รายการ "
+                f"ยอด {pending['amount']:,.2f} บาท (ยังไม่รวมในเงินรับยืนยัน และไม่จำกัดเฉพาะงวดนี้)")
+
         # English disclaimers
         english_disclaimers = [
             "This document is an account statement and is not an official receipt.",
-            "Amounts are calculated as of the stated month-end.",
+            "Balances use currently valid dated records; this is not a locked period snapshot.",
+            "A negative balance indicates prepaid funds. Pending slips are excluded from receipts.",
             "For inquiries, please contact the accounting/management office."
         ]
         
@@ -338,16 +359,8 @@ class StatementPDFGenerator:
             fontSize=9,
             alignment=TA_CENTER
         )
-        elements.append(Paragraph(self.settings.ACCOUNTING_CONTACT, contact_style))
+        elements.append(Paragraph(escape(self.settings.ACCOUNTING_CONTACT), contact_style))
         
-        # Page numbering
-        page_style = ParagraphStyle(
-            'Page',
-            fontSize=9,
-            alignment=TA_CENTER
-        )
-        elements.append(Spacer(1, 3))
-        elements.append(Paragraph("หน้า 1 / 1 | Page 1 / 1", page_style))
 
 
 class StatementExcelGenerator:
@@ -406,7 +419,7 @@ class StatementExcelGenerator:
         row += 1
         
         # Project name
-        ws[f'A{row}'] = f"{self.settings.PROJECT_NAME_TH} / {self.settings.PROJECT_NAME_EN}"
+        ws[f'A{row}'] = _project_label(self.settings)
         ws[f'A{row}'].font = subheader_font
         ws[f'A{row}'].alignment = center_align
         ws.merge_cells(f'A{row}:F{row}')
@@ -419,7 +432,7 @@ class StatementExcelGenerator:
             ["House / บ้านเลขที่:", header['house_code']],
             ["Owner / เจ้าของ:", header['owner_name']],
             ["Status / สถานะ:", header['house_status']],
-            ["Generated / สร้างเวลา:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+            ["Generated / สร้างเวลา:", datetime.now(BANGKOK_TZ).strftime("%Y-%m-%d %H:%M:%S")]
         ]
         
         for label, value in doc_info:
@@ -432,7 +445,7 @@ class StatementExcelGenerator:
         row += 1
         
         # Closing balance highlight
-        ws[f'A{row}'] = "ยอดคงค้างปลายเดือน / Closing Balance:"
+        ws[f'A{row}'] = "ยอดคงเหลือปลายเดือน / Closing Balance:"
         ws[f'A{row}'].font = Font(bold=True, size=12)
         ws[f'D{row}'] = header['closing_balance']
         ws[f'D{row}'].font = Font(bold=True, size=14, color="FF0000")
@@ -476,6 +489,19 @@ class StatementExcelGenerator:
         
         row += 2
         
+        pending = statement.get('pending_payins', {})
+        if pending.get('count', 0):
+            ws.cell(row=row, column=1, value='สลิปรอตรวจสอบปัจจุบัน (ทุกงวด / ยังไม่รวมในเงินรับยืนยัน)')
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+            ws.cell(row=row, column=1).alignment = Alignment(wrap_text=True)
+            ws.row_dimensions[row].height = 30
+            row += 1
+            ws.cell(row=row, column=1, value='จำนวนรายการ')
+            ws.cell(row=row, column=2, value=pending['count'])
+            ws.cell(row=row, column=3, value='ยอดรอตรวจสอบ (บาท)')
+            ws.cell(row=row, column=4, value=pending['amount']).number_format = '#,##0.00'
+            row += 2
+
         # Transaction timeline
         transactions = statement.get('transactions', [])
         if transactions:

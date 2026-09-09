@@ -21,9 +21,9 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False  # Set True for production (HTTPS)
     
     # Statement Configuration
-    PROJECT_NAME_TH: str = "หมู่บ้านสมาร์ท"
-    PROJECT_NAME_EN: str = "Smart Village"
-    ACCOUNTING_CONTACT: str = "Tel: 02-xxx-xxxx Email: accounting@village.com"
+    PROJECT_NAME_TH: str = "หมู่บ้านแมกไม้ลีลาวดี"
+    PROJECT_NAME_EN: str = ""
+    ACCOUNTING_CONTACT: str = "กรุณาติดต่อฝ่ายบัญชี/นิติบุคคล"
 
     class Config:
         env_file = ".env"

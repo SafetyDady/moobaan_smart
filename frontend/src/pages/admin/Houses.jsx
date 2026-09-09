@@ -119,9 +119,11 @@ export default function Houses() {
   const downloadStatement = async (houseId, format = 'pdf') => {
     setDownloadingStatements(prev => new Set([...prev, `${houseId}-${format}`]));
     try {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Bangkok', year: 'numeric', month: 'numeric',
+      }).formatToParts(new Date());
+      const year = Number(parts.find(part => part.type === 'year').value);
+      const month = Number(parts.find(part => part.type === 'month').value);
 
       const response = await housesAPI.downloadStatement(houseId, year, month, format);
 

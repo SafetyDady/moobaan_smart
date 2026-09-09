@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from threading import Event
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -26,7 +28,11 @@ from app.db.models import (House, User, Invoice, InvoiceStatus, CreditNote,
     IncomeTransaction, InvoicePayment, PaymentStatus, PayinReport, PayinStatus,
     BankAccount, BankStatementBatch, BankTransaction, PostingStatus)
 from app.api.credit_notes import CreditNoteCreate, create_credit_note
-from app.api.invoices import ApplyPaymentRequest, apply_payment_to_invoice
+from app.api.invoices import (ApplyPaymentRequest, apply_payment_to_invoice,
+    get_invoice, get_invoice_detail, list_invoices, get_invoice_payments, get_allocatable_ledgers)
+from app.api.dashboard import get_village_summary, get_dashboard_summary
+from app.api.reports import get_cashflow_vs_ar_report
+from app.db.models.income_transaction import LedgerStatus
 from app.api.payins import apply_payin_fifo
 from app.services.accounting import AccountingService
 from app.api.bank_reconciliation import (confirm_and_post, ConfirmPostRequest,
@@ -142,6 +148,115 @@ class SettlementPostgresTests(unittest.TestCase):
             result = self.credit(db, '200', full=True)
             self.assertEqual(result.credit_amount, 200)
         self.assertEqual(self.balance(), (400, 200, 0, InvoiceStatus.PAID))
+
+    def test_reversed_allocations_do_not_inflate_balances_or_reports(self):
+        with self.Session() as db:
+            inv = db.get(Invoice, self.inv_id)
+            inv.issue_date = date(2026, 9, 1)
+            inv.due_date = date(2026, 9, 15)
+            ledger = db.get(IncomeTransaction, self.ledger_id)
+            ledger.received_at = datetime(2026, 9, 10, 8, tzinfo=timezone.utc)
+            db.add_all([
+                InvoicePayment(invoice_id=inv.id, income_transaction_id=ledger.id,
+                    amount=Decimal('200'), status=PaymentStatus.ACTIVE),
+                InvoicePayment(invoice_id=inv.id, income_transaction_id=ledger.id,
+                    amount=Decimal('400'), status=PaymentStatus.REVERSED),
+            ])
+            db.flush(); db.expire(inv, ['payments']); inv.update_status(); db.commit()
+            self.assertEqual(inv.get_total_paid(), 200)
+            self.assertEqual(inv.get_outstanding_amount(), 400)
+            aging = AccountingService.generate_aging_report(db, 2026, 9)
+            row = next(r for r in aging if r['house_id'] == inv.house_id)
+            self.assertEqual(row['total_outstanding'], 400)
+            audit = asyncio.run(get_invoice_payments(inv.id, db=db))
+            self.assertEqual(audit['total_paid'], 200)
+            self.assertEqual({p['status'] for p in audit['payments']}, {'ACTIVE', 'REVERSED'})
+            detail = asyncio.run(get_invoice_detail(inv.id, db=db))
+            self.assertEqual({p['status'] for p in detail['payments']}, {'ACTIVE', 'REVERSED'})
+            # Compare village debt before/after removing only the reversed row.
+            before = asyncio.run(get_village_summary(db=db, current_user=db.get(User, self.user_id)))
+            db.query(InvoicePayment).filter(InvoicePayment.invoice_id == inv.id,
+                InvoicePayment.status == PaymentStatus.REVERSED).delete(synchronize_session=False)
+            db.flush()
+            after = asyncio.run(get_village_summary(db=db, current_user=db.get(User, self.user_id)))
+            self.assertEqual(before, after)
+            db.rollback()
+
+    def test_unallocated_receipt_is_visible_until_applied_and_reversed_ledger_excluded(self):
+        with self.Session() as db:
+            inv = db.get(Invoice, self.inv_id)
+            result = asyncio.run(get_allocatable_ledgers(house_id=inv.house_id, db=db))
+            self.assertEqual([(l['id'], l['remaining']) for l in result['ledgers']], [(self.ledger_id, 1000)])
+            self.payment(db, '600')
+            result = asyncio.run(get_allocatable_ledgers(house_id=inv.house_id, db=db))
+            self.assertEqual(result['ledgers'][0]['remaining'], 400)
+            ledger = db.get(IncomeTransaction, self.ledger_id)
+            ledger.status = LedgerStatus.REVERSED
+            db.commit()
+            result = asyncio.run(get_allocatable_ledgers(house_id=inv.house_id, db=db))
+            self.assertEqual(result['ledgers'], [])
+
+    def test_dashboard_uses_credits_despite_stale_status_and_counts_pending_payins(self):
+        with self.Session() as db:
+            inv = db.get(Invoice, self.inv_id)
+            user = db.get(User, self.user_id)
+            before = asyncio.run(get_village_summary(db=db, current_user=user))
+            self.credit(db, '600', full=True)
+            inv.status = InvoiceStatus.ISSUED  # Historical credit without status recalc.
+            pending = PayinReport(house_id=inv.house_id, amount=Decimal('600'),
+                transfer_date=datetime.now(timezone.utc), transfer_hour=12, transfer_minute=0,
+                status=PayinStatus.PENDING)
+            db.add(pending); db.commit()
+            after = asyncio.run(get_village_summary(db=db, current_user=user))
+            self.assertEqual(before['total_debt'] - after['total_debt'], 600)
+            self.assertEqual(before['debtor_count'] - after['debtor_count'], 1)
+            with patch('app.api.dashboard.get_house_id_from_token', return_value=inv.house_id):
+                summary = asyncio.run(get_dashboard_summary(request=None, credentials=None,
+                    db=db, current_user=SimpleNamespace(role='resident', id=self.user_id)))
+            self.assertEqual(summary.pending_invoices, 0)
+            self.assertEqual(summary.total_outstanding, 0)
+            self.assertEqual(summary.pending_payins, 1)
+            self.assertEqual(summary.total_income, 1000)  # Pending600 must not add income.
+
+    def test_cashflow_groups_statement_receipt_in_bangkok_month(self):
+        with self.Session() as db:
+            inv = db.get(Invoice, self.inv_id)
+            payin = db.get(PayinReport, self.payin_id)
+            payin.transfer_date = datetime(2026, 5, 31, 17, 30, tzinfo=timezone.utc)
+            ledger = db.get(IncomeTransaction, self.ledger_id)
+            ledger.received_at = payin.transfer_date
+            db.commit()
+            db.execute(text("SET LOCAL TIME ZONE 'UTC'"))
+            db.expire_all()
+            result = asyncio.run(get_cashflow_vs_ar_report(from_date='2026-06-01',
+                to_date='2026-06-30', house_id=inv.house_id, group_by='month', db=db,
+                current_user=db.get(User, self.user_id)))
+            self.assertEqual(result.summary.total_cash, 1000)
+            self.assertEqual([(r.period, r.cash_amount) for r in result.rows], [('2026-06', 1000)])
+
+    def test_single_invoice_matches_list_and_detail(self):
+        with self.Session() as db:
+            inv = db.get(Invoice, self.inv_id)
+            inv.manual_reason = 'Special assessment'
+            db.commit()
+            for amount, full in [('200', False), ('400', True)]:
+                if not full:
+                    self.payment(db, amount)
+                else:
+                    self.credit(db, amount, full=True)
+                single = asyncio.run(get_invoice(self.inv_id, db=db))
+                detail = asyncio.run(get_invoice_detail(self.inv_id, db=db))
+                rows = asyncio.run(list_invoices(db=db, house_id=inv.house_id,
+                    status=None, is_manual=True, page=None, page_size=25))
+                listed = next(row for row in rows if row.id == self.inv_id)
+                for field in ('status', 'paid', 'outstanding', 'total_credited',
+                              'net_amount', 'is_fully_credited', 'paid_at',
+                              'invoice_type', 'cycle', 'is_manual', 'manual_reason'):
+                    self.assertEqual(getattr(single, field), getattr(listed, field), field)
+                self.assertEqual(single.status, detail['status'])
+                self.assertEqual(single.paid, detail['paid_amount'])
+                self.assertEqual(single.outstanding, detail['outstanding_amount'])
+                self.assertEqual(single.items[0].description, 'Special assessment')
 
     def test_credit_above_outstanding_and_paid_invoice_rejected(self):
         with self.Session() as db:

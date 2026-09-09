@@ -27,6 +27,7 @@ import json
 
 from app.core.deps import get_db, get_current_user
 from app.core.auth import require_role, require_house_access
+from app.core.report_access import require_report_house_access
 from app.core.config import Settings
 from app.db.models import User, House, Invoice, PayinReport, IncomeTransaction, CreditNote
 from app.services.accounting import AccountingService
@@ -34,6 +35,7 @@ from app.services.statement_generator import StatementPDFGenerator, StatementExc
 
 
 router = APIRouter(prefix="/accounting", tags=["accounting"])
+report_router = APIRouter(prefix="/api/accounting", tags=["accounting-reports"])
 
 
 # Pydantic models for request/response
@@ -176,11 +178,9 @@ async def get_house_invoices(
     house_id: int,
     limit: Optional[int] = 20,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_report_house_access)
 ):
-    """Get invoices for a specific house."""
-    # Check access permissions
-    await require_house_access(house_id, current_user, db)
+    """Get invoices for the actively selected, authorized house."""
     
     invoices = db.query(Invoice).filter(
         Invoice.house_id == house_id
@@ -362,14 +362,14 @@ async def get_house_credit_notes(
 
 # Balance and reporting endpoints
 @router.get("/balance/house/{house_id}")
+@report_router.get("/balance/house/{house_id}")
 async def get_house_balance(
     house_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_report_house_access)
 ):
     """Get balance breakdown for a specific house."""
     # Check access permissions
-    await require_house_access(house_id, current_user, db)
     
     try:
         balance = AccountingService.calculate_house_balance(db, house_id)
@@ -385,14 +385,14 @@ async def get_house_balance(
 
 
 @router.get("/financial-summary/house/{house_id}")
+@report_router.get("/financial-summary/house/{house_id}")
 async def get_house_financial_summary(
     house_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_report_house_access)
 ):
     """Get comprehensive financial summary for a house."""
     # Check access permissions
-    await require_house_access(house_id, current_user, db)
     
     try:
         summary = AccountingService.get_house_financial_summary(db, house_id)
@@ -401,7 +401,7 @@ async def get_house_financial_summary(
         if current_user.role == "resident":
             # Remove detailed credit notes for residents, show only summary
             credit_note_total = sum(
-                note["amount"] for note in summary["credit_notes"]
+                Decimal(str(note["credit_amount"])) for note in summary["credit_notes"]
             ) if summary["credit_notes"] else 0
             summary["credit_notes"] = {
                 "total_amount": credit_note_total,
@@ -475,16 +475,16 @@ async def get_balance_summary_report(
 
 # Month-end snapshot endpoints
 @router.get("/snapshot/house/{house_id}")
+@report_router.get("/snapshot/house/{house_id}")
 async def get_month_end_snapshot(
     house_id: int,
     year: int = Query(..., description="Year (e.g., 2024)"),
     month: int = Query(..., description="Month (1-12)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_report_house_access)
 ):
     """Get month-end financial snapshot for a house."""
     # Check access permissions
-    await require_house_access(house_id, current_user, db)
     
     try:
         snapshot = AccountingService.calculate_month_end_snapshot(
@@ -506,13 +506,14 @@ async def get_month_end_snapshot(
 
 # House financial statement endpoints
 @router.get("/statement/house/{house_id}")
+@report_router.get("/statement/house/{house_id}")
 async def get_house_statement(
     house_id: int,
     year: int = Query(..., description="Year (e.g., 2024)", ge=2000, le=3000),
     month: int = Query(..., description="Month (1-12)", ge=1, le=12),
     format: str = Query("json", description="Format: json, pdf, xlsx"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_report_house_access),
     settings: Settings = Depends(lambda: Settings())
 ):
     """Generate house financial statement for specified month.
@@ -547,38 +548,6 @@ async def get_house_statement(
                 }
             )
         
-        # Role-based access control
-        if current_user.role == "resident":
-            # Residents can only access their own house
-            if house.owner_id != current_user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "error": "Access denied",
-                        "error_th": "ไม่สามารถเข้าถึงข้อมูลบ้านเลขที่นี้ได้",
-                        "error_en": "You can only access your own house statement"
-                    }
-                )
-            
-            # House must be ACTIVE for residents
-            if house.status != "ACTIVE":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "error": "House not active",
-                        "error_th": "บ้านเลขที่นี้ไม่ได้อยู่ในสถานะ ACTIVE",
-                        "error_en": "Statement only available for active houses"
-                    }
-                )
-        elif current_user.role not in ["accounting", "super_admin"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "error": "Insufficient permissions",
-                    "error_th": "สิทธิ์ไม่เพียงพอ",
-                    "error_en": "Insufficient permissions to access house statements"
-                }
-            )
         
         # Generate statement
         statement = AccountingService.generate_house_statement(
@@ -604,7 +573,7 @@ async def get_house_statement(
             excel_generator = StatementExcelGenerator(settings)
             excel_data = excel_generator.generate_statement_excel(statement)
             
-            filename = f"statement_{statement['header']['house_code']}_{year:04d}_{month:02d}.xlsx"
+            filename = f"statement_house{house_id}_{year:04d}_{month:02d}.xlsx"
             return Response(
                 content=excel_data,
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -615,13 +584,15 @@ async def get_house_statement(
             pdf_generator = StatementPDFGenerator(settings)
             pdf_data = pdf_generator.generate_statement_pdf(statement)
             
-            filename = f"statement_{statement['header']['house_code']}_{year:04d}_{month:02d}.pdf"
+            filename = f"statement_house{house_id}_{year:04d}_{month:02d}.pdf"
             return Response(
                 content=pdf_data,
                 media_type="application/pdf",
                 headers={"Content-Disposition": f"attachment; filename={filename}"}
             )
             
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -697,12 +668,13 @@ async def get_aging_report(
 
 # Month-End Snapshot endpoints
 @router.get("/snapshot/{house_id}")
+@report_router.get("/snapshot/{house_id}")
 async def get_house_snapshot(
     house_id: int,
     year: int = Query(..., ge=2000, le=3000),
     month: int = Query(..., ge=1, le=12),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_report_house_access)
 ):
     """
     Get month-end financial snapshot for a specific house.
@@ -722,7 +694,6 @@ async def get_house_snapshot(
     Negative closing_balance indicates prepayment/overpayment.
     """
     # Access control check
-    require_house_access(current_user, house_id, db)
     
     try:
         from app.models import MonthEndSnapshot
@@ -787,12 +758,13 @@ async def get_aggregated_snapshot(
 
 # Financial Statement endpoint (Phase 2.4 - Read-Only)
 @router.get("/statement/{house_id}")
+@report_router.get("/statement/{house_id}")
 async def get_financial_statement(
     house_id: int,
     start_date: date = Query(..., description="Statement start date"),
     end_date: date = Query(..., description="Statement end date"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_report_house_access)
 ):
     """
     Get financial statement for a house over a date range.
@@ -800,10 +772,10 @@ async def get_financial_statement(
     PHASE 2.4 - READ-ONLY PRESENTATION
     
     This endpoint combines:
-    - Opening balance from Phase 2.3 snapshot
+    - Opening balance before the requested Bangkok start date
     - Ledger transactions in period (invoices, payments, credit notes)
     - Running balance (display-only, not stored)
-    - Closing balance from Phase 2.3 snapshot
+    - Closing balance through the requested Bangkok end date
     
     Access Control:
     - Residents: Can view own house only (if ACTIVE status)
@@ -824,7 +796,6 @@ async def get_financial_statement(
     Note: All balances are derived on-demand (nothing persisted).
     """
     # Access control check
-    require_house_access(current_user, house_id, db)
     
     try:
         from app.models import FinancialStatement

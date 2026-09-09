@@ -21,11 +21,12 @@ import { t } from '../hooks/useLocale';
  *     the user is currently looking at (e.g. house_id, is_manual, status)
  *   - className: optional additional CSS classes
  */
-export default function ExportButton({ reportType, period, status, filters, className = '' }) {
+export default function ExportButton({ reportType, period, status, filters, disabled = false, className = '' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(null); // 'pdf' or 'xlsx'
 
   const handleExport = async (format) => {
+    if (disabled || loading) return;
     setLoading(format);
     setIsOpen(false);
 
@@ -72,7 +73,7 @@ export default function ExportButton({ reportType, period, status, filters, clas
     <div className={`relative inline-block ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        disabled={loading}
+        disabled={disabled || loading}
         className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
       >
         {loading ? (
@@ -84,7 +85,7 @@ export default function ExportButton({ reportType, period, status, filters, clas
         <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <>
           {/* Backdrop */}
           <div

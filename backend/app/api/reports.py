@@ -9,13 +9,16 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func as sql_func, extract
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from pydantic import BaseModel
 from collections import defaultdict
 
-from app.db.models import Invoice, InvoiceStatus, PayinReport, PayinStatus
+from app.db.models import Invoice, InvoiceStatus, IncomeTransaction
+from app.db.models.income_transaction import LedgerStatus
 from app.db.models.user import User
 from app.core.deps import get_db, require_admin_or_accounting
+from app.core.timezone import BANGKOK_TZ
 
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -102,7 +105,7 @@ async def get_invoice_aging_report(
     - **as_of_date**: Calculate days past due as of this date (default: today)
     
     Only includes:
-    - ISSUED or PARTIALLY_PAID invoices
+    - Currently outstanding invoices, regardless of stored status
     - outstanding_amount > 0 (after allocations and credit notes)
     
     READ-ONLY: Does not modify any data.
@@ -112,17 +115,15 @@ async def get_invoice_aging_report(
         try:
             report_date = date.fromisoformat(as_of_date)
         except ValueError:
-            report_date = date.today()
+            report_date = datetime.now(BANGKOK_TZ).date()
     else:
-        report_date = date.today()
+        report_date = datetime.now(BANGKOK_TZ).date()
     
     # Query invoices with outstanding amounts
     query = db.query(Invoice).options(
         joinedload(Invoice.house),
         joinedload(Invoice.payments),
         joinedload(Invoice.credit_notes)
-    ).filter(
-        Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID])
     )
     
     # Apply house filter
@@ -137,17 +138,17 @@ async def get_invoice_aging_report(
     # Process invoices and calculate aging
     rows: List[AgingRow] = []
     summary = {
-        "current": 0.0,
-        "0_30": 0.0,
-        "31_60": 0.0,
-        "61_90": 0.0,
-        "90_plus": 0.0
+        "current": Decimal(0),
+        "0_30": Decimal(0),
+        "31_60": Decimal(0),
+        "61_90": Decimal(0),
+        "90_plus": Decimal(0)
     }
-    total_outstanding = 0.0
+    total_outstanding = Decimal(0)
     
     for inv in invoices:
         # Calculate outstanding (after payments and credits)
-        outstanding = inv.get_outstanding_amount()
+        outstanding = inv.get_remaining_balance_decimal()
         
         # Skip if nothing outstanding
         if outstanding <= 0:
@@ -185,7 +186,7 @@ async def get_invoice_aging_report(
         rows.append(row)
         
         # Update summary
-        summary[bucket] = summary.get(bucket, 0.0) + outstanding
+        summary[bucket] = summary.get(bucket, Decimal(0)) + outstanding
         total_outstanding += outstanding
     
     # Round summary values
@@ -209,7 +210,7 @@ class CashFlowRow(BaseModel):
     """Single row in cash flow vs AR report"""
     period: str  # e.g., "2026-01" for monthly
     ar_amount: float  # Accrual (invoices issued - credits)
-    cash_amount: float  # Cash received (accepted pay-ins)
+    cash_amount: float  # Cash received (POSTED receipts)
     gap: float  # AR - Cash
     gap_percent: Optional[float] = None  # gap / AR * 100
 
@@ -256,10 +257,10 @@ async def get_cashflow_vs_ar_report(
     Business Rules:
     - Credits reduce AR only (not cash)
     - FIFO allocation does NOT affect cash totals
-    - Only ACCEPTED pay-ins count as cash
+    - Only POSTED ledger receipts count as cash, including Statement-only receipts
     """
     # Parse dates
-    today = date.today()
+    today = datetime.now(BANGKOK_TZ).date()
     
     if from_date:
         try:
@@ -298,14 +299,14 @@ async def get_cashflow_vs_ar_report(
     invoices = invoice_query.all()
     
     # Group AR by period
-    ar_by_period = defaultdict(float)
+    ar_by_period = defaultdict(Decimal)
     invoice_count = 0
     
     for inv in invoices:
         invoice_count += 1
         # AR = total - credits
-        total = float(inv.total_amount)
-        credits = inv.get_total_credited()
+        total = Decimal(inv.total_amount)
+        credits = inv.get_total_credited_decimal()
         ar_amount = total - credits
         
         # Get period key
@@ -319,48 +320,33 @@ async def get_cashflow_vs_ar_report(
         ar_by_period[period_key] += ar_amount
     
     # ========================================
-    # 2. Calculate Cash (Accepted Pay-ins)
-    # ========================================
-    payin_query = db.query(PayinReport).filter(
-        PayinReport.status == PayinStatus.ACCEPTED,
-        PayinReport.transfer_date >= datetime.combine(start_date, datetime.min.time()),
-        PayinReport.transfer_date <= datetime.combine(end_date, datetime.max.time())
+    # 2. Confirmed cash is POSTED ledger money, including Statement-only receipts.
+    receipts = db.query(IncomeTransaction).filter(
+        IncomeTransaction.status == LedgerStatus.POSTED,
+        IncomeTransaction.received_at >= datetime.combine(start_date, datetime.min.time(), tzinfo=BANGKOK_TZ),
+        IncomeTransaction.received_at < datetime.combine(end_date + timedelta(days=1), datetime.min.time(), tzinfo=BANGKOK_TZ),
     )
-    
     if house_id:
-        payin_query = payin_query.filter(PayinReport.house_id == house_id)
-    
-    payins = payin_query.all()
-    
-    # Group Cash by period
-    cash_by_period = defaultdict(float)
-    payin_count = 0
-    
-    for payin in payins:
+        receipts = receipts.filter(IncomeTransaction.house_id == house_id)
+    cash_by_period = defaultdict(Decimal)
+    payin_count = 0  # Legacy response key: counts confirmed receipts, including no-slip receipts.
+    for receipt in receipts.all():
         payin_count += 1
-        amount = float(payin.amount)
-        
-        # Get period key from transfer_date
-        transfer_dt = payin.transfer_date
-        if group_by == "week":
-            period_key = transfer_dt.strftime("%Y-W%W")
-        else:
-            period_key = transfer_dt.strftime("%Y-%m")
-        
-        cash_by_period[period_key] += amount
-    
-    # ========================================
+        received_local = receipt.received_at.astimezone(BANGKOK_TZ)
+        period_key = received_local.strftime('%Y-W%W' if group_by == 'week' else '%Y-%m')
+        cash_by_period[period_key] += Decimal(receipt.amount)
+
     # 3. Combine AR and Cash into rows
     # ========================================
     all_periods = sorted(set(ar_by_period.keys()) | set(cash_by_period.keys()))
     
     rows: List[CashFlowRow] = []
-    total_ar = 0.0
-    total_cash = 0.0
+    total_ar = Decimal(0)
+    total_cash = Decimal(0)
     
     for period in all_periods:
-        ar = ar_by_period.get(period, 0.0)
-        cash = cash_by_period.get(period, 0.0)
+        ar = ar_by_period.get(period, Decimal(0))
+        cash = cash_by_period.get(period, Decimal(0))
         gap = ar - cash
         gap_pct = (gap / ar * 100) if ar > 0 else None
         

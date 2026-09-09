@@ -24,10 +24,11 @@ export default function CashFlowReport() {
 
   // Set default dates (current year)
   useEffect(() => {
-    const today = new Date();
-    const startOfYear = new Date(today.getFullYear(), 0, 1);
-    setFromDate(startOfYear.toISOString().split('T')[0]);
-    setToDate(today.toISOString().split('T')[0]);
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date()).map(({ type, value }) => [type, value]));
+    setFromDate(`${parts.year}-01-01`);
+    setToDate(`${parts.year}-${parts.month}-${parts.day}`);
   }, []);
 
   // Load houses for filter
@@ -223,7 +224,7 @@ export default function CashFlowReport() {
             <p className="text-2xl font-bold text-green-400">
               ฿{report.summary.total_cash.toLocaleString('th-TH')}
             </p>
-            <p className="text-xs text-gray-500 mt-1">{report.payin_count} pay-ins</p>
+            <p className="text-xs text-gray-500 mt-1">{report.payin_count} {t('cashFlow.confirmedReceiptCount')}</p>
           </div>
           
           {/* Gap */}

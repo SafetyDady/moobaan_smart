@@ -12,14 +12,17 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from calendar import monthrange
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func, and_, or_
 from app.core.timezone import BANGKOK_TZ
 from app.services.invoice_locking import lock_invoice, lock_ledger, lock_invoices
+from app.services.accounting_reports import (
+    month_dates, month_snapshot, monthly_statement, range_statement, dated_outstanding,
+)
 
 from app.db.models import (
     House, HouseStatus, Invoice, InvoiceStatus, PayinReport, PayinStatus,
-    IncomeTransaction, InvoicePayment, CreditNote, User
+    IncomeTransaction, InvoicePayment, PaymentStatus, CreditNote, User
 )
 
 
@@ -331,53 +334,20 @@ class AccountingService:
             raise ValueError(f"Failed to issue credit note: {str(e)}")
 
     @staticmethod
-    def calculate_house_balance(db: Session, house_id: int) -> Dict[str, Decimal]:
-        """
-        Calculate current balance for a house based on all transactions.
-        Balance = SUM(invoices) - SUM(credit_notes) - SUM(applied_payments)
-        
-        Args:
-            db: Database session
-            house_id: ID of house
-            
-        Returns:
-            Dictionary with balance breakdown
-        """
-        # Verify house exists
-        house = db.query(House).filter(House.id == house_id).first()
+    def calculate_house_balance(db: Session, house_id: int) -> Dict:
+        """Current invoice settlement balance; unallocated receipts are separate cash."""
+        house = db.get(House, house_id)
         if not house:
             raise ValueError(f"House {house_id} not found")
-        
-        # Calculate total invoiced amount
-        total_invoiced = db.query(func.coalesce(func.sum(Invoice.total_amount), 0)).filter(
-            Invoice.house_id == house_id
-        ).scalar() or Decimal("0")
-        
-        # Calculate total credit notes
-        total_credited = db.query(func.coalesce(func.sum(CreditNote.amount), 0)).filter(
-            CreditNote.house_id == house_id
-        ).scalar() or Decimal("0")
-        
-        # Calculate total payments applied to invoices
-        total_paid = db.query(
-            func.coalesce(func.sum(InvoicePayment.amount), 0)
-        ).join(
-            Invoice
-        ).filter(
-            Invoice.house_id == house_id
-        ).scalar() or Decimal("0")
-        
-        # Calculate outstanding balance
-        outstanding_balance = total_invoiced - total_credited - total_paid
-        
+        invoices = db.query(Invoice).options(
+            selectinload(Invoice.payments), selectinload(Invoice.credit_notes),
+        ).filter(Invoice.house_id == house_id).all()
         return {
-            "total_invoiced": Decimal(str(total_invoiced)),
-            "total_credited": Decimal(str(total_credited)),
-            "total_paid": Decimal(str(total_paid)),
-            "outstanding_balance": Decimal(str(outstanding_balance)),
-            "house_id": house_id,
-            "house_code": house.house_code,
-            "owner_name": house.owner_name
+            "house_id": house_id, "house_code": house.house_code, "owner_name": house.owner_name,
+            "total_invoiced": sum((Decimal(i.total_amount) for i in invoices), Decimal('0')),
+            "total_credited": sum((i.get_total_credited_decimal() for i in invoices), Decimal('0')),
+            "total_paid": sum((i.get_total_paid_decimal() for i in invoices), Decimal('0')),
+            "outstanding_balance": sum((i.get_remaining_balance_decimal() for i in invoices), Decimal('0')),
         }
 
     @staticmethod
@@ -412,21 +382,23 @@ class AccountingService:
         ).join(
             IncomeTransaction
         ).filter(
+            InvoicePayment.status == PaymentStatus.ACTIVE,
             Invoice.house_id == house_id
         ).order_by(
             InvoicePayment.applied_at.desc()
         ).limit(12).all()
         
         # Get credit notes
-        credit_notes = db.query(CreditNote).filter(
-            CreditNote.house_id == house_id
+        credit_notes = db.query(CreditNote).join(Invoice, Invoice.id == CreditNote.invoice_id).filter(
+            Invoice.house_id == house_id,
+            CreditNote.status == 'applied',
         ).order_by(
             CreditNote.created_at.desc()
         ).all()
         
         return {
             "balance": balance,
-            "recent_invoices": [invoice.to_dict() for invoice in recent_invoices],
+            "recent_invoices": [{**invoice.to_dict(), "status": invoice.get_settlement_status()} for invoice in recent_invoices],
             "recent_payments": [payment.to_dict() for payment in recent_payments],
             "credit_notes": [note.to_dict() for note in credit_notes],
             "summary": {
@@ -463,7 +435,7 @@ class AccountingService:
         # Get unpaid invoices for this house, ordered by oldest first
         unpaid_invoices = sorted(
             [inv for inv in lock_invoices(db, house_id=income_transaction.house_id)
-             if inv.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID)],
+             if inv.get_remaining_balance_decimal() > 0],
             key=lambda inv: (inv.cycle_year, inv.cycle_month, inv.id),
         )
         
@@ -501,298 +473,13 @@ class AccountingService:
         last_day = monthrange(year, month)[1]
         return date(year, month, last_day)
     
-    @staticmethod
-    def calculate_month_end_snapshot(
-        db: Session,
-        house_id: int,
-        year: int,
-        month: int
-    ) -> Dict:
-        """
-        Calculate month-end financial snapshot for a house as of last day of specified month.
-        
-        This provides a reliable "as of end-of-month" financial view using:
-        - Invoice.issue_date <= last_day_of_month
-        - IncomeTransaction.received_at <= last_day_of_month
-        - CreditNote.created_at <= last_day_of_month
-        
-        Balance is DERIVED, never stored, following same logic as Excel month-end closing.
-        
-        Args:
-            db: Database session
-            house_id: ID of house
-            year: Year (e.g., 2024)
-            month: Month (1-12)
-            
-        Returns:
-            Dictionary with opening balance, period totals, and closing balance
-        """
-        # Validate inputs
-        if not (1 <= month <= 12):
-            raise ValueError("Month must be between 1 and 12")
-        if year < 2000 or year > 3000:
-            raise ValueError("Year must be between 2000 and 3000")
-        
-        # Verify house exists
-        house = db.query(House).filter(House.id == house_id).first()
-        if not house:
-            raise ValueError(f"House {house_id} not found")
-        
-        # Calculate period end date
-        period_end = AccountingService._get_month_end_date(year, month)
-        
-        # Calculate opening balance (closing balance of previous month)
-        if month == 1:
-            prev_year, prev_month = year - 1, 12
-        else:
-            prev_year, prev_month = year, month - 1
-        
-        # Opening balance = previous month's closing balance
-        prev_period_end = AccountingService._get_month_end_date(prev_year, prev_month)
-        
-        # Calculate cumulative totals up to previous month end
-        prev_invoiced = db.query(func.coalesce(func.sum(Invoice.total_amount), 0)).filter(
-            and_(
-                Invoice.house_id == house_id,
-                Invoice.issue_date <= prev_period_end
-            )
-        ).scalar() or Decimal("0")
-        
-        prev_credited = db.query(func.coalesce(func.sum(CreditNote.amount), 0)).filter(
-            and_(
-                CreditNote.house_id == house_id,
-                CreditNote.created_at <= prev_period_end
-            )
-        ).scalar() or Decimal("0")
-        
-        prev_paid = db.query(
-            func.coalesce(func.sum(InvoicePayment.amount), 0)
-        ).join(
-            Invoice
-        ).join(
-            IncomeTransaction
-        ).filter(
-            and_(
-                Invoice.house_id == house_id,
-                IncomeTransaction.received_at <= prev_period_end
-            )
-        ).scalar() or Decimal("0")
-        
-        opening_balance = prev_invoiced - prev_credited - prev_paid
-        
-        # Calculate current month totals
-        month_start = date(year, month, 1)
-        
-        # Invoices issued in current month
-        invoice_total = db.query(func.coalesce(func.sum(Invoice.total_amount), 0)).filter(
-            and_(
-                Invoice.house_id == house_id,
-                Invoice.issue_date >= month_start,
-                Invoice.issue_date <= period_end
-            )
-        ).scalar() or Decimal("0")
-        
-        # Credit notes issued in current month
-        credit_total = db.query(func.coalesce(func.sum(CreditNote.amount), 0)).filter(
-            and_(
-                CreditNote.house_id == house_id,
-                CreditNote.created_at >= month_start,
-                CreditNote.created_at <= period_end
-            )
-        ).scalar() or Decimal("0")
-        
-        # Payments received in current month
-        payment_total = db.query(
-            func.coalesce(func.sum(InvoicePayment.amount), 0)
-        ).join(
-            Invoice
-        ).join(
-            IncomeTransaction
-        ).filter(
-            and_(
-                Invoice.house_id == house_id,
-                IncomeTransaction.received_at >= month_start,
-                IncomeTransaction.received_at <= period_end
-            )
-        ).scalar() or Decimal("0")
-        
-        # Calculate closing balance
-        closing_balance = opening_balance + invoice_total - payment_total - credit_total
-        
-        return {
-            "house_id": house_id,
-            "house_code": house.house_code,
-            "owner_name": house.owner_name,
-            "period": f"{year:04d}-{month:02d}",
-            "period_end": period_end.isoformat(),
-            "opening_balance": Decimal(str(opening_balance)),
-            "invoice_total": Decimal(str(invoice_total)),
-            "payment_total": Decimal(str(payment_total)),
-            "credit_total": Decimal(str(credit_total)),
-            "closing_balance": Decimal(str(closing_balance))
-        }
     
     @staticmethod
-    def generate_house_statement(
-        db: Session,
-        house_id: int,
-        year: int,
-        month: int
-    ) -> Dict:
-        """
-        Generate house financial statement for specified month.
-        
-        Statement provides bilingual (Thai + English) month-end based summary
-        suitable for download as PDF or Excel.
-        
-        Args:
-            db: Database session
-            house_id: ID of house
-            year: Year (e.g., 2024)
-            month: Month (1-12)
-            
-        Returns:
-            Dictionary with statement header, summary, and transaction timeline
-        """
-        # Get month-end snapshot for summary
-        snapshot = AccountingService.calculate_month_end_snapshot(db, house_id, year, month)
-        house = db.query(House).filter(House.id == house_id).first()
-        
-        period_end = AccountingService._get_month_end_date(year, month)
-        month_start = date(year, month, 1)
-        
-        # Get all transactions for the month in chronological order
-        transactions = []
-        
-        # Get invoices for the month
-        invoices = db.query(Invoice).filter(
-            and_(
-                Invoice.house_id == house_id,
-                Invoice.issue_date >= month_start,
-                Invoice.issue_date <= period_end
-            )
-        ).order_by(Invoice.issue_date.asc()).all()
-        
-        for invoice in invoices:
-            transactions.append({
-                "date": invoice.issue_date,
-                "type": "invoice",
-                "type_th": "ใบแจ้งหนี้",
-                "type_en": "Invoice",
-                "reference": f"INV-{invoice.cycle_year}-{invoice.cycle_month:02d}",
-                "description": f"Monthly fee {invoice.cycle_year}-{invoice.cycle_month:02d}",
-                "description_th": f"ค่าบริการรายเดือน {invoice.cycle_year}-{invoice.cycle_month:02d}",
-                "amount": float(invoice.total_amount),
-                "is_debit": True,
-                "source_id": invoice.id,
-                "source_table": "invoices"
-            })
-        
-        # Get payments for the month
-        payments = db.query(InvoicePayment).join(
-            Invoice
-        ).join(
-            IncomeTransaction
-        ).filter(
-            and_(
-                Invoice.house_id == house_id,
-                IncomeTransaction.received_at >= month_start,
-                IncomeTransaction.received_at <= period_end
-            )
-        ).order_by(IncomeTransaction.received_at.asc()).all()
-        
-        for payment in payments:
-            transactions.append({
-                "date": payment.income_transaction.received_at.date(),
-                "type": "payment",
-                "type_th": "รับชำระ",
-                "type_en": "Payment",
-                "reference": f"PAY-{payment.income_transaction.id}",
-                "description": f"Payment for invoice {payment.invoice_id}",
-                "description_th": f"ชำระใบแจ้งหนี้ {payment.invoice_id}",
-                "amount": float(payment.amount),
-                "is_debit": False,
-                "source_id": payment.id,
-                "source_table": "invoice_payments"
-            })
-        
-        # Get credit notes for the month
-        credit_notes = db.query(CreditNote).filter(
-            and_(
-                CreditNote.house_id == house_id,
-                CreditNote.created_at >= month_start,
-                CreditNote.created_at <= period_end
-            )
-        ).order_by(CreditNote.created_at.asc()).all()
-        
-        for credit_note in credit_notes:
-            transactions.append({
-                "date": credit_note.created_at.date(),
-                "type": "credit_note",
-                "type_th": "ลดหนี้",
-                "type_en": "Credit Note",
-                "reference": f"CR-{credit_note.id}",
-                "description": credit_note.reason,
-                "description_th": credit_note.reason,
-                "amount": float(credit_note.amount),
-                "is_debit": False,
-                "source_id": credit_note.id,
-                "source_table": "credit_notes"
-            })
-        
-        # Sort all transactions chronologically
-        transactions.sort(key=lambda x: x["date"])
-        
-        # Calculate running balance
-        running_balance = float(snapshot["opening_balance"])
-        for transaction in transactions:
-            if transaction["is_debit"]:
-                running_balance += transaction["amount"]
-            else:
-                running_balance -= transaction["amount"]
-            transaction["running_balance"] = running_balance
-        
-        return {
-            "header": {
-                "house_code": house.house_code,
-                "owner_name": house.owner_name,
-                "house_status": house.house_status.value,
-                "period": f"{year:04d}-{month:02d}",
-                "period_th": f"{AccountingService.THAI_MONTHS[month-1]} {year + 543}",  # Buddhist year
-                "period_en": f"{AccountingService.ENGLISH_MONTHS[month-1]} {year}",
-                "statement_date": datetime.now(BANGKOK_TZ).date().isoformat(),
-                "closing_balance": float(snapshot["closing_balance"])
-            },
-            "summary": {
-                "opening_balance": {
-                    "th": "ยอดยกมา",
-                    "en": "Opening Balance",
-                    "amount": float(snapshot["opening_balance"])
-                },
-                "invoices": {
-                    "th": "ใบแจ้งหนี้เดือนนี้",
-                    "en": "Invoices This Month",
-                    "amount": float(snapshot["invoice_total"])
-                },
-                "payments": {
-                    "th": "รับชำระ",
-                    "en": "Payments Received",
-                    "amount": -float(snapshot["payment_total"])  # Negative for display
-                },
-                "credit_notes": {
-                    "th": "ลดหนี้/ปรับปรุงหนี้",
-                    "en": "Credit Notes / Debt Adjustment",
-                    "amount": -float(snapshot["credit_total"])  # Negative for display
-                },
-                "closing_balance": {
-                    "th": "ยอดคงเหลือปลายเดือน",
-                    "en": "Closing Balance",
-                    "amount": float(snapshot["closing_balance"])
-                }
-            },
-            "transactions": transactions,
-            "snapshot": snapshot
-        }
+    def generate_house_statement(db: Session, house_id: int, year: int, month: int) -> Dict:
+        """Monthly receipt statement; summary and rows share one dated cash view."""
+        month_dates(year, month)
+        return monthly_statement(db, house_id, year, month,
+            AccountingService.THAI_MONTHS[month - 1], AccountingService.ENGLISH_MONTHS[month - 1])
     
     @staticmethod
     def generate_aging_report(
@@ -833,58 +520,31 @@ class AccountingService:
         aging_data = []
         
         for house in houses:
-            # Get all unpaid invoices as of period end
-            unpaid_invoices = db.query(Invoice).filter(
-                and_(
-                    Invoice.house_id == house.id,
-                    Invoice.issue_date <= period_end,
-                    Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID])
-                )
-            ).all()
-            
-            # Calculate aging buckets
-            bucket_0_30 = Decimal("0")
-            bucket_31_90 = Decimal("0")
-            bucket_90_plus = Decimal("0")
-            total_outstanding = Decimal("0")
-            
+            # Restated month-end debt: currently ACTIVE allocations dated by receipt,
+            # applied credits dated by creation, irrespective of the stored status.
+            unpaid_invoices = db.query(Invoice).options(
+                selectinload(Invoice.payments).selectinload(InvoicePayment.income_transaction),
+                selectinload(Invoice.credit_notes),
+            ).filter(Invoice.house_id == house.id, Invoice.issue_date <= period_end).all()
+            bucket_0_30 = Decimal('0')
+            bucket_31_90 = Decimal('0')
+            bucket_90_plus = Decimal('0')
+            total_outstanding = Decimal('0')
             for invoice in unpaid_invoices:
-                # Calculate outstanding amount for this invoice as of period end
-                outstanding = Decimal(str(invoice.total_amount))
-                
-                # Subtract payments received up to period end
-                payments_received = db.query(
-                    func.coalesce(func.sum(InvoicePayment.amount), 0)
-                ).join(
-                    IncomeTransaction
-                ).filter(
-                    and_(
-                        InvoicePayment.invoice_id == invoice.id,
-                        IncomeTransaction.received_at <= period_end
-                    )
-                ).scalar() or Decimal("0")
-                
-                outstanding -= Decimal(str(payments_received))
-                
+                outstanding = dated_outstanding(invoice, period_end)
                 if outstanding <= 0:
-                    continue  # Fully paid
-                
-                total_outstanding += outstanding
-                
-                # Determine aging bucket
-                if invoice.due_date >= period_end:
-                    # Not overdue yet
                     continue
-                
+                total_outstanding += outstanding
+                if invoice.due_date >= period_end:
+                    continue
                 days_overdue = (period_end - invoice.due_date).days
-                
-                if 0 <= days_overdue <= 30:
+                if days_overdue <= 30:
                     bucket_0_30 += outstanding
-                elif 31 <= days_overdue <= 90:
+                elif days_overdue <= 90:
                     bucket_31_90 += outstanding
-                else:  # > 90 days
+                else:
                     bucket_90_plus += outstanding
-            
+
             # Apply minimum outstanding filter
             if min_outstanding and total_outstanding < min_outstanding:
                 continue
@@ -907,133 +567,13 @@ class AccountingService:
         return aging_data
 
     @staticmethod
-    def calculate_month_end_snapshot(
-        db: Session,
-        house_id: int,
-        year: int,
-        month: int
-    ) -> Dict:
+    def calculate_month_end_snapshot(db: Session, house_id: int, year: int, month: int) -> Dict:
+        """Cash view of currently valid transactions through month-end in Bangkok.
+
+        Uses invoice issue dates, POSTED receipt dates (including unallocated
+        money), and applied credit dates. It is derived, not a locked snapshot.
         """
-        Calculate month-end financial snapshot for a specific house.
-        
-        This is a PURE, DERIVED calculation from the ledger (not persisted to DB).
-        All values are computed on-demand from invoice, payment, and credit note records.
-        
-        Calculation Logic:
-        ------------------
-        1. opening_balance = sum(invoices) - sum(payments) - sum(credit_notes)
-           for all transactions BEFORE the 1st day of target month
-           
-        2. invoice_total = sum(invoices issued in target month)
-        
-        3. payment_total = sum(payments received in target month)
-           Note: Uses received_at from income_transactions
-           
-        4. credit_total = sum(credit notes issued in target month)
-        
-        5. closing_balance = opening_balance + invoice_total - payment_total - credit_total
-        
-        Negative balances are ALLOWED (prepaid/overpayment).
-        
-        Args:
-            db: Database session
-            house_id: ID of house
-            year: Target year
-            month: Target month (1-12)
-            
-        Returns:
-            Dict with snapshot data
-            
-        Raises:
-            ValueError: If house not found or invalid month
-        """
-        # Validate inputs
-        if not (1 <= month <= 12):
-            raise ValueError("Month must be between 1 and 12")
-        if year < 2000 or year > 3000:
-            raise ValueError("Year must be between 2000 and 3000")
-        
-        # Verify house exists
-        house = db.query(House).filter(House.id == house_id).first()
-        if not house:
-            raise ValueError(f"House {house_id} not found")
-        
-        # Define cutoff datetime (last day of target month 23:59:59 local time)
-        last_day = monthrange(year, month)[1]
-        cutoff_datetime = datetime(year, month, last_day, 23, 59, 59)
-        
-        # Define period boundaries
-        period_start = datetime(year, month, 1, 0, 0, 0)
-        period_end = cutoff_datetime
-        
-        # Calculate opening_balance (all transactions BEFORE period start)
-        # Opening = (invoices before) - (payments before) - (credit notes before)
-        
-        opening_invoices = db.query(func.sum(Invoice.total_amount)).filter(
-            and_(
-                Invoice.house_id == house_id,
-                func.date(Invoice.issue_date) < period_start.date()
-            )
-        ).scalar() or Decimal("0")
-        
-        opening_payments = db.query(func.sum(IncomeTransaction.amount)).filter(
-            and_(
-                IncomeTransaction.house_id == house_id,
-                IncomeTransaction.received_at < period_start
-            )
-        ).scalar() or Decimal("0")
-        
-        opening_credits = db.query(func.sum(CreditNote.amount)).filter(
-            and_(
-                CreditNote.house_id == house_id,
-                CreditNote.created_at < period_start
-            )
-        ).scalar() or Decimal("0")
-        
-        opening_balance = opening_invoices - opening_payments - opening_credits
-        
-        # Calculate invoice_total (invoices issued in target month)
-        invoice_total = db.query(func.sum(Invoice.total_amount)).filter(
-            and_(
-                Invoice.house_id == house_id,
-                Invoice.cycle_year == year,
-                Invoice.cycle_month == month
-            )
-        ).scalar() or Decimal("0")
-        
-        # Calculate payment_total (payments received in target month)
-        payment_total = db.query(func.sum(IncomeTransaction.amount)).filter(
-            and_(
-                IncomeTransaction.house_id == house_id,
-                IncomeTransaction.received_at >= period_start,
-                IncomeTransaction.received_at <= period_end
-            )
-        ).scalar() or Decimal("0")
-        
-        # Calculate credit_total (credit notes issued in target month)
-        credit_total = db.query(func.sum(CreditNote.amount)).filter(
-            and_(
-                CreditNote.house_id == house_id,
-                CreditNote.created_at >= period_start,
-                CreditNote.created_at <= period_end
-            )
-        ).scalar() or Decimal("0")
-        
-        # Calculate closing_balance
-        closing_balance = opening_balance + invoice_total - payment_total - credit_total
-        
-        return {
-            "house_id": house_id,
-            "house_code": house.house_code,
-            "owner_name": house.owner_name,
-            "year": year,
-            "month": month,
-            "opening_balance": float(opening_balance),
-            "invoice_total": float(invoice_total),
-            "payment_total": float(payment_total),
-            "credit_total": float(credit_total),
-            "closing_balance": float(closing_balance)
-        }
+        return month_snapshot(db, house_id, year, month)
 
     @staticmethod
     def calculate_aggregated_snapshot(
@@ -1069,11 +609,11 @@ class AccountingService:
         
         # Calculate snapshot for each house
         house_snapshots = []
-        total_opening = 0.0
-        total_invoices = 0.0
-        total_payments = 0.0
-        total_credits = 0.0
-        total_closing = 0.0
+        total_opening = Decimal('0')
+        total_invoices = Decimal('0')
+        total_payments = Decimal('0')
+        total_credits = Decimal('0')
+        total_closing = Decimal('0')
         
         for house in houses:
             snapshot = AccountingService.calculate_month_end_snapshot(
@@ -1085,235 +625,29 @@ class AccountingService:
             house_snapshots.append(snapshot)
             
             # Aggregate totals
-            total_opening += snapshot["opening_balance"]
-            total_invoices += snapshot["invoice_total"]
-            total_payments += snapshot["payment_total"]
-            total_credits += snapshot["credit_total"]
-            total_closing += snapshot["closing_balance"]
+            total_opening += Decimal(str(snapshot["opening_balance"]))
+            total_invoices += Decimal(str(snapshot["invoice_total"]))
+            total_payments += Decimal(str(snapshot["payment_total"]))
+            total_credits += Decimal(str(snapshot["credit_total"]))
+            total_closing += Decimal(str(snapshot["closing_balance"]))
         
         return {
             "year": year,
             "month": month,
             "total_houses": len(houses),
-            "opening_balance": total_opening,
-            "invoice_total": total_invoices,
-            "payment_total": total_payments,
-            "credit_total": total_credits,
-            "closing_balance": total_closing,
+            "opening_balance": float(total_opening),
+            "invoice_total": float(total_invoices),
+            "payment_total": float(total_payments),
+            "credit_total": float(total_credits),
+            "closing_balance": float(total_closing),
             "houses": house_snapshots
         }
 
     @staticmethod
-    def generate_statement(
-        db: Session,
-        house_id: int,
-        start_date: date,
-        end_date: date
-    ) -> Dict:
+    def generate_statement(db: Session, house_id: int, start_date: date, end_date: date) -> Dict:
+        """Exact inclusive date range, with consistent opening/rows/closing.
+
+        Do not substitute month-end balances for mid-month dates and do not
+        turn query/validation failures into zero balances.
         """
-        Generate read-only financial statement for a house over a date range.
-        
-        PHASE 2.4 - PRESENTATION ONLY (No new accounting logic)
-        
-        Statement Structure:
-        --------------------
-        1. Opening Balance Row (from Phase 2.3 snapshot)
-        2. Transaction Rows (from ledger, sorted by date)
-           - Invoices → Debit column
-           - Payments → Credit column
-           - Credit Notes → Credit column
-        3. Running Balance (display-only, not persisted)
-        4. Footer Summary
-        5. Closing Balance (from Phase 2.3 snapshot)
-        
-        IMPORTANT RULES:
-        ----------------
-        - Opening balance comes from snapshot at (start_date - 1 day)
-        - Closing balance comes from snapshot at end_date
-        - DO NOT calculate opening/closing directly from ledger
-        - Ledger is used ONLY for transaction rows
-        - Running balance starts from opening_balance
-        - Running balance is NOT stored anywhere
-        
-        Args:
-            db: Database session
-            house_id: ID of house
-            start_date: Statement start date
-            end_date: Statement end date
-            
-        Returns:
-            Dict with statement data ready for JSON/HTML rendering
-            
-        Raises:
-            ValueError: If house not found or invalid dates
-        """
-        # Validate inputs
-        if start_date > end_date:
-            raise ValueError("start_date must be before or equal to end_date")
-        
-        # Verify house exists
-        house = db.query(House).filter(House.id == house_id).first()
-        if not house:
-            raise ValueError(f"House {house_id} not found")
-        
-        # Get opening balance from snapshot (last day BEFORE start_date)
-        # If start_date is 2024-12-01, we need snapshot for 2024-11-30
-        opening_date = start_date - timedelta(days=1)
-        opening_year = opening_date.year
-        opening_month = opening_date.month
-        
-        try:
-            opening_snapshot = AccountingService.calculate_month_end_snapshot(
-                db=db,
-                house_id=house_id,
-                year=opening_year,
-                month=opening_month
-            )
-            opening_balance = opening_snapshot["closing_balance"]
-        except:
-            # If no snapshot available (e.g., before first transaction), use 0
-            opening_balance = 0.0
-        
-        # Get closing balance from snapshot (at end_date)
-        closing_year = end_date.year
-        closing_month = end_date.month
-        
-        try:
-            closing_snapshot = AccountingService.calculate_month_end_snapshot(
-                db=db,
-                house_id=house_id,
-                year=closing_year,
-                month=closing_month
-            )
-            closing_balance = closing_snapshot["closing_balance"]
-        except:
-            closing_balance = opening_balance
-        
-        # Initialize statement rows with opening balance
-        rows = []
-        running_balance = opening_balance
-        
-        # Add opening balance row
-        rows.append({
-            "date": start_date,
-            "description": "Opening Balance",
-            "debit": None,
-            "credit": None,
-            "balance": running_balance,
-            "transaction_type": "opening",
-            "transaction_id": None
-        })
-        
-        # Collect all transactions in period
-        transactions = []
-        
-        # Get invoices in period
-        invoices = db.query(Invoice).filter(
-            and_(
-                Invoice.house_id == house_id,
-                func.date(Invoice.issue_date) >= start_date,
-                func.date(Invoice.issue_date) <= end_date
-            )
-        ).all()
-        
-        for invoice in invoices:
-            transactions.append({
-                "date": invoice.issue_date,
-                "description": f"Invoice {invoice.cycle_year}-{invoice.cycle_month:02d}",
-                "debit": float(invoice.total_amount),
-                "credit": None,
-                "transaction_type": "invoice",
-                "transaction_id": invoice.id,
-                "sort_order": 1  # Invoices first within same date
-            })
-        
-        # Get payments in period (via income_transactions)
-        income_transactions = db.query(IncomeTransaction).filter(
-            and_(
-                IncomeTransaction.house_id == house_id,
-                func.date(IncomeTransaction.received_at) >= start_date,
-                func.date(IncomeTransaction.received_at) <= end_date
-            )
-        ).all()
-        
-        for income in income_transactions:
-            transactions.append({
-                "date": income.received_at.date(),
-                "description": f"Payment (PayIn #{income.payin_id})",
-                "debit": None,
-                "credit": float(income.amount),
-                "transaction_type": "payment",
-                "transaction_id": income.id,
-                "sort_order": 2  # Payments second within same date
-            })
-        
-        # Get credit notes in period
-        credit_notes = db.query(CreditNote).filter(
-            and_(
-                CreditNote.house_id == house_id,
-                func.date(CreditNote.created_at) >= start_date,
-                func.date(CreditNote.created_at) <= end_date
-            )
-        ).all()
-        
-        for credit in credit_notes:
-            transactions.append({
-                "date": credit.created_at.date(),
-                "description": f"Credit Note: {credit.reason[:50]}",
-                "debit": None,
-                "credit": float(credit.amount),
-                "transaction_type": "credit_note",
-                "transaction_id": credit.id,
-                "sort_order": 3  # Credit notes third within same date
-            })
-        
-        # Sort transactions by date ASC, then by sort_order
-        transactions.sort(key=lambda x: (x["date"], x["sort_order"]))
-        
-        # Calculate running balance and build rows
-        invoice_total = 0.0
-        payment_total = 0.0
-        credit_total = 0.0
-        
-        for txn in transactions:
-            # Update running balance
-            if txn["debit"]:
-                running_balance += txn["debit"]
-                invoice_total += txn["debit"]
-            if txn["credit"]:
-                running_balance -= txn["credit"]
-                if txn["transaction_type"] == "payment":
-                    payment_total += txn["credit"]
-                elif txn["transaction_type"] == "credit_note":
-                    credit_total += txn["credit"]
-            
-            # Add transaction row
-            rows.append({
-                "date": txn["date"],
-                "description": txn["description"],
-                "debit": txn["debit"],
-                "credit": txn["credit"],
-                "balance": running_balance,
-                "transaction_type": txn["transaction_type"],
-                "transaction_id": txn["transaction_id"]
-            })
-        
-        # Build summary
-        summary = {
-            "invoice_total": invoice_total,
-            "payment_total": payment_total,
-            "credit_total": credit_total,
-            "closing_balance": closing_balance  # From snapshot, NOT calculated
-        }
-        
-        return {
-            "house_id": house_id,
-            "house_code": house.house_code,
-            "owner_name": house.owner_name,
-            "start_date": start_date,
-            "end_date": end_date,
-            "opening_balance": opening_balance,  # From snapshot
-            "closing_balance": closing_balance,  # From snapshot
-            "rows": rows,
-            "summary": summary
-        }
+        return range_statement(db, house_id, start_date, end_date)

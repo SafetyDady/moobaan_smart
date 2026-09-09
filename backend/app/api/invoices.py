@@ -15,12 +15,15 @@ from app.db.models import (
 )
 from app.db.models.invoice import InvoiceStatus as InvoiceStatusEnum
 from app.db.models.payin_report import PayinStatus
+from app.db.models.income_transaction import LedgerStatus
 from app.db.models.house import HouseStatus
 from app.core.deps import get_db, require_admin_or_accounting, get_current_user
 from app.db.models.user import User
 from app.core.period_lock import validate_period_not_locked
 from app.core.pagination import paginate_list
 from decimal import Decimal
+from app.services.receipt_eligibility import allocation_error
+from app.db.models.bank_transaction import BankTransaction
 from app.services.invoice_locking import lock_invoice, lock_ledger
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
@@ -203,14 +206,17 @@ async def get_allocatable_ledgers(
     Get list of ledger entries (IncomeTransactions) that can be allocated to invoices.
     
     Criteria:
-    - Created from ACCEPTED pay-ins (recognized income)
+    - POSTED accepted pay-ins or confirmed Statement receipts without pay-ins
     - Has remaining amount > 0 (not fully allocated)
     - Optionally filtered by house_id
     """
-    query = db.query(IncomeTransaction).join(
-        PayinReport, IncomeTransaction.payin_id == PayinReport.id
+    query = db.query(IncomeTransaction).options(
+        selectinload(IncomeTransaction.invoice_payments),
+        selectinload(IncomeTransaction.house),
+        selectinload(IncomeTransaction.payin),
+        selectinload(IncomeTransaction.bank_transaction).selectinload(BankTransaction.batch),
     ).filter(
-        PayinReport.status == PayinStatus.ACCEPTED  # Only from accepted pay-ins
+        IncomeTransaction.status == LedgerStatus.POSTED,
     )
     
     if house_id:
@@ -221,9 +227,11 @@ async def get_allocatable_ledgers(
     # Filter to only those with remaining amount
     allocatable = []
     for ledger in ledgers:
+        if allocation_error(ledger):
+            continue
         remaining = ledger.get_unallocated_amount()
         if remaining > 0:
-            house = db.query(HouseDB).filter(HouseDB.id == ledger.house_id).first()
+            house = ledger.house
             allocatable.append({
                 "id": ledger.id,
                 "house_id": ledger.house_id,
@@ -255,15 +263,23 @@ async def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
         id=inv.id,
         house_id=inv.house_id,
         house_number=house.house_code if house else "Unknown",
-        invoice_type=InvoiceType.AUTO_MONTHLY,
-        cycle=f"{inv.cycle_year}-{inv.cycle_month:02d}",
+        invoice_type=InvoiceType.MANUAL if inv.is_manual else InvoiceType.AUTO_MONTHLY,
+        cycle="MANUAL" if inv.is_manual else f"{inv.cycle_year}-{inv.cycle_month:02d}",
         total=float(inv.total_amount),
-        status=InvoiceStatus.PENDING,
+        status=inv.get_settlement_status(),
+        paid=inv.get_total_paid(),
+        outstanding=inv.get_remaining_balance(),
+        total_credited=inv.get_total_credited(),
+        net_amount=inv.get_net_amount(),
+        is_fully_credited=inv.is_fully_credited(),
+        is_manual=inv.is_manual,
+        manual_reason=inv.manual_reason,
+        paid_at=inv.get_last_payment_at(),
         due_date=inv.due_date,
         items=[
             InvoiceItem(
                 id=0,
-                description=inv.notes or "ค่าส่วนกลาง",
+                description=(inv.manual_reason or "Manual Invoice") if inv.is_manual else (inv.notes or "ค่าส่วนกลาง"),
                 amount=float(inv.total_amount)
             )
         ],
@@ -483,6 +499,7 @@ async def get_invoice_detail(
         
         payment_history.append({
             "id": payment.id,
+            "status": payment.status.value,
             "amount": float(payment.amount),
             "applied_at": payment.applied_at.isoformat() if payment.applied_at else None,
             "income_transaction_id": payment.income_transaction_id,
@@ -521,7 +538,7 @@ async def apply_payment_to_invoice(
     
     Preconditions:
     1. Invoice must exist and not be fully paid
-    2. Ledger (IncomeTransaction) must exist and be from ACCEPTED pay-in
+    2. Ledger (IncomeTransaction) must exist and have eligible receipt provenance
     3. Ledger must have sufficient remaining amount
     4. Amount to apply must not exceed invoice outstanding
     
@@ -538,7 +555,7 @@ async def apply_payment_to_invoice(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
-    outstanding = invoice.get_outstanding_amount()
+    outstanding = invoice.get_remaining_balance_decimal()
     if outstanding <= 0:
         raise HTTPException(
             status_code=400,
@@ -549,16 +566,18 @@ async def apply_payment_to_invoice(
     if ledger.house_id != invoice.house_id:
         raise HTTPException(status_code=400, detail="Ledger and invoice must belong to the same house")
     
-    # 3. Verify ledger is from ACCEPTED pay-in
-    payin = db.query(PayinReport).filter(PayinReport.id == ledger.payin_id).first()
-    if not payin or payin.status != PayinStatus.ACCEPTED:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot apply: Ledger entry must be from an ACCEPTED pay-in"
-        )
+    # Re-read provenance after the ledger lock (including after a concurrent reversal).
+    db.expire(ledger, ['payin', 'bank_transaction'])
+    if ledger.payin:
+        db.refresh(ledger.payin)
+    if ledger.bank_transaction:
+        db.refresh(ledger.bank_transaction)
+    error = allocation_error(ledger)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
     
     # 4. Check ledger remaining amount
-    ledger_remaining = ledger.get_unallocated_amount()
+    ledger_remaining = Decimal(str(ledger.get_unallocated_amount()))
     if ledger_remaining <= 0:
         raise HTTPException(
             status_code=400,
@@ -566,7 +585,7 @@ async def apply_payment_to_invoice(
         )
     
     # 5. Validate amount to apply
-    amount_to_apply = float(request.amount)
+    amount_to_apply = request.amount
     
     if amount_to_apply > outstanding:
         raise HTTPException(
@@ -662,6 +681,7 @@ async def get_invoice_payments(
         
         payment_records.append({
             "id": payment.id,
+            "status": payment.status.value,
             "amount": float(payment.amount),
             "applied_at": payment.applied_at.isoformat() if payment.applied_at else None,
             "ledger": {

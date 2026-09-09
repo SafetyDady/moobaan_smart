@@ -297,6 +297,7 @@ def generate_pdf(title: str, headers: list, rows: list, money_columns: Optional[
     # Try to register Thai font
     thai_font_registered = False
     font_paths = [
+        os.path.join(os.path.dirname(__file__), "..", "..", "assets", "fonts", "Sarabun-Regular.ttf"),
         "/usr/share/fonts/truetype/thai/Sarabun-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -323,7 +324,7 @@ def generate_pdf(title: str, headers: list, rows: list, money_columns: Optional[
     subtitle_style = styles['Normal']
     if thai_font_registered:
         subtitle_style.fontName = font_name
-    now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    now_str = datetime.now(BANGKOK_TZ).strftime("%d/%m/%Y %H:%M")
     elements.append(Paragraph(f"Generated: {now_str} | Total: {len(rows)} records", subtitle_style))
     elements.append(Spacer(1, 5*mm))
 
@@ -341,7 +342,7 @@ def generate_pdf(title: str, headers: list, rows: list, money_columns: Optional[
     col_count = len(headers)
     col_width = available_width / col_count
 
-    table = Table(table_data, colWidths=[col_width] * col_count)
+    table = Table(table_data, colWidths=[col_width] * col_count, repeatRows=1)
     table.setStyle(TableStyle([
         # Header
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
@@ -407,7 +408,7 @@ def generate_excel(title: str, headers: list, rows: list, money_columns: Optiona
 
     # Date row
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
-    date_cell = ws.cell(row=2, column=1, value=f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Total: {len(rows)} records")
+    date_cell = ws.cell(row=2, column=1, value=f"Generated: {datetime.now(BANGKOK_TZ).strftime('%d/%m/%Y %H:%M')} | Total: {len(rows)} records")
     date_cell.font = Font(size=10, color="666666")
     date_cell.alignment = Alignment(horizontal="center")
 
@@ -526,7 +527,7 @@ async def export_report(
         logger.error(f"Export generation failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate report file")
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(BANGKOK_TZ).strftime("%Y%m%d_%H%M%S")
     download_filename = f"{filename}_{timestamp}.{ext}"
 
     logger.info(f"📊 Report exported: {download_filename} by user {current_user.id}")
