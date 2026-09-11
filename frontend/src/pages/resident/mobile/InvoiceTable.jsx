@@ -10,7 +10,7 @@
  * @param {Array} invoices - Array of invoice objects
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { FileText } from 'lucide-react';
 import { t } from '../../../hooks/useLocale';
 import { formatThaiDate, formatThaiTime } from '../../../utils/payinStatus';
@@ -23,7 +23,21 @@ const invoiceDisplayDate = (invoice) => (
     : invoice.due_date || ''
 );
 
+const columns = 'grid grid-cols-[minmax(0,0.6fr)_minmax(0,1.35fr)_minmax(0,0.85fr)_minmax(0,1fr)_minmax(0,1.05fr)] gap-1 px-1 sm:gap-2 sm:px-3';
+
+const InvoiceDate = ({ value }) => (
+  <>
+    <span className="sm:hidden">{formatThaiDate(value, { month: 'numeric' })}</span>
+    <span className="hidden sm:inline">{formatThaiDate(value)}</span>
+  </>
+);
+
 const InvoiceTable = ({ invoices = [] }) => {
+  // Start at the newest row whenever the table opens, including after async loading.
+  // Keep this ref stable so ordinary updates don't interrupt the user's scrolling.
+  const startAtFirstRow = useCallback((element) => {
+    if (element) element.scrollTop = 0;
+  }, []);
   const sortedInvoices = useMemo(() => [...(invoices || [])].sort((a, b) => (
     invoiceDisplayDate(b).localeCompare(invoiceDisplayDate(a)) || b.id - a.id
   )), [invoices]);
@@ -103,29 +117,30 @@ const InvoiceTable = ({ invoices = [] }) => {
 
   return (
     <div
-      className="bg-gray-800 rounded-lg border border-gray-700 max-h-96 overflow-auto overscroll-contain focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+      ref={startAtFirstRow}
+      className="w-full min-w-0 bg-gray-800 rounded-lg border border-gray-700 max-h-96 overflow-y-auto overscroll-contain focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
       role="region"
       aria-label={t('mobileDashboard.invoiceTitle')}
       tabIndex={0}
       // Keep table scrolling from starting the page's pull-to-refresh gesture.
       onTouchStart={(event) => event.stopPropagation()}
     >
-      <div className="min-w-[520px]">
+      <div className="w-full min-w-0">
       {/* Table Header */}
-      <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 bg-gray-750 px-3 py-3 border-b border-gray-700 border-l-4 border-l-transparent">
-        <div className="col-span-2 text-xs text-gray-400 uppercase tracking-wide">
+      <div className={`sticky top-0 z-10 ${columns} items-center bg-gray-750 py-3 border-b border-gray-700 border-l-4 border-l-transparent text-[11px] sm:text-xs leading-snug`}>
+        <div className="min-w-0 text-gray-400">
           {t('invoiceTable.cycle')}
         </div>
-        <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide text-right">
+        <div className="min-w-0 text-gray-400 text-right">
           {t('invoiceTable.amount')}
         </div>
-        <div className="col-span-2 text-xs text-gray-400 uppercase tracking-wide text-center">
+        <div className="min-w-0 text-gray-400 text-center">
           {t('invoiceTable.dueDate')}
         </div>
-        <div className="col-span-2 text-xs text-gray-400 uppercase tracking-wide text-center">
+        <div className="min-w-0 text-gray-400 text-center">
           {t('invoiceTable.lastPayment')}
         </div>
-        <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide text-center">
+        <div className="min-w-0 text-gray-400 text-center">
           {t('invoiceTable.status')}
         </div>
       </div>
@@ -140,38 +155,43 @@ const InvoiceTable = ({ invoices = [] }) => {
             <div
               key={invoice.id || index}
               className={`
-                relative grid grid-cols-12 gap-2 px-3 py-3
+                relative ${columns} py-3
                 border-l-4 ${colors.border}
                 hover:bg-gray-750 transition-colors
                 ${!isLast ? 'border-b border-gray-700' : ''}
               `}
             >
               {/* Cycle */}
-              <div className="col-span-2 flex items-center">
-                <span className="text-sm text-white font-medium">
-                  {invoice.cycle || '-'}
+              <div className="min-w-0 flex items-center">
+                <span className="min-w-0 text-[11px] sm:text-xs text-white font-medium leading-snug">
+                  {/^\d{4}-\d{2}$/.test(invoice.cycle || '') ? (
+                    <time dateTime={invoice.cycle}>
+                      <span className="sm:hidden">{formatThaiDate(`${invoice.cycle}-01`, { day: undefined })}</span>
+                      <span className="hidden sm:inline">{invoice.cycle}</span>
+                    </time>
+                  ) : invoice.is_manual || invoice.cycle === 'MANUAL' ? t('invoices.manual') : invoice.cycle || '-'}
                 </span>
               </div>
 
               {/* Amount */}
-              <div className="col-span-3 flex items-center justify-end">
-                <span className={`text-lg font-bold tabular-nums whitespace-nowrap ${colors.amount}`}>
+              <div className="min-w-0 flex items-center justify-end">
+                <span className={`text-xs sm:text-base font-semibold tabular-nums whitespace-nowrap ${colors.amount}`}>
                   ฿{invoice.total?.toLocaleString() || '0'}
                 </span>
               </div>
 
               {/* Due Date */}
-              <div className="col-span-2 flex items-center justify-center">
-                <span className="text-xs text-gray-400">
-                  {formatThaiDate(invoice.due_date)}
+              <div className="min-w-0 flex items-center justify-center text-center">
+                <span className="text-[11px] sm:text-xs text-gray-400">
+                  <InvoiceDate value={invoice.due_date} />
                 </span>
               </div>
 
               {/* Latest confirmed receipt used for this invoice; Bangkok time. */}
-              <div className="col-span-2 flex items-center justify-center text-center">
+              <div className="min-w-0 flex items-center justify-center text-center">
                 {invoice.paid_at ? (
-                  <time dateTime={invoice.paid_at} className="text-xs text-gray-300 whitespace-nowrap">
-                    <span className="block">{formatThaiDate(invoice.paid_at)}</span>
+                  <time dateTime={invoice.paid_at} className="text-[11px] sm:text-xs text-gray-300 leading-snug">
+                    <span className="block"><InvoiceDate value={invoice.paid_at} /></span>
                     <span className="block text-gray-400">{formatThaiTime(invoice.paid_at)}</span>
                   </time>
                 ) : (
@@ -180,9 +200,9 @@ const InvoiceTable = ({ invoices = [] }) => {
               </div>
 
               {/* Status Badge */}
-              <div className="col-span-3 flex items-center justify-center">
+              <div className="min-w-0 flex items-center justify-center">
                 <span className={`
-                  px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                  max-w-full px-1 sm:px-2 py-1 rounded-lg text-[11px] sm:text-xs font-semibold leading-snug whitespace-normal break-words text-center
                   ${colors.badge}
                 `}>
                   {getStatusText(invoice.status)}
