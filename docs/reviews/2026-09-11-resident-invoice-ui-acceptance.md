@@ -1,8 +1,19 @@
 # ผลแก้ตาม Auditor: ตารางใบแจ้งหนี้ลูกบ้าน — 11 กันยายน 2026
 
-สถานะ: แก้และทดสอบในเครื่องเสร็จ ยังไม่ commit/push/deploy ไม่เชื่อมต่อ production หรือ DB ในการทดสอบ UI รอบนี้
+สถานะล่าสุด: **เผยแพร่productionและตรวจหลังdeployผ่านแล้ว** ตามการอนุมัติ “OK Push ได้”. ส่วนการทดสอบUIใช้ข้อมูลจำลองในเครื่อง; ตอนreleaseเชื่อมproductionแบบอ่านอย่างเดียวเพื่อbackupและตรวจผล ไม่มีการเขียนข้อมูลการเงิน
 
-**อัปเดตการอนุมัติ:** เจ้าของสั่ง “OK Push ได้” แล้ว กำลังเตรียมเผยแพร่พร้อมbackup DB/restoreตรวจ26ตารางและตรวจค่าseed/resetก่อนpush. จุดย้อนกลับเฉพาะcodeคือ `3c1bbb68a546218ad943131b8a458bd04057130d`; ผลdeploymentจะบันทึกหลังตรวจเสร็จ ข้อความที่ระบุlocalonlyในรายงานด้านล่างเป็นผลในขั้นทดสอบก่อนอนุมัติ
+## ผลเผยแพร่ — 11 ก.ย. 2026 เวลา12:27ไทย
+
+- Appcommit **06b611efaaff1ba45a9148c95854478d8924abef**, pushedmaster; includes3frontendfiles+reviewedcontext/auditdocuments
+- Railway **d9505de9-e2f3-4a49-819a-527282dcc7f9** SUCCESS; Vercel **Ay2TN7oT2CMTSZFch8SH4PckzCPB** SUCCESS
+- ตรวจทั้งmoobaan-smart.vercel.appและapp.moobaan.app: publicJSมีข้อความ/รูปแบบที่ตรวจรับ และCSSตรงไฟล์buildในเครื่องทุกbyte. ทั้งสองโดเมนใช้index-C-tkItNx.jsและindex-B71dJquU.css
+- Health/ready200, invoiceGETที่ไม่ได้login15checksยัง401; DB26ตารางทั้งcount/hashไม่เปลี่ยนจากbackupก่อนpush
+- Backupก่อนpush12:24:40ไทย SHA256 **7c33e81978d3a4a4e6ed77448acb515a738aadf33925a1771a5ca31a7a0cde66**, กู้คืนตรวจ26ตารางและAlembicrevisionผ่าน. แฟ้ม `C:\Users\sanch\moobaan-db-backups\20260909-2895\resident-ui-release-20260911T052439Z`; DBbackupไม่รวมไฟล์ภาพR2
+- ตรวจRUN_PROD_SEEDและPROD_RESET_ADMIN_PASSWORDยังfalseก่อนpush ไม่มีbackend/schema/config/financialwrite
+- จุดย้อนกลับเฉพาะcode **3c1bbb68a546218ad943131b8a458bd04057130d**; ห้ามrestoreDBเก่าทับรายการใหม่เพื่อย้อนUI
+- เอกสารcontextfollow-upคงapplicationcodeเหมือนcommitนี้. ผลpostdeployเป็นการตรวจpublicassets/health/authguard/DBfingerprints ไม่ได้อ้างว่าได้loginลูกบ้านใหม่บนproductionหรือทดสอบSafari/โทรศัพท์จริง
+
+ข้อความที่ระบุlocalonly/pendingในส่วนต่อไปเป็นประวัติขั้นทดสอบก่อนอนุมัติเผยแพร่
 
 ## ปิดข้อสังเกต P3 เรื่องสีหลัง Auditor รับรอง
 

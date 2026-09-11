@@ -7,6 +7,10 @@
 
 ## 2026-09-11
 
+### Resident invoice UI released with backup and read-only production verification
+- Ownerexplicitlyapprovedpush. Applicationcommit06b611efaaff1ba45a9148c95854478d8924abef includes3frontendfiles and reviewedreconciliation/UI/contextdocuments. Prepushbase/rollback3c1bbb68a546218ad943131b8a458bd04057130d; master/remote/currentactivecommitverified; RUN_PROD_SEED/PROD_RESET_ADMIN_PASSWORDbothfalse. Fresh12:24:40BangkokREADONLYdump SHA2567c33e81978d3a4a4e6ed77448acb515a738aadf33925a1771a5ca31a7a0cde66,226905bytes,restored26tablehash/counts+Alembicp5_1_notificationsverified. Uniqueprivate resident-ui-release pointer preserves allolderbackups. NoDBwrites/config/backend/schemachange;R2imagebytesnotincluded.
+- Railwayd9505de9-e2f3-4a49-819a-527282dcc7f9 andVercelAy2TN7oT2CMTSZFch8SH4PckzCPB SUCCESS. Postdeploy12:27bothdomains serveindex-C-tkItNx.js withreviewedmarkers andindex-B71dJquU.css byte-identicaltolocalbuild; JSsamehashacrossdomainsb134b8c2ee2425f5dce50469bbcf33c8ebbd6f1bde00b2f033113425edfe6683. Health/ready200,15anonymousinvoiceGETs401. ProductionREADONLY26tablecomparisonunchangedvsimmediatebackup. Noauthenticatedresident/Safari/physicalphoneverificationclaimed; local34browser/inputchecks alreadyrecorded. Contextfollow-up commit only documentsresult andpreservesapplicationcode; detailedprivate resident-ui-*-state/checks artifacts. NeverrestoreoldDBovernewfinancialactivityforUIrollback.
+
 ### Owner-approved publication of resident invoice UI
 - Owner explicitly said "OK Push ได้" after auditor acceptance and final slate color checks. Release base/code rollback3c1bbb68a546218ad943131b8a458bd04057130d. Publishing audited3frontendfiles with accumulatedreview/contextdocs; freshsame-snapshotDBbackup+26tablerestore andliveRUN_PROD_SEED/PROD_RESET_ADMIN_PASSWORDfalsechecks beforepush. NoDBwriter/backend/schema/configchange; code rollback doesnotundo financialactivity. Results tobeappendedafterdeployverification.
 
