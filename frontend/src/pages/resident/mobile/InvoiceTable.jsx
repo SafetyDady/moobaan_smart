@@ -10,28 +10,30 @@
  * @param {Array} invoices - Array of invoice objects
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FileText } from 'lucide-react';
 import { t } from '../../../hooks/useLocale';
+import { formatThaiDate, formatThaiTime } from '../../../utils/payinStatus';
+
+// Monthly bills follow their billing cycle, even when created retrospectively.
+// Special bills have no cycle, so place them by their due date.
+const invoiceDisplayDate = (invoice) => (
+  /^\d{4}-\d{2}$/.test(invoice.cycle || '')
+    ? `${invoice.cycle}-01`
+    : invoice.due_date || ''
+);
 
 const InvoiceTable = ({ invoices = [] }) => {
+  const sortedInvoices = useMemo(() => [...(invoices || [])].sort((a, b) => (
+    invoiceDisplayDate(b).localeCompare(invoiceDisplayDate(a)) || b.id - a.id
+  )), [invoices]);
   
-  // Format Thai date
-  const formatThaiDate = (dateString) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 
-                        'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-    const day = date.getDate();
-    const month = thaiMonths[date.getMonth()];
-    const year = (date.getFullYear() + 543).toString().slice(-2);
-    return `${day} ${month} ${year}`;
-  };
-
   // Get status text in Thai
   const getStatusText = (status) => {
     const statusMap = {
       'PAID': t('invoiceTable.statusPaid'),
+      'PARTIALLY_PAID': t('invoiceTable.statusPartial'),
+      'CREDITED': t('invoiceTable.statusCredited'),
       'PENDING': t('invoiceTable.statusPending'),
       'OVERDUE': t('invoiceTable.statusOverdue'),
       'ISSUED': t('invoiceTable.statusIssued'),
@@ -56,12 +58,29 @@ const InvoiceTable = ({ invoices = [] }) => {
           amount: 'text-red-400',
           badge: 'bg-red-900/30 text-red-400'
         };
+      case 'PARTIALLY_PAID':
+        return {
+          border: 'border-l-amber-500',
+          amount: 'text-amber-400',
+          badge: 'bg-amber-900/30 text-amber-400'
+        };
+      case 'CREDITED':
+        return {
+          border: 'border-l-sky-500',
+          amount: 'text-sky-400',
+          badge: 'bg-sky-900/30 text-sky-400'
+        };
       case 'PENDING':
-      case 'ISSUED':
         return {
           border: 'border-l-yellow-500',
           amount: 'text-yellow-400',
           badge: 'bg-yellow-900/30 text-yellow-400'
+        };
+      case 'ISSUED':
+        return {
+          border: 'border-l-slate-500',
+          amount: 'text-slate-300',
+          badge: 'bg-slate-700 text-slate-200'
         };
       default:
         return {
@@ -83,17 +102,28 @@ const InvoiceTable = ({ invoices = [] }) => {
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    <div
+      className="bg-gray-800 rounded-lg border border-gray-700 max-h-96 overflow-auto overscroll-contain focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+      role="region"
+      aria-label={t('mobileDashboard.invoiceTitle')}
+      tabIndex={0}
+      // Keep table scrolling from starting the page's pull-to-refresh gesture.
+      onTouchStart={(event) => event.stopPropagation()}
+    >
+      <div className="min-w-[520px]">
       {/* Table Header */}
-      <div className="grid grid-cols-12 gap-2 bg-gray-750 px-3 py-3 border-b border-gray-700">
-        <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide">
+      <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 bg-gray-750 px-3 py-3 border-b border-gray-700 border-l-4 border-l-transparent">
+        <div className="col-span-2 text-xs text-gray-400 uppercase tracking-wide">
           {t('invoiceTable.cycle')}
         </div>
         <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide text-right">
           {t('invoiceTable.amount')}
         </div>
-        <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide text-center">
+        <div className="col-span-2 text-xs text-gray-400 uppercase tracking-wide text-center">
           {t('invoiceTable.dueDate')}
+        </div>
+        <div className="col-span-2 text-xs text-gray-400 uppercase tracking-wide text-center">
+          {t('invoiceTable.lastPayment')}
         </div>
         <div className="col-span-3 text-xs text-gray-400 uppercase tracking-wide text-center">
           {t('invoiceTable.status')}
@@ -102,9 +132,9 @@ const InvoiceTable = ({ invoices = [] }) => {
 
       {/* Table Rows */}
       <div>
-        {invoices.map((invoice, index) => {
+        {sortedInvoices.map((invoice, index) => {
           const colors = getStatusColor(invoice.status);
-          const isLast = index === invoices.length - 1;
+          const isLast = index === sortedInvoices.length - 1;
           
           return (
             <div
@@ -117,7 +147,7 @@ const InvoiceTable = ({ invoices = [] }) => {
               `}
             >
               {/* Cycle */}
-              <div className="col-span-3 flex items-center">
+              <div className="col-span-2 flex items-center">
                 <span className="text-sm text-white font-medium">
                   {invoice.cycle || '-'}
                 </span>
@@ -125,16 +155,28 @@ const InvoiceTable = ({ invoices = [] }) => {
 
               {/* Amount */}
               <div className="col-span-3 flex items-center justify-end">
-                <span className={`text-lg font-bold ${colors.amount}`}>
+                <span className={`text-lg font-bold tabular-nums whitespace-nowrap ${colors.amount}`}>
                   ฿{invoice.total?.toLocaleString() || '0'}
                 </span>
               </div>
 
               {/* Due Date */}
-              <div className="col-span-3 flex items-center justify-center">
+              <div className="col-span-2 flex items-center justify-center">
                 <span className="text-xs text-gray-400">
                   {formatThaiDate(invoice.due_date)}
                 </span>
+              </div>
+
+              {/* Latest confirmed receipt used for this invoice; Bangkok time. */}
+              <div className="col-span-2 flex items-center justify-center text-center">
+                {invoice.paid_at ? (
+                  <time dateTime={invoice.paid_at} className="text-xs text-gray-300 whitespace-nowrap">
+                    <span className="block">{formatThaiDate(invoice.paid_at)}</span>
+                    <span className="block text-gray-400">{formatThaiTime(invoice.paid_at)}</span>
+                  </time>
+                ) : (
+                  <span className="text-xs text-gray-500">-</span>
+                )}
               </div>
 
               {/* Status Badge */}
@@ -149,6 +191,7 @@ const InvoiceTable = ({ invoices = [] }) => {
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

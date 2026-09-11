@@ -78,6 +78,14 @@ export default function PullToRefresh({ onRefresh, threshold = PULL_THRESHOLD, c
     }
   }, [pulling, pullDistance, threshold, onRefresh]);
 
+  const handleTouchCancel = useCallback(() => {
+    // A cancelled gesture must not leave a pending refresh for the next touch.
+    startY.current = 0;
+    currentY.current = 0;
+    setPulling(false);
+    if (!refreshing) setPullDistance(0);
+  }, [refreshing]);
+
   const progress = Math.min(pullDistance / threshold, 1);
   const showIndicator = pullDistance > 10 || refreshing;
 
@@ -87,6 +95,7 @@ export default function PullToRefresh({ onRefresh, threshold = PULL_THRESHOLD, c
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
       className="relative"
     >
       {/* Pull indicator */}
