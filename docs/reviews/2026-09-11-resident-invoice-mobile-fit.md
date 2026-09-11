@@ -6,7 +6,7 @@ Status: application commit `dbad6bb5145d842f0f4428266733949162581412` released a
 
 The owner accepted the data but found column proportions unsuitable on mobile. All five columns must be visible together; the billing cycle must not crowd the other cells.
 
-Only application file changed: `frontend/src/pages/resident/mobile/InvoiceTable.jsx`. No financial calculations, allocation order, source timestamps, API, backend, database or production settings changed. Existing production release remains `06b611e` with documentation follow-up `2c5922e`.
+Only application file changed: `frontend/src/pages/resident/mobile/InvoiceTable.jsx`. No financial calculations, allocation order, source timestamps, API, backend, database or production settings changed. Pre-release baseline was `06b611e` with documentation follow-up `2c5922e`; this release supersedes that layout with application `dbad6bb` and documentation/deployment `637838a`.
 
 ## Implementation
 
@@ -34,11 +34,11 @@ This supersedes the previous acceptance of horizontal scrolling for narrow scree
 
 Owner additionally requested initial table position at its first row. A stable callback ref sets the table's scrollTop to zero when attached, including when invoices arrive after the empty state. It does not reset on ordinary parent rerenders or invoice array refreshes, allowing residents to keep scrolling through older bills. Page layout and financial data are unchanged.
 
-Local Chrome `first-row.cjs` verified initial position, manual scroll, reload and empty-to-loaded rendering. The 47 mobile-fit checks were rerun successfully (`first-row-results.json`); production build passed. Still not committed, pushed or deployed.
+Local Chrome `first-row.cjs` verified initial position, manual scroll, reload and empty-to-loaded rendering. The 47 mobile-fit checks were rerun successfully (`first-row-results.json`); production build passed. This was tested before publication and is now included in the deployed release below.
 
 ## Approved publication preparation
 
-Owner authorized push. Code rollback point: `2c5922e750ebe6575f8bbd40777ae2e982efae99`. Fresh read-only production DB backup at 2026-09-11 13:02 Bangkok restored into a separate local database; all 26 table hashes/counts and Alembic revision matched. Snapshot SHA256: `78fede79292fa9be393c8497c3476331fffd5d99171fd99a9a740a0a8b9b5e04`. Private backup directory: `C:\Users\sanch\moobaan-db-backups\20260909-2895\resident-fit-release-20260911T060213Z`. Backup contains DB records/object keys, not R2 image bytes. Production reads only; no DB restoration or financial writes. Deployment outcome will be recorded after verification.
+Owner authorized push. Code rollback point: `2c5922e750ebe6575f8bbd40777ae2e982efae99`. Fresh read-only production DB backup at 2026-09-11 13:02 Bangkok restored into a separate local database; all 26 table hashes/counts and Alembic revision matched. Snapshot SHA256: `78fede79292fa9be393c8497c3476331fffd5d99171fd99a9a740a0a8b9b5e04`. Private backup directory: `C:\Users\sanch\moobaan-db-backups\20260909-2895\resident-fit-release-20260911T060213Z`. Backup contains DB records/object keys, not R2 image bytes. Production reads only; no DB restoration or financial writes. Deployment outcome is recorded below.
 
 ## Production result
 
@@ -48,3 +48,9 @@ Owner authorized push. Code rollback point: `2c5922e750ebe6575f8bbd40777ae2e982e
 - Read-only production comparison found all 26 table hashes/counts unchanged from the pre-push backup; Alembic remains `p5_1_notifications`. Startup seed/reset flags were both false before publishing.
 - Private evidence: `resident-fit-release-state.json`, `resident-fit-deployment-latest.json`, `resident-fit-postdeploy-checks.json`, `resident-fit-assets-verified.json` in the backup root. Documentation follow-up preserves application code.
 - Physical-device/Safari and authenticated production UI were not checked. Code rollback uses the recorded Git base, not an old DB restore.
+
+## Final documentation deployment and owner acceptance
+
+Documentation commit `637838ac414a78a9901c6ff3af63cb721952fa99` deployed successfully: Railway `4990adbb-05d4-4568-8970-01c026720825`, Vercel `8wTv44xGV9UwBKmJ2T322bozDQp3`. At 13:06 Bangkok the same application assets remained served, health/readiness and anonymous access checks passed, and all 26 DB table hashes/counts still matched the pre-push backup. Evidence: `resident-fit-docs-deployment-latest.json` and `resident-fit-docs-postdeploy-checks.json` in the private backup root.
+
+The owner subsequently confirmed “OK ใช้ได้แล้ว”. No device/browser details were supplied. Context consolidation afterward updates documentation only and has passed auditor review and owner commit/push approval, including the complete STATUS archive. It does not change application code or rerun financial reconciliation. Deployment/backup checks for that documentation push are separate release checks.

@@ -3,9 +3,24 @@
 > บันทึกข้อสรุป/ข้อเรียนรู้/ข้อมูลใหม่ เรียงจากใหม่ → เก่า
 > รูปแบบ: วันที่ + หัวข้อ + สรุปสั้น + (ถ้ามี) เหตุผล/วิธีนำไปใช้
 
+> **เอกสารนี้เป็นประวัติตามเวลา ไม่ใช่รายการงานค้าง:** อ่าน [STATUS.md](STATUS.md) สำหรับสถานะปัจจุบัน คำว่า local-only / pending / ยังไม่ deploy ในรายการเก่าหมายถึงขณะบันทึก หากมีผลเผยแพร่ภายหลังให้ใช้ผลใหม่กว่า ไม่รันขั้นตอนแก้ข้อมูลซ้ำจากประวัติ
+
+## จุดอ้างอิงปัจจุบัน — 11 ก.ย. 2026
+
+- เจ้าของยืนยันงาน UI ใช้ได้แล้ว; application `dbad6bb`, เอกสาร/deployment `637838a`, ผลตรวจหลัง deploy 13:06 น. ไทยผ่าน รายละเอียด [mobile-fit](docs/reviews/2026-09-11-resident-invoice-mobile-fit.md)
+- กติกาปัจจุบัน: 5 คอลัมน์พอดีมือถือ ไม่มี minimum 520px; รอบบิลล่าสุดบนสุด เปิดที่แถวแรก เลื่อนลงได้ วันที่รับเงินเป็นเวลาไทย; ข้อความเก่าว่าเลื่อนแนวนอน/created_at fallback/เรียงลูกบ้านเก่าก่อนถูกแทนที่แล้ว ส่วน API/Admin และ financial FIFO แยกกติกากันตาม STATUS
+- FIFO deploy แล้ว (`43a52b7`); ประวัติ 28/95 + 63 บ้าน + 28/30 + 28/56 ปิดแล้ว PayIn288 รับยืนยันแล้วตามผล 11:01 น. ห้ามใช้ pending รุ่นเก่าเป็นเหตุให้ทำซ้ำ
+- รอบจัด context ตรวจเอกสาร/Git/local runtime และหลักฐาน deployment ที่บันทึกไว้ ไม่ได้ query DB ใหม่หรือเปลี่ยนยอดปัจจุบัน Auditor ตรวจผ่านและเจ้าของอนุมัติ commit/push เอกสารทั้ง 8 ไฟล์พร้อมไฟล์ประวัติแล้ว; การตรวจ release ระหว่าง push บันทึกแยกจากการตรวจเนื้อหาเอกสาร
+
 ---
 
 ## 2026-09-11
+
+### จัด context ให้แยกปัจจุบันจากประวัติหลังเจ้าของรับรอง UI
+- Auditor ยืนยันประวัติครบและคู่มือซิงก์กัน; เจ้าของอนุมัติ push ภายหลัง เตรียม commit โดยตรวจประวัติจาก Git index และระบุไฟล์ครบ 8 ไฟล์ รวม archive ไม่ใช้การ stage เฉพาะ tracked files
+- พบ STATUS รวมงานเสร็จกับ pending เก่าไว้ใต้กำลังทำ; ย้ายฉบับเดิมครบไป docs/context/2026-09-11-status-history-before-consolidation.md แล้วทำสถานะปัจจุบัน/งานปิด/งานที่ยังไม่มีหลักฐานปิดให้ชัด
+- แก้ DESIGN ที่ยังเรียก FIFO ว่า not deployed ให้ตรง release43a52b7 และบันทึกกติกาตารางมือถือสุดท้าย; แยก canonical CREDITED ออกจาก DB enum และ LINE OAuth ที่ใช้งานจากโค้ด OTP ที่เก็บไว้ในคู่มือหลัก โดยไม่เปลี่ยนโค้ด/config
+- ตรวจ local Python3.11.9/import ผ่าน, AGENTS tracked และตรง CLAUDE, config.py ไม่มี diff; ปิดรายการ local เก่าที่ไม่จริงแล้ว คงงาน security/env ที่ยังไม่ตรวจไว้ พร้อมระบุข้อจำกัด ไม่กล่าวว่าทั้งระบบไม่มีงานค้าง
 
 ### Mobile-fit production release verified
 - Application commit `dbad6bb5145d842f0f4428266733949162581412` deployed successfully on Railway and Vercel. At 13:04 Bangkok both domains served `index-55NVIdHG.js` (SHA256 `c0ead929a4f1ba5fa63ce5175cfdb83e6eb0652c8054aa0a66f6dd289e928576`) with compact-grid and first-row-reset markers, plus `index-BqDGT5Q6.css` matching reviewed local build. Health/ready 200 and 15 anonymous invoice endpoints 401; all 26 production table counts/hashes unchanged against the immediate read-only backup. Seed/reset flags false. No authenticated production resident/Safari/physical-phone claim; local browser checks described in review. Follow-up documentation does not change application code.

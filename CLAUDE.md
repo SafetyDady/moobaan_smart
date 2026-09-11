@@ -18,6 +18,8 @@
 4. **ขอบเขตที่ทำได้เลย:** อ่านโค้ด, เสนอ/ร่างงาน, แก้เฉพาะส่วนที่ได้รับมอบหมาย, เขียน context
 5. **ต้องผ่าน Claude Code ก่อน:** เปลี่ยนโครงสร้างโปรเจกต์, migration, deploy, แก้ permission/business rule
 
+> STATUS.md ระบุสถานะปัจจุบัน; KNOWLEDGE-LOG.md และรายงานที่มีวันที่เป็นประวัติตามเวลาตรวจ คำว่า pending/local-only ในรายการเก่าไม่ใช่งานที่ต้องทำซ้ำเมื่อมีผลปิดงานภายหลัง เก็บประวัติไว้และอ้างผลล่าสุดที่มีหลักฐาน
+
 **ไฟล์ context มาตรฐาน 4 ตัว (ที่ราก repo):** `CLAUDE.md` · `STATUS.md` · `KNOWLEDGE-LOG.md` · `DESIGN.md`
 **เอกสารอ้างอิงเพิ่ม:** `DEPLOYMENT_GUIDE.md`, `PAY_IN_SYSTEM_SPEC.md`, `ACCOUNTING_SYSTEM_IMPLEMENTATION.md`, `MIGRATION.md`
 > หมายเหตุ: `AGENTS.md` เป็นสำเนาของไฟล์นี้สำหรับ agent ที่อ่าน AGENTS.md — ถ้าแก้ CLAUDE.md ให้ sync AGENTS.md ตามด้วย (หรือพิจารณายุบให้เหลือไฟล์เดียวเพื่อกัน drift)
@@ -37,7 +39,7 @@
 - **Backend:** FastAPI + SQLAlchemy 2.0 + PostgreSQL (psycopg3) + Alembic
 - **Frontend:** React 18 + Vite 5 + Tailwind CSS + React Router 7
 - **Storage:** Cloudflare R2 (slip images, attachments)
-- **Auth:** JWT (admin/accounting), OTP + LINE OAuth (resident)
+- **Auth:** JWT (admin/accounting), LINE OAuth (resident); โค้ด OTP ยังเก็บไว้ แต่ owner เลิกใช้แล้ว การตรวจปิด env ให้ครบดูรายการค้างใน STATUS.md
 - **Deployment:** Vercel (frontend), Railway (backend) — auto-deploy on push to master
 
 ## Key Commands
@@ -90,7 +92,7 @@ frontend/
 
 ### Invoice Flow
 - Auto-generated monthly or manual
-- Statuses: `ISSUED → PARTIALLY_PAID → PAID / CREDITED`
+- Canonical API/display statuses include `ISSUED`, `PARTIALLY_PAID`, `PAID`, `CREDITED`, `CANCELLED`. `CREDITED` เป็นสถานะคำนวณ ไม่ใช่ค่าใน PostgreSQL enum; DB enum มี ISSUED/PARTIALLY_PAID/PAID/CANCELLED ใช้ helper สถานะของ model ไม่ส่ง CREDITED เข้า enum โดยตรง
 - InvoicePayment links IncomeTransaction → Invoice
 
 ### UI Theme
