@@ -7,6 +7,9 @@
 
 ## 2026-09-11
 
+### Mobile-fit production release verified
+- Application commit `dbad6bb5145d842f0f4428266733949162581412` deployed successfully on Railway and Vercel. At 13:04 Bangkok both domains served `index-55NVIdHG.js` (SHA256 `c0ead929a4f1ba5fa63ce5175cfdb83e6eb0652c8054aa0a66f6dd289e928576`) with compact-grid and first-row-reset markers, plus `index-BqDGT5Q6.css` matching reviewed local build. Health/ready 200 and 15 anonymous invoice endpoints 401; all 26 production table counts/hashes unchanged against the immediate read-only backup. Seed/reset flags false. No authenticated production resident/Safari/physical-phone claim; local browser checks described in review. Follow-up documentation does not change application code.
+
 ### Mobile-fit release approved; fresh backup verified
 - Owner explicitly authorized push for the five-column mobile layout and initial first-row position. Release code base/rollback `2c5922e750ebe6575f8bbd40777ae2e982efae99`. Fresh 13:02 Bangkok read-only DB snapshot restored to a separate local database, matching all 26 tables and Alembic revision; SHA256 `78fede79292fa9be393c8497c3476331fffd5d99171fd99a9a740a0a8b9b5e04`. Private evidence prefix `resident-fit` preserves earlier release records. Application scope remains InvoiceTable only; deployment verification follows publication.
 

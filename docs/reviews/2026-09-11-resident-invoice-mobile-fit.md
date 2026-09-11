@@ -1,6 +1,6 @@
 # Resident invoice table: all columns visible on mobile
 
-Status: local implementation verified; owner approved commit/push. Publication and deployment verification in progress. Earlier local-only statements below record the state during testing.
+Status: application commit `dbad6bb5145d842f0f4428266733949162581412` released and verified at 2026-09-11 13:04 Bangkok. Earlier local-only statements below record the state during testing.
 
 ## Request and scope
 
@@ -39,3 +39,12 @@ Local Chrome `first-row.cjs` verified initial position, manual scroll, reload an
 ## Approved publication preparation
 
 Owner authorized push. Code rollback point: `2c5922e750ebe6575f8bbd40777ae2e982efae99`. Fresh read-only production DB backup at 2026-09-11 13:02 Bangkok restored into a separate local database; all 26 table hashes/counts and Alembic revision matched. Snapshot SHA256: `78fede79292fa9be393c8497c3476331fffd5d99171fd99a9a740a0a8b9b5e04`. Private backup directory: `C:\Users\sanch\moobaan-db-backups\20260909-2895\resident-fit-release-20260911T060213Z`. Backup contains DB records/object keys, not R2 image bytes. Production reads only; no DB restoration or financial writes. Deployment outcome will be recorded after verification.
+
+## Production result
+
+- Application commit `dbad6bb5145d842f0f4428266733949162581412` pushed to master. Railway deployment `842e8bd2-fae5-4576-8916-96355ee57650` and Vercel deployment `FZ7FpC3UpbdWmHQ4quwLNmu36WL1` succeeded.
+- At 13:04 Bangkok both `moobaan-smart.vercel.app` and `app.moobaan.app` served `/assets/index-55NVIdHG.js`, SHA256 `c0ead929a4f1ba5fa63ce5175cfdb83e6eb0652c8054aa0a66f6dd289e928576`, with compact-grid/first-row-reset markers. Published `/assets/index-BqDGT5Q6.css` matches the reviewed local build byte-for-byte.
+- Health and readiness returned 200; all 15 anonymous invoice endpoint requests returned 401 as expected.
+- Read-only production comparison found all 26 table hashes/counts unchanged from the pre-push backup; Alembic remains `p5_1_notifications`. Startup seed/reset flags were both false before publishing.
+- Private evidence: `resident-fit-release-state.json`, `resident-fit-deployment-latest.json`, `resident-fit-postdeploy-checks.json`, `resident-fit-assets-verified.json` in the backup root. Documentation follow-up preserves application code.
+- Physical-device/Safari and authenticated production UI were not checked. Code rollback uses the recorded Git base, not an old DB restore.
