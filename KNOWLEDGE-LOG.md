@@ -5,7 +5,71 @@
 
 > **เอกสารนี้เป็นประวัติตามเวลา ไม่ใช่รายการงานค้าง:** อ่าน [STATUS.md](STATUS.md) สำหรับสถานะปัจจุบัน คำว่า local-only / pending / ยังไม่ deploy ในรายการเก่าหมายถึงขณะบันทึก หากมีผลเผยแพร่ภายหลังให้ใช้ผลใหม่กว่า ไม่รันขั้นตอนแก้ข้อมูลซ้ำจากประวัติ
 
-## จุดอ้างอิงปัจจุบัน — 11 ก.ย. 2026
+## 2026-10-12 — PayIn Match Integrity Phase 1: owner อนุมัติ push หลังตรวจผ่าน
+
+- Owner อนุมัติ release แบบมีเงื่อนไขให้ตรวจไม่พบข้อบล็อกก่อน push; ใช้คำอนุมัติล่าสุดเหนือสถานะรอ owner ในเอกสาร 9 ต.ค. ไม่ได้อ้างว่า Auditor ตรวจรอบใหม่แล้ว
+- ตรวจ diff/ขอบเขตซ้ำ ไม่มี migration/FIFO/model/config/dependency changes. Local backend141 + Chrome11 + production buildผ่านอีกครั้ง เก็บผลที่ `C:\Users\sanch\moobaan-local-tests\payin-integrity-20261012`. แยก container พอร์ต55443 ไม่หยุดงานอื่นที่55442
+- Production baselineยืนยันRailwaySUCCESS598f2bbตรงorigin/master; seed/resetfalse. สำรองDBแบบread-onlyเวลา12:35น.แล้วrestoreแยกครบ26ตาราง/hashตรง SHA256 `92822dbf82e594fbea45986f6e2d4b9bd85bd455480b9c1fe7cfb029d7ed01a8`. ไม่รวมbytesR2 ไม่restoreทับproduction
+- สำเนาสดอ่านPayIn334รายการสร้างreviewtokenได้ครบ; ณsnapshotไม่มีreviewablematchedจึงไม่อ้างว่าได้ทดลองรับรายการจริงที่รออยู่. Lifecycle/raceใช้syntheticLocaltests ไม่กดยืนยันเงินจริงเพื่อทดสอบ
+- เตรียมเผยแพร่และตรวจผลใน [release report](docs/reviews/2026-10-12-payin-integrity-production-release.md). Phase2ตรวจQRยังไม่อนุมัติ
+
+## 2026-10-09 — PayIn Match Integrity Phase 1 ลงมือ Local เสร็จ รอรีวิว/อนุมัติ deploy
+
+- Ownerอนุมัติลงมือ พร้อมกำชับอัปเดตSTATUSและทดสอบLocalก่อนขอdeploy. ไม่มีproductionaccess/write, migration, commit/push/deploy ในรอบนี้ baselineที่ตรวจจริง598f2bb ไม่ใช่f367d88ในspecเดิม
+- เพิ่มpayin_integrity helper: bank→payin row locksก่อนhousehold/ledger/invoice; unmatched editที่พบlinkเปลี่ยนระหว่างรอคืน409 ไม่lockย้อนลำดับ. ปล่อยคู่ทั้งสองฝั่งเฉพาะunposted และไม่มีactiveledger ตรวจสถานะใหม่หลังlockทุกwriter รวมReject2ทาง/save-draft/attach-slip/submit/match/unmatch/admin-create/delete/reversal
+- ค้นIncomeTransaction constructorsทั้งหมดพบ3ทาง (เพิ่มAccountingService.accept_payin/APIaccountingจากสองทางในspecเดิม) ทั้งหมดvalidateยอดDecimal/เวลา/link/reviewstate/confirmedStatementใต้lock และใช้bank.credit/effective_atลงบัญชี รักษาเกณฑ์เดิม±0.01/±60s ค่าPayInเดิมยังเก็บเป็นหลักฐานไม่เขียนทับให้ตรงStatementเงียบๆ
+- เพิ่มopaqueevidence_revisionจากfield/updated_atในreadresponseสำหรับAdminและส่งกลับMatch/Post กันแก้รูปก่อนจับคู่หรือunmatch/rematchขณะหน้าreviewยังเปิด tokenoptionalเพื่อcompatibilityAPIเก่า แต่ทุกwriterยังใช้guard/lockใหม่ การอ่านรูปจริงยังเป็นหน้าที่Admin ไม่มีOCR/QRverificationในรอบนี้
+- แก้เวลาเฉพาะhour/minuteให้อัปเดตtransfer_dateจริง และรักษาoffsetของISOaware; เปรียบเทียบnormalizedvalueก่อนunmatch ค่าส่งเหมือนเดิมคงคู่. รูปใหม่ผ่านuploadได้keyใหม่จึงต้องตรวจใหม่ ไม่มีhashbytes/สลิปซ้ำข้ามรูปในPhase1
+- UIเพิ่มPayinEvidenceReviewก่อนMatch/Post ใช้proxyสลิปเดิม วันที่Asia/Bangkok โหลดข้อมูลใหม่ ข้อมูลไม่ตรง/โหลดรูปไม่สำเร็จไม่ให้ยืนยัน; ไม่มีรูปยังแสดงข้อกำหนดหลักฐานบ้านสำหรับadmin-created receipts เปลี่ยนป้ายcandidateจากสมบูรณ์เป็นยอด/เวลาเข้าเกณฑ์
+- ทดสอบรวม141ผ่าน: integrity40(12raceตรวจpg_blocking_pidsจริง), settlement25, automatic24, accounting_reads8, R2ledgereligibility12, invoice_access5, paid_at7, settlement_status12, export8. ชุดเดิมbank_fixtureมีคู่ด้านเดียวและbatchPARSED จึงแก้fixtureให้ตรงcontract ไม่ผ่อนguardเพื่อให้เทสต์ผ่าน. รอบก่อนหน้า52/102/112คือผลระหว่างทำ ใช้141เป็นผลสุดท้าย
+- BrowserChrome11สถานการณ์ผ่าน: desktop1280/mobile390, amount/time drift, missingStatement/slip, image/loadfailure, serverconflict, match, Tokyo timezone; ข้อมูล/รูปสังเคราะห์และAPI mocksบล็อกremoteทุกrequest ไม่มีข้อมูลลูกบ้านจริง. ดูภาพdesktop/mobileด้วยตาแล้ว; ไม่อ้างbrowserต่อDBจริง/Safari. HTTPTestClientใช้LocalPostgreSQLจริงอีกชุด
+- เพิ่มrun_payin_integrity_checks.py runnerรับเฉพาะlocalhost/moobaan_credit_testและoverrideDATABASE_URLก่อนimportapp ปิดR2envในtestprocess; frontend/tests/payin-evidence-review.cjsใช้LocalVite5176เท่านั้น ผลเก็บC:\Users\sanch\moobaan-local-tests\payin-integrity-20261009. ไม่รันlegacyad-hocscriptsที่ตั้งproduction/externalURL; ไม่อ้างว่ารันทุกไฟล์testในrepo
+- frontendbuildผ่าน มีwarningsbundle>500KB/Browserslistเก่าและStarlettehttpxdeprecatedที่ไม่บล็อก ไม่เพิ่มdependenciesหรือแก้lockfile. ไม่แตะmodel/schema/FIFO/credit. รอAuditorตรวจและownerอนุมัติdeploy ต้องfreshbackup+restoreและตรวจdeployedrevisionก่อนrelease ห้ามrestorebackupเก่าทับproduction
+
+## 2026-10-09 — Claude Code วิเคราะห์ข้อเสนอตรวจสลิป → ยืนยันช่องโหว่ 3 จุดจากโค้ดจริง + ออก SPEC มอบงาน Codex
+
+- **บทบาทรอบนี้:** Claude Code วิเคราะห์/ตรวจสอบ/แนะนำเท่านั้น (owner สั่ง) — **ผู้ลงมือ implement = Codex** ตาม `PAYIN_MATCH_INTEGRITY_SPEC.md` (Phase 1)
+- **ยืนยันช่องโหว่จากโค้ดจริง 3 จุด** (ไฟล์:บรรทัดใน spec):
+  1. `update_payin_report` — แก้ ยอด/เวลา/สลิป ตอน PENDING แล้ว **match ไม่หลุด** (ต้นเหตุชนิดเดียวกับ incident PayIn106)
+  2. `accept_payin_report` — มี lock + เช็ก link แล้ว แต่**ไม่เทียบยอด/เวลาซ้ำ**กับ bank txn และลงบัญชีด้วย `payin.amount` → match 600 แก้เป็น 999 ลงบัญชี 999 ได้ (`confirm_and_post` ไม่มีปัญหา — ใช้ยอดธนาคาร)
+  3. reject ทั้ง 2 path (`payins.py`, `payin_state.py`) — **ไม่ปล่อย match** → bank txn ถูกรายการที่โดน reject จองค้าง
+- **ขอบเขตที่ตกลง:** Phase 1 = โค้ดล้วน ปิด 3 รู + หน้า admin เทียบ สลิป|ข้อมูลกรอก|statement (ไม่มี migration, ไม่แตะ FIFO); **Phase 2 (บริการตรวจสลิป EasySlip/SlipOK) ยังไม่อนุมัติ** — รอ owner ยืนยันงบ/แพ็กเกจ
+- **ค่าเริ่มต้นที่เลือก (owner เปลี่ยนได้ก่อน Codex เริ่ม):** แก้หลักฐานขณะ match → auto-unmatch (ไม่ block การแก้); accept เจอ drift → 400 EVIDENCE_CHANGED ไม่ auto-unmatch
+- **กติกาส่งงาน:** Codex ทำใน working tree ไม่ commit/push เอง → Claude Code รีวิว → owner push; rollback point = `f367d88`
+
+## 2026-10-09 — ข้อเสนอตรวจสลิปเทียบ Statement (ศึกษาเท่านั้น ยังไม่อนุมัติ implementation)
+
+- อ่าน bank_reconciliation.py, payins.py, payin_state.py, PayIn/BankTransaction models, CSV parser และหน้า PayIns จริง: match เทียบค่าที่กรอก amount/time เท่านั้น; is_perfect_match ไม่ได้หมายถึงตรวจสลิปจริงหรือเจ้าของเงินแล้ว ไม่มี OCR/QR/provider verification/transRef registry ในเส้นทางที่ตรวจ
+- update_payin_report เปลี่ยนยอด/เวลา/สลิปและคงการจับคู่เดิม; accept_payin_report และ confirm_and_post ควรตรวจหลักฐาน revision/คู่เชื่อม/ยอด/เวลา/บัญชี/confirmed batch ซ้ำด้วย validator เดียวภายใน transaction และ lock order เดียวกันทุก writer รวม admin-create/attach-slip/LINE/resubmit เพื่อกันผลตรวจเก่าและ race
+- เสนออ่าน QR แล้วสอบถามธุรกรรมจากบริการตรวจสลิป; OCR ช่วยอ่านภาพ/เทียบข้อความกับผล QR แต่ไม่ใช่หลักฐานเงินเข้าหรือความแท้ รูปกับ QR อาจขัดกันจึงต้องแยก unknown/conflict/verified ตรวจทันทีตอนส่งสลิป เก็บผลตาม image hash + evidence revision; ยังไม่สร้าง ledger จน Statement ตรงและ Admin ยืนยัน
+- ตรวจบัญชีผู้รับหมู่บ้าน ยอด Decimal วันที่/เวลา Asia/Bangkok ธนาคารและข้อมูลผู้โอนที่มีให้เทียบ; ใช้ transaction reference เมื่อ Statement มีชนิด reference เดียวกัน มิฉะนั้นหลาย candidate หรือข้อมูลขัดแย้งต้องให้คนตรวจ ห้ามเลือกยอด/เวลาที่ใกล้ที่สุดเอง ชื่อ/เลขท้ายบัญชีที่ถูก mask เป็นเพียงหลักฐานประกอบ ไม่ใช่ตัวพิสูจน์บ้าน
+- บ้านผูกกับสมาชิกที่มีสิทธิ์ + หลักฐานระบุบ้าน/การตรวจของ Admin; ประวัติผู้โอนใช้แจ้งเตือนเท่านั้น รองรับผู้โอนแทนและคนเดียวหลายบ้าน ห้ามย้ายบ้านอัตโนมัติจากชื่อผู้โอน สลิปจริงไม่ยืนยันเจ้าของยอด และ Statement ไม่มีข้อมูลพอจะพิสูจน์บ้านเสมอ
+- กันซ้ำด้วย internal registry ของ bank-scoped transaction reference ตามสัญญาข้อมูลผู้ให้บริการ + unique constraints/atomic claim; image hash ช่วยจับไฟล์เดิมแต่กัน crop/re-encode ไม่ได้ provider duplicate flag อาจหมายถึงตรวจซ้ำ ยังไม่ได้รับเงินซ้ำ ต้องแยก retry รายการเดิมกับการใช้ซ้ำต่าง PayIn
+- Rollout เสนอ: guard/UI เปรียบเทียบก่อน → local fixture/real PostgreSQL tests → shadow ตรวจสลิปใหม่ → บังคับใช้กับรายการใหม่เมื่อผ่านเกณฑ์; หลักฐานเก่า QR หมดอายุ/ไม่มีสลิปเป็น documented manual review ไม่บังคับปลอมผล VERIFIED ไม่แก้ข้อมูลย้อนหลังเอง รักษา Statement/FIFO และไม่ให้ลูกบ้านเลือกบิล
+- เกณฑ์ทดสอบ: incident 106 (10:48 vs13:41), ยอดเท่ากันหลายบ้าน/นาทีเดียวกัน, สลิปซ้ำข้ามบ้าน/เปลี่ยนรูป, QR ขัดภาพ, ผู้โอนแทน, pending Statement, timeout/retry, แก้ข้อมูลหลังตรวจ, accept/post พร้อมกัน, UTCข้ามวัน, ledger/FIFO และ Admin/resident parity ตรวจว่า failed/unknown ไม่สร้างเงินรับ
+- เอกสารทางการที่อ่าน 9 ต.ค. 2026: [EasySlip verify](https://document.easyslip.com/en/v2/verify/bank/) รองรับ payload/image, transRef, sender/receiver, duplicate; matchedAccount ใช้การเทียบชื่อบางส่วน จึงไม่ใช้ boolean นี้อย่างเดียวพิสูจน์บัญชี. [SlipOK check](https://slipok.com/api-documentation/check-slip/) ระบุ log=true สำหรับ receiver/duplicate checks และข้อมูลบัญชีอาจ masked. [EasySlip slip age](https://document.easyslip.com/en/reference/slip-age-support) ระบุอายุโดยประมาณ 7–30 วันตามธนาคารและอาจเปลี่ยน; สลิปเก่าตรวจไม่พบไม่เท่ากับปลอม
+- ยังไม่ได้เลือกผู้ให้บริการ/ยืนยันราคา API หรือ SLA/สมัคร/ส่งข้อมูลจริงให้บุคคลภายนอก ต้องทดลองกับบัญชีนิติบุคคลและธนาคารจริงก่อนเลือก ตั้งค่า secret ฝั่ง server เก็บหลักฐานจำกัดสิทธิ์ ไม่เปิด R2 เป็น public มีนโยบายข้อมูล/retention และจำกัด retry/quota รายเดือน รอบนี้แก้เฉพาะ context ไม่มี implementation/schema/deploy/DB writes
+
+## 2026-10-09 — แก้การจับคู่สองบ้านสำเร็จใน production
+
+- Ownerอนุมัติแก้ทั้งสองบ้าน; commitข้อมูลและตรวจเสร็จ15:42:51ไทย. PayIn106/ledger138ของ28/67แก้เฉพาะเวลารับ/Statement linkจาก13:41ไป10:48ตามสลิปจริง พร้อมaudit note/journalเก็บค่าเดิม. BankStatement/raw amounts/timesและรูปสลิปไม่เปลี่ยน
+- เพิ่มPayIn363/ledger325ให้28/16จากStatement13:41ที่ownerยืนยัน ไม่มีสลิปใหม่ ไม่สวมผู้ยื่น/ผู้รับยืนยันเป็นบุคคลอื่น. FIFO28/16คงคู่ถูกเดิม3คู่, reverse218/288/292/798/838โดยไม่ลบ และเพิ่ม840–845. รับ/ชำระ4,800→5,400 ค้าง600→0สำหรับบิลม.ค.–ก.ย.; 28/67ยอด5,400/ค้าง0คงเดิม
+- ระหว่างทดสอบมีPayIn362เดือนต.ค.ของ28/16เข้ามา freshfingerprintหยุดattemptแรกก่อนเขียน. สร้างbaselineV2และทดสอบซ้ำ; คงPENDING362และ354ของ28/67ตามเดิม. ไม่มีการรับเงินเดือนต.ค.อัตโนมัติในincidentนี้
+- Windowsบล็อกpg_dumpเดิม แต่Dockerเปิดได้ในภายหลัง ใช้officialPostgreSQL17digest2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3แยกport55441 ไม่มีการปิดsecuritypolicy. ก่อนแก้backup24257b6e0e3060e16a72913d119f529010c42613d2d87cf3707d7c46487f1c46และหลังd1eefbf2ba341b7f17af590c50e686fd6dde6be7b4473df0c42306ef72bc6fafกู้คืนครบ26ตารางตรงต้นฉบับ/journal
+- Localrollback/stale/duplicate, sourcechains18/rawStatement, independentFIFOoracle, capsและcolumnallowlistผ่าน; อีก155บ้าน/21ตารางไม่เปลี่ยน. ActualAdmin/residentreadhandlersและcashreport9เดือนต่อบ้านผ่านทั้งlocalrehearsalและfinalrestore (ไม่ใช่browser/HTTPtest). ExecutorV2SHA2562918b57af6f20677b40ed300338b8bd80bcbba68ac606c893bd50ff00e9d283e; originalslipSHA256fb63537c6653c69924d1f8545e98277d090ef2305a890d14a8589edc5508d7d7
+- หลักฐานprivate: moobaan-db-backups/20261009-transfer-02mar1341; รายงานrepo docs/reviews/2026-10-09-house2816-house2867-statement-correction.md. ห้ามรันซ้ำหรือrestoreทับข้อมูลใหม่. ข้อความติดblocked/ยังไม่applyในหัวข้อต่อไปคือประวัติเตรียมงานที่คลี่คลายแล้ว ไม่ใช่งานค้างปัจจุบัน
+
+## 2026-10-09 — ประวัติตรวจพบและเตรียมแก้ PayIn106 จับคู่ Statement ไม่ตรงสลิป
+
+- Ownerอนุมัติแก้ให้ทั้งสองบ้านถูกต้องแล้ว; การเตรียมยังติดสภาพแวดล้อม: Windows Application Controlบล็อกpg_dumpเดิมWinError4551, localPG55440timeout, DockerDesktopstartล้มเหลวเรื่องsailor-ingest.sock. ไม่ปิด/หลบนโยบายความปลอดภัยและไม่เขียนDBโดยไม่มีbackup+restoreที่ผ่าน. เก็บdata-onlysnapshot26ตาราง+hashตรงจากREADONLYrepeatable-readแล้ว แต่restore_verified=false/full_backup=false ต้องไม่อ้างว่ามีbackupพร้อมกู้คืนรอบนี้
+- ตรวจscopeล่าสุด: 28/16มี9บิลม.ค.–ก.ย.5,400/รับและชำระ4,800/ค้าง600; 28/67รับและชำระ5,400ครบ9บิล และมีPayIn354เดือนต.ค.PENDINGแยกไว้. แผนแก้ต้นทาง106/138ให้ตรงสลิป10:48และเพิ่มยอด13:41ของ28/16 แล้วจัดFIFOประวัติ28/16โดยคงคู่ที่ถูกเดิม3คู่/reverse5คู่/เพิ่ม6คู่. เป็นการคำนวณแผน ไม่ใช่SQLtestหรือผลproduction ห้ามรันตามแผนเก่าโดยไม่ตรวจข้อมูลสดอีกครั้ง
+
+- Owner ยืนยันเงิน600วันที่2มี.ค.13:41เป็น28/16; อ่านproductionและR2เท่านั้น พบ PayIn106ของ28/67 เก็บเวลา13:41/จับคู่StatementTTBX5947NITTAYA แต่รูปสลิปจริงเป็นKPLUSวันที่เดียวกัน10:48/600 พร้อมmemo28/67Mar2026. แถวStatement10:48ยังUNMATCHEDและไม่มีPayIn/ledgerอ้างอิง; เดือนก.พ./เม.ย.ของ28/67ใช้ผู้โอนKPLUSX9273 ขณะที่28/16ใช้TTBX5947NITTAYA
+- สายที่ผิดปัจจุบัน: bank328a154a-241f-45c7-a2ab-970198c55865 → PayIn106 → ledger138 → payment199 ACTIVE → invoice384/March/28/67. แถวที่ตรงสลิป106คือbankf5bc8da5-85f1-4bbc-a4a1-ff7dc8889c9f. accepted_at1เม.ย.07:58; ผู้ยื่นที่บันทึกuser38/28/67. ไม่ทราบผู้กรอกหรือแก้เวลาผิด ไม่มีประวัติเปลี่ยนค่าฟิลด์ที่ยืนยันสาเหตุได้ในข้อมูลที่ตรวจ
+- Code matchingปัจจุบันตรวจยอดและเวลา±60วินาทีจากฟิลด์PayIn ไม่อ่านภาพสลิปหรือเทียบชื่อผู้โอน จึงไม่สามารถยืนยันความเป็นเจ้าของเงินจากการผ่านตัวตรวจนี้อย่างเดียว. เป็นคำอธิบายข้อจำกัดของโค้ดปัจจุบัน ไม่ใช่หลักฐานว่าโค้ดเวอร์ชันเดียวกันทำงานตอนเมษายน
+- รอบนี้ยังไม่แก้DBหรือหลักฐานใด หลักฐานprivateอยู่moobaan-db-backups/20261009-transfer-02mar1341. ผลauditเดิมที่DBเวลาตรงStatementไม่ใช่การพิสูจน์ว่าจับคู่บ้านถูกเมื่อเวลาPayInขัดกับรูปสลิป; ข้อค้นพบนี้ยังเปิดอยู่
+
+## จุดอ้างอิงย้อนหลัง — 11 ก.ย. 2026
 
 - เจ้าของยืนยันงาน UI ใช้ได้แล้ว; application `dbad6bb`, เอกสาร/deployment `637838a`, ผลตรวจหลัง deploy 13:06 น. ไทยผ่าน รายละเอียด [mobile-fit](docs/reviews/2026-09-11-resident-invoice-mobile-fit.md)
 - กติกาปัจจุบัน: 5 คอลัมน์พอดีมือถือ ไม่มี minimum 520px; รอบบิลล่าสุดบนสุด เปิดที่แถวแรก เลื่อนลงได้ วันที่รับเงินเป็นเวลาไทย; ข้อความเก่าว่าเลื่อนแนวนอน/created_at fallback/เรียงลูกบ้านเก่าก่อนถูกแทนที่แล้ว ส่วน API/Admin และ financial FIFO แยกกติกากันตาม STATUS

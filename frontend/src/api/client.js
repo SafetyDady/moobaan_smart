@@ -321,8 +321,8 @@ export const bankReconciliationAPI = {
     }),
   getCandidatesForPayin: (payinId) =>
     apiClient.get(`/api/bank-statements/candidates/payin/${payinId}`),
-  matchTransaction: (txnId, payinId) => 
-    apiClient.post(`/api/bank-statements/transactions/${txnId}/match`, { payin_id: payinId }),
+  matchTransaction: (txnId, payinId, evidenceRevision) =>
+    apiClient.post(`/api/bank-statements/transactions/${txnId}/match`, { payin_id: payinId, evidence_revision: evidenceRevision }),
   unmatchTransaction: (txnId) => 
     apiClient.post(`/api/bank-statements/transactions/${txnId}/unmatch`),
   // Phase P1: Statement-Driven Confirm & Post

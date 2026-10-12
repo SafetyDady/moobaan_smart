@@ -118,13 +118,15 @@ class SettlementPostgresTests(unittest.TestCase):
                 status=PayinStatus.SUBMITTED)
             db.add_all([account, payin]); db.flush()
             batch = BankStatementBatch(bank_account_id=account.id, year=2026, month=9,
-                original_filename='test.csv', uploaded_by=self.user_id)
+                original_filename='test.csv', uploaded_by=self.user_id, status='CONFIRMED')
             db.add(batch); db.flush()
             txn = BankTransaction(bank_statement_batch_id=batch.id, bank_account_id=account.id,
                 effective_at=datetime.now(timezone.utc), description='test', credit=Decimal('400'),
                 raw_row={}, fingerprint=uuid.uuid4().hex, matched_payin_id=payin.id,
                 posting_status=PostingStatus.MATCHED)
-            db.add(txn); db.commit()
+            db.add(txn); db.flush()
+            payin.matched_statement_txn_id = txn.id
+            db.commit()
             self.bank_id = str(txn.id)
 
     def bank_post(self, db, explicit=False):

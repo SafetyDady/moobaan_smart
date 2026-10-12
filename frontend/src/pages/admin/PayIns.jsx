@@ -3,6 +3,7 @@ import { CreditCard, Search } from 'lucide-react';
 import { payinsAPI, bankReconciliationAPI } from '../../api/client';
 import { useRole } from '../../contexts/RoleContext';
 import ConfirmModal from '../../components/ConfirmModal';
+import PayinEvidenceReview from '../../components/PayinEvidenceReview';
 import { useToast } from '../../components/Toast';
 import { SkeletonTable } from '../../components/Skeleton';
 import { t } from '../../hooks/useLocale';
@@ -34,9 +35,9 @@ export default function PayIns() {
   const [alreadyMatchedTxns, setAlreadyMatchedTxns] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [matchDebugInfo, setMatchDebugInfo] = useState(null);
-  const [posting, setPosting] = useState(null); // payin id currently being posted
   const [confirmUnmatch, setConfirmUnmatch] = useState({ open: false, payin: null });
   const [confirmPost, setConfirmPost] = useState({ open: false, payin: null });
+  const [reviewCandidate, setReviewCandidate] = useState(null);
   const toast = useToast();
 
   // Pagination
@@ -79,22 +80,9 @@ export default function PayIns() {
       }
     } catch (error) {
       console.error('Failed to load candidate bank transactions:', error);
-      toast.error(error.response?.data?.detail || t('payins.loadBankFailed'));
+      toast.error(error.response?.data?.detail?.message || error.response?.data?.detail || t('payins.loadBankFailed'));
     } finally {
       setLoadingTransactions(false);
-    }
-  };
-
-  const handleMatch = async (txnId) => {
-    try {
-      await bankReconciliationAPI.matchTransaction(txnId, selectedPayin.id);
-      toast.success(t('payins.matchSuccess'));
-      setShowMatchModal(false);
-      setSelectedPayin(null);
-      loadPayins();
-    } catch (error) {
-      console.error('Failed to match:', error);
-      toast.error(error.response?.data?.detail || t('payins.matchFailed'));
     }
   };
 
@@ -105,7 +93,7 @@ export default function PayIns() {
       loadPayins();
     } catch (error) {
       console.error('Failed to unmatch:', error);
-      toast.error(error.response?.data?.detail || t('payins.unmatchFailed'));
+      toast.error(error.response?.data?.detail?.message || error.response?.data?.detail || t('payins.unmatchFailed'));
     }
   };
 
@@ -130,32 +118,7 @@ export default function PayIns() {
       loadPayins();
     } catch (error) {
       console.error('Failed to reject:', error);
-      toast.error(error.response?.data?.detail || t('payins.rejectFailed'));
-    }
-  };
-
-  const handleConfirmAndPost = async (payin) => {
-    setPosting(payin.id);
-    try {
-      const result = await bankReconciliationAPI.confirmAndPost(payin.matched_statement_txn_id);
-      const data = result.data;
-      const allocCount = data.allocations?.length || 0;
-      if (data.status === 'already_posted') {
-        toast.info(t('payins.alreadyPosted'));
-      } else {
-        toast.success(`${t('payins.postSuccess')} #${data.income_transaction_id} / ${allocCount} ${t('payins.invoicesAllocated')}`);
-      }
-      loadPayins();
-    } catch (error) {
-      console.error('Failed to confirm & post:', error);
-      const detail = error.response?.data?.detail;
-      if (typeof detail === 'object' && detail.code === 'AMBIGUOUS') {
-        toast.warning(detail.message);
-      } else {
-        toast.error(typeof detail === 'string' ? detail : t('payins.postFailed'));
-      }
-    } finally {
-      setPosting(null);
+      toast.error(error.response?.data?.detail?.message || error.response?.data?.detail || t('payins.rejectFailed'));
     }
   };
 
@@ -176,7 +139,7 @@ export default function PayIns() {
       loadPayins();
     } catch (error) {
       console.error('Failed to reverse:', error);
-      toast.error(error.response?.data?.detail || t('payins.reverseFailed'));
+      toast.error(error.response?.data?.detail?.message || error.response?.data?.detail || t('payins.reverseFailed'));
     }
   };
 
@@ -194,7 +157,7 @@ export default function PayIns() {
       loadPayins();
     } catch (error) {
       console.error('Failed to delete submission:', error);
-      toast.error(error.response?.data?.detail || t('payins.deleteFailed'));
+      toast.error(error.response?.data?.detail?.message || error.response?.data?.detail || t('payins.deleteFailed'));
     }
   };
 
@@ -353,15 +316,15 @@ export default function PayIns() {
                             {/* Confirm & Post button — replaces old Accept (Phase P1) */}
                             <button
                               onClick={() => setConfirmPost({ open: true, payin })}
-                              disabled={!payin.is_matched || posting === payin.id}
+                              disabled={!payin.is_matched}
                               className={`text-sm px-3 py-1 rounded font-medium ${
-                                payin.is_matched && posting !== payin.id
+                                payin.is_matched
                                   ? 'bg-green-600 hover:bg-green-700 text-white' 
                                   : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                               }`}
                               title={!payin.is_matched ? t('payins.mustMatchFirst') : t('payins.confirmAndPostTooltip')}
                             >
-                              {posting === payin.id ? t('payins.posting') : t('payins.confirmAndPost')}
+                              {t('payins.confirmAndPost')}
                             </button>
                             <button
                               onClick={() => {
@@ -639,7 +602,7 @@ export default function PayIns() {
                               {amountDiff > 0 && <span className="ml-2 text-yellow-400 text-xs">{t('payins.amountDiff')}: ฿{amountDiff.toFixed(2)}</span>}
                             </div>
                             <div className="text-sm text-gray-400">
-                              {txnDate.toLocaleDateString('th-TH')} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              {txnDate.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' })}
                               <span className="ml-2 text-green-300">
                                 ({timeDiffSeconds < 60 ? `${Math.floor(timeDiffSeconds)}s` : `${Math.floor(timeDiffSeconds / 60)}m ${Math.floor(timeDiffSeconds % 60)}s`} {t('payins.timeDiff')})
                               </span>
@@ -653,7 +616,7 @@ export default function PayIns() {
                             <div className="text-xs text-gray-600 mt-1">{t('payins.txnId')}: {txn.id.substring(0, 8)}...</div>
                           </div>
                           <button
-                            onClick={() => handleMatch(txn.id)}
+                            onClick={() => setReviewCandidate(txn)}
                             className={`px-4 py-2 rounded text-sm font-medium whitespace-nowrap ${
                               isPerfectMatch 
                                 ? 'bg-green-600 hover:bg-green-700 text-white' 
@@ -688,7 +651,7 @@ export default function PayIns() {
                               ฿{parseFloat(txn.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {txnDate.toLocaleDateString('th-TH')} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              {txnDate.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} {txnDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' })}
                             </div>
                             {txn.description && (
                               <div className="text-xs text-gray-600 mt-1">{txn.description}</div>
@@ -739,16 +702,28 @@ export default function PayIns() {
         onCancel={() => setConfirmUnmatch({ open: false, payin: null })}
       />
 
-      {/* Confirm & Post Modal */}
-      <ConfirmModal
-        open={confirmPost.open}
-        title={t("payins.post")}
-        message={confirmPost.payin ? `${t('payins.confirmPostMsg')} ฿${confirmPost.payin.amount} ${t('payins.fromHouse')} ${confirmPost.payin.house_number}?\n\n${t('payins.confirmPostDetail')}` : ''}
-        variant="info"
-        confirmText={t('payins.confirmAndPostBtn')}
-        onConfirm={() => { if (confirmPost.payin) handleConfirmAndPost(confirmPost.payin); }}
-        onCancel={() => setConfirmPost({ open: false, payin: null })}
-      />
+      {/* Fetch current evidence again before either financial action. */}
+      {(reviewCandidate || confirmPost.open) && (
+        <PayinEvidenceReview
+          payinId={reviewCandidate ? selectedPayin.id : confirmPost.payin.id}
+          candidate={reviewCandidate}
+          onCancel={() => { setReviewCandidate(null); setConfirmPost({ open: false, payin: null }); }}
+          onConfirm={async (freshPayin, bank) => {
+            if (reviewCandidate) {
+              await bankReconciliationAPI.matchTransaction(bank.id, freshPayin.id, freshPayin.evidence_revision);
+              toast.success(t('payins.matchSuccess'));
+              setShowMatchModal(false);
+              setReviewCandidate(null);
+              setSelectedPayin(null);
+            } else {
+              await bankReconciliationAPI.confirmAndPost(bank.id, { evidence_revision: freshPayin.evidence_revision });
+              toast.success(t('payins.postSuccess'));
+              setConfirmPost({ open: false, payin: null });
+            }
+            await loadPayins();
+          }}
+        />
+      )}
 
       {/* Reverse Modal (Phase P1) */}
       {showReverseModal && (

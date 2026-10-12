@@ -12,13 +12,15 @@ from pydantic import BaseModel
 from uuid import UUID
 
 from app.db.models.payin_report import PayinReport, PayinStatus, PayinSource
-from app.db.models.bank_transaction import BankTransaction
+from app.db.models.bank_transaction import BankTransaction, PostingStatus
 from app.db.models.house import House
 from app.db.models.user import User
 from app.db.session import get_db
 from app.core.deps import require_user, require_admin, require_admin_or_accounting, get_house_id_from_token, security
 from app.core.uploads import save_slip_file
 from app.core.timezone import BANGKOK_TZ
+from app.services.payin_integrity import (lock_bank, lock_payin_evidence, assert_unposted,
+    release_bank_match, evidence_values, apply_evidence_edit)
 
 router = APIRouter(prefix="/api/payin-state", tags=["payin-state-machine"])
 
@@ -76,9 +78,7 @@ async def submit_payin_for_review(
     
     Transitions: DRAFT → SUBMITTED, REJECTED_NEEDS_FIX → SUBMITTED
     """
-    payin = db.query(PayinReport).options(
-        joinedload(PayinReport.house)
-    ).filter(PayinReport.id == payin_id).first()
+    payin, bank = lock_payin_evidence(db, payin_id)
     
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
@@ -108,6 +108,7 @@ async def submit_payin_for_review(
             }
         )
     
+    assert_unposted(db, payin, bank)
     # Transition to SUBMITTED
     payin.status = PayinStatus.SUBMITTED
     payin.submitted_at = datetime.now(timezone.utc)
@@ -134,9 +135,7 @@ async def reject_payin_needs_fix(
     
     Transitions: SUBMITTED/PENDING → REJECTED_NEEDS_FIX
     """
-    payin = db.query(PayinReport).options(
-        joinedload(PayinReport.house)
-    ).filter(PayinReport.id == payin_id).first()
+    payin, bank = lock_payin_evidence(db, payin_id)
     
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
@@ -162,6 +161,7 @@ async def reject_payin_needs_fix(
         if reason_label:
             rejection_text = f"[{request.reason_code}] {reason_label}: {request.reason}"
     
+    release_bank_match(db, payin, bank, actor_id=current_user.id, reason="rejected")
     # Transition to REJECTED_NEEDS_FIX
     payin.status = PayinStatus.REJECTED_NEEDS_FIX
     payin.rejection_reason = rejection_text
@@ -192,9 +192,7 @@ async def save_payin_draft(
     Save changes to a pay-in in DRAFT or REJECTED_NEEDS_FIX state.
     Does NOT submit - just saves the edits.
     """
-    payin = db.query(PayinReport).options(
-        joinedload(PayinReport.house)
-    ).filter(PayinReport.id == payin_id).first()
+    payin, bank = lock_payin_evidence(db, payin_id)
     
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
@@ -212,34 +210,16 @@ async def save_payin_draft(
             detail=f"Cannot edit pay-in in {payin.status.value} state. Only DRAFT or REJECTED_NEEDS_FIX can be edited."
         )
     
-    # Update fields if provided
-    if amount is not None:
-        payin.amount = amount
-    
-    if transfer_date is not None:
-        from dateutil import parser as date_parser
-        try:
-            payin.transfer_date = date_parser.isoparse(transfer_date)
-        except:
-            raise HTTPException(status_code=400, detail="Invalid transfer_date format")
-    
-    if transfer_hour is not None:
-        if not 0 <= transfer_hour <= 23:
-            raise HTTPException(status_code=400, detail="transfer_hour must be 0-23")
-        payin.transfer_hour = transfer_hour
-    
-    if transfer_minute is not None:
-        if not 0 <= transfer_minute <= 59:
-            raise HTTPException(status_code=400, detail="transfer_minute must be 0-59")
-        payin.transfer_minute = transfer_minute
-    
+    assert_unposted(db, payin, bank)
+    values = evidence_values(payin, amount=amount, transfer_date=transfer_date,
+                             transfer_hour=transfer_hour, transfer_minute=transfer_minute)
     if slip:
-        # Handle file upload
         try:
-            payin.slip_url = await save_slip_file(slip, payin.house_id)
+            values['slip_url'] = await save_slip_file(slip, payin.house_id)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-    
+    apply_evidence_edit(db, payin, bank, values, actor_id=current_user.id)
+
     db.commit()
     db.refresh(payin)
     
@@ -367,9 +347,7 @@ async def admin_create_payin_from_bank(
     except:
         raise HTTPException(status_code=400, detail="Invalid bank_transaction_id format")
     
-    bank_txn = db.query(BankTransaction).filter(
-        BankTransaction.id == bank_txn_uuid
-    ).first()
+    bank_txn = lock_bank(db, bank_txn_uuid)
     
     if not bank_txn:
         raise HTTPException(status_code=404, detail="Bank transaction not found")
@@ -381,6 +359,13 @@ async def admin_create_payin_from_bank(
             detail="Bank transaction must be a CREDIT (deposit)"
         )
     
+    if bank_txn.posting_status in (PostingStatus.POSTED, PostingStatus.REVERSED):
+        raise HTTPException(400, "Cannot create a pay-in from posted/reversed funds")
+    from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
+    if db.query(IncomeTransaction.id).filter(
+            IncomeTransaction.reference_bank_transaction_id == bank_txn.id,
+            IncomeTransaction.status != LedgerStatus.REVERSED).first():
+        raise HTTPException(400, "Bank transaction already has an active ledger")
     # Validate it's not already matched
     if bank_txn.matched_payin_id is not None:
         raise HTTPException(
@@ -430,6 +415,7 @@ async def admin_create_payin_from_bank(
     
     # Auto-match: Link bank transaction to this pay-in
     bank_txn.matched_payin_id = new_payin.id
+    bank_txn.posting_status = PostingStatus.MATCHED
     new_payin.matched_statement_txn_id = bank_txn.id
     
     db.commit()
@@ -454,7 +440,7 @@ async def attach_slip_to_payin(
     Attach slip image to an existing pay-in (typically admin-created).
     Used when admin receives slip via LINE and wants to attach as evidence.
     """
-    payin = db.query(PayinReport).filter(PayinReport.id == payin_id).first()
+    payin, bank = lock_payin_evidence(db, payin_id)
     
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
@@ -466,13 +452,14 @@ async def attach_slip_to_payin(
             detail="Cannot modify accepted pay-in"
         )
     
+    assert_unposted(db, payin, bank)
     # Handle file upload
     try:
         slip_url = await save_slip_file(slip, payin.house_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-    payin.slip_url = slip_url
+    apply_evidence_edit(db, payin, bank, {'slip_url': slip_url}, actor_id=current_user.id)
     
     db.commit()
     db.refresh(payin)

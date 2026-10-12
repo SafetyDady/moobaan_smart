@@ -39,6 +39,8 @@ from app.core.uploads import save_slip_file, get_slip_download_url
 from app.core.period_lock import validate_period_not_locked
 from app.core.pagination import paginate_list
 from app.services.automatic_allocation import prepare_allocation, apply_prepared_funds
+from app.services.payin_integrity import (lock_payin_evidence, assert_unposted,
+    release_bank_match, validate_evidence, evidence_values, apply_evidence_edit, evidence_revision)
 
 router = APIRouter(prefix="/api/payin-reports", tags=["payin-reports"])
 
@@ -208,7 +210,8 @@ async def get_payin_report(
     R.3.1: Residents use house_id from token for access control.
     """
     payin = db.query(PayinReportModel).options(
-        joinedload(PayinReportModel.house)
+        joinedload(PayinReportModel.house),
+        joinedload(PayinReportModel.matched_statement_txn)
     ).filter(PayinReportModel.id == payin_id).first()
     
     if not payin:
@@ -238,6 +241,15 @@ async def get_payin_report(
         "transfer_minute": payin.transfer_minute,
         "slip_image_url": payin.slip_url,  # Map database field to frontend expectation
         "status": payin.status,
+        "matched_statement_txn_id": str(payin.matched_statement_txn_id) if payin.matched_statement_txn_id else None,
+        "matched_statement": ({
+            "id": str(payin.matched_statement_txn.id),
+            "credit": _safe_float(payin.matched_statement_txn.credit),
+            "effective_at": payin.matched_statement_txn.effective_at,
+            "description": payin.matched_statement_txn.description,
+            "channel": payin.matched_statement_txn.channel,
+        } if current_user.role in ("super_admin", "accounting") and payin.matched_statement_txn else None),
+        "evidence_revision": evidence_revision(payin) if current_user.role in ("super_admin", "accounting") else None,
         "reject_reason": payin.rejection_reason,
 
         "created_at": payin.created_at,
@@ -474,9 +486,7 @@ async def update_payin_report(
     import logging
     logger = logging.getLogger(__name__)
     
-    existing = db.query(PayinReportModel).options(
-        joinedload(PayinReportModel.house)
-    ).filter(PayinReportModel.id == payin_id).first()
+    existing, bank = lock_payin_evidence(db, payin_id)
     
     if not existing:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
@@ -508,48 +518,11 @@ async def update_payin_report(
     
     logger.info(f"Updating payin {payin_id} by user {current_user.id}, current status={existing.status}")
     
-    # Update fields if provided
-    if payin.amount is not None:
-        try:
-            amt = float(payin.amount)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="Amount must be a positive number")
-        if math.isnan(amt) or math.isinf(amt) or amt <= 0:
-            raise HTTPException(status_code=400, detail="Amount must be a positive number")
-        existing.amount = payin.amount
-    
-    # Collect transfer_hour / transfer_minute (update individually first)
-    new_hour = payin.transfer_hour if payin.transfer_hour is not None else existing.transfer_hour
-    new_minute = payin.transfer_minute if payin.transfer_minute is not None else existing.transfer_minute
-    if payin.transfer_hour is not None:
-        existing.transfer_hour = payin.transfer_hour
-    if payin.transfer_minute is not None:
-        existing.transfer_minute = payin.transfer_minute
-    
-    if payin.transfer_date is not None:
-        # transfer_date is a string like "2026-01-12" — combine with hour/minute
-        # to build a naive Bangkok datetime, then convert to UTC
-        from dateutil import parser as date_parser
-        try:
-            td_date = date_parser.isoparse(payin.transfer_date)  # may be date-only or full ISO
-        except (ValueError, TypeError) as e:
-            raise HTTPException(status_code=400, detail=f"Invalid transfer_date format: {str(e)}")
-        
-        # If it's date-only (no time component), build datetime with hour/minute
-        if td_date.hour == 0 and td_date.minute == 0 and 'T' not in payin.transfer_date:
-            from datetime import datetime as dt_cls
-            td_naive = dt_cls(td_date.year, td_date.month, td_date.day,
-                              new_hour or 0, new_minute or 0, 0)
-        else:
-            td_naive = td_date.replace(tzinfo=None)  # strip any tz, treat as Bangkok
-        
-        td_utc = ensure_utc(td_naive)  # naive Bangkok → UTC
-        assert_utc(td_utc, "transfer_date_update")
-        existing.transfer_date = td_utc
-        logger.info(f"  transfer_date updated: Bangkok {td_naive} → UTC {td_utc}")
-    if payin.slip_image_url is not None:
-        existing.slip_url = payin.slip_image_url  # Database field is slip_url
-    
+    values = evidence_values(existing, amount=payin.amount,
+        transfer_date=payin.transfer_date, transfer_hour=payin.transfer_hour,
+        transfer_minute=payin.transfer_minute, slip_url=payin.slip_image_url)
+    apply_evidence_edit(db, existing, bank, values, actor_id=current_user.id)
+
     # Keep status as PENDING after edit (still editable by resident)
     # Status only changes when admin accepts/rejects
     existing.status = PayinStatusEnum.PENDING
@@ -587,9 +560,7 @@ async def reject_payin_report(
     current_user: User = Depends(require_admin_or_accounting)
 ):
     """Reject a pay-in report (Admin or Accounting) - transitions to REJECTED_NEEDS_FIX"""
-    payin = db.query(PayinReportModel).options(
-        joinedload(PayinReportModel.house)
-    ).filter(PayinReportModel.id == payin_id).first()
+    payin, bank = lock_payin_evidence(db, payin_id)
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
@@ -603,6 +574,7 @@ async def reject_payin_report(
     if not request.reason or not request.reason.strip():
         raise HTTPException(status_code=400, detail="Rejection reason is required")
     
+    release_bank_match(db, payin, bank, actor_id=current_user.id, reason="rejected")
     payin.status = PayinStatusEnum.REJECTED_NEEDS_FIX
     payin.rejection_reason = request.reason
     payin.updated_at = utc_now()
@@ -642,12 +614,8 @@ async def accept_payin_report(
     4. Locks pay-in to ACCEPTED status (irreversible)
     5. All operations are ATOMIC (both succeed or both fail)
     """
-    # Fetch payin with relationships
-    payin = db.query(PayinReportModel).options(
-        joinedload(PayinReportModel.house),
-        joinedload(PayinReportModel.matched_statement_txn)
-    ).filter(PayinReportModel.id == payin_id).first()
-    
+    payin, bank = lock_payin_evidence(db, payin_id)
+
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
@@ -673,14 +641,9 @@ async def accept_payin_report(
         )
     
     from app.db.models import BankTransaction, PostingStatus
-    bank = (db.query(BankTransaction).filter(BankTransaction.id == payin.matched_statement_txn_id)
-            .populate_existing().with_for_update().first())
-    if not bank or bank.matched_payin_id != payin.id:
-        raise HTTPException(status_code=400, detail="Pay-in bank match changed; review required")
+    validate_evidence(payin, bank)
+    assert_unposted(db, payin, bank)
     scope = prepare_allocation(db, [payin.house_id])
-    db.refresh(payin)
-    if not payin.can_be_reviewed():
-        raise HTTPException(status_code=400, detail="Pay-in is no longer reviewable")
 
     # PRECONDITION 4: Check if IncomeTransaction already exists (safety check for idempotency)
     existing_income = db.query(IncomeTransaction).filter(
@@ -722,8 +685,8 @@ async def accept_payin_report(
             house_id=payin.house_id,
             payin_id=payin.id,
             reference_bank_transaction_id=payin.matched_statement_txn_id,
-            amount=payin.amount,
-            received_at=payin.matched_statement_txn.effective_at if payin.matched_statement_txn else payin.transfer_date
+            amount=bank.credit,
+            received_at=bank.effective_at
         )
         
         db.add(income_transaction)
@@ -793,10 +756,7 @@ async def delete_submission(
     from app.db.models.bank_transaction import BankTransaction, PostingStatus
     from app.db.models.income_transaction import IncomeTransaction, LedgerStatus
     
-    payin = db.query(PayinReportModel).options(
-        joinedload(PayinReportModel.house),
-        joinedload(PayinReportModel.matched_statement_txn),
-    ).filter(PayinReportModel.id == payin_id).first()
+    payin, bank = lock_payin_evidence(db, payin_id)
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
@@ -823,27 +783,9 @@ async def delete_submission(
             detail="รายการนี้ถูก Confirm & Post แล้ว — ต้องใช้ Reverse ก่อนจึงจะลบได้"
         )
     
-    # If matched with bank transaction, clear the match first
-    if payin.matched_statement_txn_id:
-        bank_txn = db.query(BankTransaction).filter(
-            BankTransaction.id == payin.matched_statement_txn_id
-        ).first()
-        if bank_txn:
-            bank_txn.matched_payin_id = None
-            bank_txn.posting_status = PostingStatus.UNMATCHED
-        payin.matched_statement_txn_id = None
-        db.flush()
-    
-    # Also check reverse direction: bank_txn that references this payin
-    linked_bank_txns = db.query(BankTransaction).filter(
-        BankTransaction.matched_payin_id == payin_id
-    ).all()
-    for bt in linked_bank_txns:
-        bt.matched_payin_id = None
-        if bt.posting_status == PostingStatus.REVERSED:
-            bt.posting_status = PostingStatus.UNMATCHED
-        db.flush()
-    
+    release_bank_match(db, payin, bank, actor_id=current_user.id, reason="delete_submission")
+    db.flush()
+
     # Delete the payin report
     db.delete(payin)
     db.commit()
@@ -883,7 +825,7 @@ async def delete_payin_report(
     logger.info(f"DELETE /payin-reports/{payin_id} by user={current_user.id} role={current_user.role}")
     
     try:
-        payin = db.query(PayinReportModel).filter(PayinReportModel.id == payin_id).first()
+        payin, bank = lock_payin_evidence(db, payin_id)
         if not payin:
             logger.warning(f"Payin {payin_id} not found")
             raise HTTPException(status_code=404, detail="Pay-in report not found")
@@ -944,14 +886,9 @@ async def delete_payin_report(
         else:
             raise HTTPException(status_code=403, detail="Access denied")
         
-        # Clear any related bank transaction links before delete (avoid FK constraint errors)
-        if payin.matched_statement_txn_id:
-            logger.info(f"Clearing matched_statement_txn_id={payin.matched_statement_txn_id}")
-            payin.matched_statement_txn_id = None
-        if payin.reference_bank_transaction_id:
-            logger.info(f"Clearing reference_bank_transaction_id={payin.reference_bank_transaction_id}")
-            payin.reference_bank_transaction_id = None
-        
+        release_bank_match(db, payin, bank, actor_id=current_user.id, reason="delete_payin")
+        db.flush()
+
         # Delete the pay-in
         db.delete(payin)
         db.commit()

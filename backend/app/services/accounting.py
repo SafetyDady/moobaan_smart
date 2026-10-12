@@ -14,7 +14,8 @@ from typing import Dict, List, Optional, Tuple
 from calendar import monthrange
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func, and_, or_
-from app.core.timezone import BANGKOK_TZ
+from app.core.timezone import BANGKOK_TZ, utc_now
+from app.services.payin_integrity import lock_payin_evidence, validate_evidence, assert_unposted
 from app.services.invoice_locking import lock_invoice, lock_ledger, lock_invoices
 from app.services.automatic_allocation import prepare_allocation, apply_prepared_funds
 from app.services.accounting_reports import (
@@ -145,7 +146,7 @@ class AccountingService:
             raise PermissionError("Only SUPER_ADMIN users can accept payments")
         
         # Get PayIn
-        payin = db.query(PayinReport).filter(PayinReport.id == payin_id).first()
+        payin, bank = lock_payin_evidence(db, payin_id)
         if not payin:
             raise ValueError(f"PayIn {payin_id} not found")
         
@@ -161,14 +162,9 @@ class AccountingService:
         # ============================================
         
         from app.db.models import BankTransaction, PostingStatus
-        bank = (db.query(BankTransaction).filter(BankTransaction.id == payin.matched_statement_txn_id)
-                .populate_existing().with_for_update().first())
-        if not bank or bank.matched_payin_id != payin.id:
-            raise ValueError("Pay-in bank match changed; review required")
+        validate_evidence(payin, bank)
+        assert_unposted(db, payin, bank)
         scope = prepare_allocation(db, [payin.house_id])
-        db.refresh(payin)
-        if not payin.can_be_accepted():
-            raise ValueError("Pay-in is no longer eligible for acceptance")
 
         # Verify house exists and get house status
         house = db.query(House).filter(House.id == payin.house_id).first()
@@ -186,13 +182,13 @@ class AccountingService:
             # Update PayIn status
             payin.status = PayinStatus.ACCEPTED
             payin.accepted_by = accepted_by_user_id
-            payin.accepted_at = datetime.utcnow()
+            payin.accepted_at = utc_now()
             
             # Create IncomeTransaction
             income_transaction = IncomeTransaction(
                 house_id=payin.house_id,
                 payin_id=payin_id,
-                amount=payin.amount,
+                amount=bank.credit,
                 received_at=bank.effective_at,
                 reference_bank_transaction_id=bank.id,
             )

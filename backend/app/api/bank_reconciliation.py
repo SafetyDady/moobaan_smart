@@ -18,6 +18,8 @@ from app.db.models.bank_transaction import BankTransaction, PostingStatus
 from app.db.models.payin_report import PayinReport, PayinStatus
 from app.services.invoice_locking import lock_invoices, lock_ledger
 from app.services.automatic_allocation import prepare_allocation, apply_prepared_funds
+from app.services.payin_integrity import (lock_bank, lock_payin_row, assert_unposted,
+    release_bank_match, validate_evidence, conflict, validate_review_revision)
 
 
 router = APIRouter(prefix="/api/bank-statements", tags=["bank-reconciliation"])
@@ -27,6 +29,7 @@ router = APIRouter(prefix="/api/bank-statements", tags=["bank-reconciliation"])
 
 class MatchRequest(BaseModel):
     payin_id: int
+    evidence_revision: Optional[str] = None
 
 
 class MatchResponse(BaseModel):
@@ -62,7 +65,7 @@ async def match_transaction_with_payin(
         raise HTTPException(status_code=400, detail="Invalid transaction ID format")
     
     # Get bank transaction
-    bank_txn = db.query(BankTransaction).filter(BankTransaction.id == txn_uuid).first()
+    bank_txn = lock_bank(db, txn_uuid)
     if not bank_txn:
         raise HTTPException(status_code=404, detail="Bank transaction not found")
     
@@ -81,11 +84,12 @@ async def match_transaction_with_payin(
         )
     
     # Get pay-in report
-    payin = db.query(PayinReport).filter(PayinReport.id == data.payin_id).first()
+    payin = lock_payin_row(db, data.payin_id)
     if not payin:
         raise HTTPException(status_code=404, detail="Pay-in report not found")
     
     # Validation 3: Pay-in must be in review-eligible state (SUBMITTED or legacy PENDING)
+    validate_review_revision(payin, data.evidence_revision)
     review_eligible_states = [PayinStatus.SUBMITTED, PayinStatus.PENDING]
     if payin.status not in review_eligible_states:
         raise HTTPException(
@@ -100,32 +104,9 @@ async def match_transaction_with_payin(
             detail=f"Pay-in already matched with bank transaction {payin.matched_statement_txn_id}"
         )
     
-    # Validation 5: Amount must match exactly
-    amount_diff = abs(float(bank_txn.credit) - float(payin.amount))
-    if amount_diff > 0.01:  # More than 1 cent difference
-        raise HTTPException(
-            status_code=400,
-            detail=f"Amount mismatch: Bank ฿{bank_txn.credit} vs Pay-in ฿{payin.amount}. Amounts must match exactly."
-        )
-    
-    # Validation 6: Time tolerance ±1 minute (using transfer_datetime business truth)
-    if not payin.transfer_datetime:
-        raise HTTPException(
-            status_code=400,
-            detail="Pay-in transfer_datetime not available"
-        )
-    
-    # Both timestamps should be timezone-aware
-    payin_time = payin.transfer_datetime
-    bank_time = bank_txn.effective_at
-    
-    time_diff = abs((payin_time - bank_time).total_seconds())
-    if time_diff > 60:  # More than 60 seconds
-        raise HTTPException(
-            status_code=400,
-            detail=f"Time mismatch: Pay-in {payin_time.strftime('%H:%M:%S')} vs Bank {bank_time.strftime('%H:%M:%S')}. Must be within ±1 minute."
-        )
-    
+    assert_unposted(db, payin, bank_txn)
+    validate_evidence(payin, bank_txn, require_link=False)
+
     # Perform 1:1 match (both sides)
     bank_txn.matched_payin_id = payin.id
     payin.matched_statement_txn_id = bank_txn.id
@@ -164,7 +145,7 @@ async def unmatch_transaction(
         raise HTTPException(status_code=400, detail="Invalid transaction ID format")
     
     # Get bank transaction
-    bank_txn = db.query(BankTransaction).filter(BankTransaction.id == txn_uuid).first()
+    bank_txn = lock_bank(db, txn_uuid)
     if not bank_txn:
         raise HTTPException(status_code=404, detail="Bank transaction not found")
     
@@ -172,29 +153,10 @@ async def unmatch_transaction(
     if bank_txn.matched_payin_id is None:
         raise HTTPException(status_code=400, detail="Transaction is not matched")
     
-    # Get matched pay-in
-    payin = db.query(PayinReport).filter(PayinReport.id == bank_txn.matched_payin_id).first()
-    if not payin:
-        # Orphaned match - clean up
-        bank_txn.matched_payin_id = None
-        db.commit()
-        return {"success": True, "message": "Cleaned up orphaned match"}
-    
-    # Validation: Cannot unmatch ACCEPTED pay-in (ledger exists)
-    if payin.status == PayinStatus.ACCEPTED:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot unmatch accepted pay-in. Ledger has been created. Please reject/reverse the ledger entry first."
-        )
-    
-    # Remove match from both sides
+    payin = lock_payin_row(db, bank_txn.matched_payin_id)
     payin_id = payin.id
-    bank_txn.matched_payin_id = None
-    payin.matched_statement_txn_id = None
-    
-    # Phase P1: Reset posting status
-    bank_txn.posting_status = PostingStatus.UNMATCHED
-    
+    release_bank_match(db, payin, bank_txn, actor_id=current_user.id, reason="admin_unmatch")
+
     db.commit()
     
     return {
@@ -400,6 +362,7 @@ async def get_candidate_transactions_for_payin(
 class ConfirmPostRequest(BaseModel):
     """Optional: specify target invoice for ambiguous cases"""
     invoice_id: Optional[int] = None
+    evidence_revision: Optional[str] = None
 
 
 class ReverseRequest(BaseModel):
@@ -484,9 +447,10 @@ async def confirm_and_post(
     
     # If matched with pay-in, use pay-in's house
     if bank_txn.matched_payin_id:
-        payin = db.query(PayinReport).filter(
-            PayinReport.id == bank_txn.matched_payin_id
-        ).first()
+        payin = lock_payin_row(db, bank_txn.matched_payin_id)
+        validate_review_revision(payin, data.evidence_revision if data else None)
+        validate_evidence(payin, bank_txn)
+        assert_unposted(db, payin, bank_txn)
         if payin:
             target_house_id = payin.house_id
     
@@ -646,6 +610,10 @@ async def reverse_posted_transaction(
             detail=f"Can only reverse POSTED transactions (current: {bank_txn.posting_status.value})"
         )
     
+    payin = lock_payin_row(db, bank_txn.matched_payin_id) if bank_txn.matched_payin_id else None
+    if payin and payin.matched_statement_txn_id != bank_txn.id:
+        conflict()
+
     try:
         # 2. Find IncomeTransaction
         income_txn = db.query(IncomeTransaction).filter(
@@ -690,9 +658,6 @@ async def reverse_posted_transaction(
         
         # 6. Revert matched pay-in to SUBMITTED
         if bank_txn.matched_payin_id:
-            payin = db.query(PayinReport).filter(
-                PayinReport.id == bank_txn.matched_payin_id
-            ).first()
             if payin and payin.status == PayinStatusEnum.ACCEPTED:
                 payin.status = PayinStatusEnum.SUBMITTED
                 payin.accepted_by = None

@@ -221,6 +221,8 @@ async def accept_payin(
             "income_transaction": income_transaction.to_dict()
         }
         
+    except HTTPException:
+        raise
     except PermissionError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
