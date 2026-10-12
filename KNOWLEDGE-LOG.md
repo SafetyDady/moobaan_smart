@@ -11,7 +11,8 @@
 - ตรวจ diff/ขอบเขตซ้ำ ไม่มี migration/FIFO/model/config/dependency changes. Local backend141 + Chrome11 + production buildผ่านอีกครั้ง เก็บผลที่ `C:\Users\sanch\moobaan-local-tests\payin-integrity-20261012`. แยก container พอร์ต55443 ไม่หยุดงานอื่นที่55442
 - Production baselineยืนยันRailwaySUCCESS598f2bbตรงorigin/master; seed/resetfalse. สำรองDBแบบread-onlyเวลา12:35น.แล้วrestoreแยกครบ26ตาราง/hashตรง SHA256 `92822dbf82e594fbea45986f6e2d4b9bd85bd455480b9c1fe7cfb029d7ed01a8`. ไม่รวมbytesR2 ไม่restoreทับproduction
 - สำเนาสดอ่านPayIn334รายการสร้างreviewtokenได้ครบ; ณsnapshotไม่มีreviewablematchedจึงไม่อ้างว่าได้ทดลองรับรายการจริงที่รออยู่. Lifecycle/raceใช้syntheticLocaltests ไม่กดยืนยันเงินจริงเพื่อทดสอบ
-- เตรียมเผยแพร่และตรวจผลใน [release report](docs/reviews/2026-10-12-payin-integrity-production-release.md). Phase2ตรวจQRยังไม่อนุมัติ
+- เผยแพร่applicationcommit `5467eefe02811c5207efd396892ab5cf0ca4f238` แล้วRailway/VercelSUCCESSตรงrevision. ตรวจ12:39:33น.ไทย DB26ตารางcount/hashไม่เปลี่ยนจากprepushbackup, health/ready200, anonymousGET15จุดได้401, frontendทั้งสองโดเมนใช้รุ่นใหม่. JSต่างจากLocalเฉพาะpublicLINEenvสองค่าและCRLFในstring; normalizeสองเรื่องนี้แล้วตรงทั้งหมด CSSตรงทุกbyte ไม่แก้envเพื่อให้hashตรง
+- ผลใน [release report](docs/reviews/2026-10-12-payin-integrity-production-release.md). เป็นการตรวจread-onlyหลังเผยแพร่ ไม่กดรับเงินจริงหรือกวาดประวัติ; Phase2ตรวจQRยังไม่อนุมัติ
 
 ## 2026-10-09 — PayIn Match Integrity Phase 1 ลงมือ Local เสร็จ รอรีวิว/อนุมัติ deploy
 

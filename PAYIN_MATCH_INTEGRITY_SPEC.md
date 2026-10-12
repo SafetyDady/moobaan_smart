@@ -1,5 +1,7 @@
 # SPEC — PayIn Match Integrity (Phase 1: ปิดช่องโหว่หลักฐานเปลี่ยนหลัง match)
 
+> **สถานะล่าสุด 12 ต.ค. 2026:** Owner อนุมัติแล้ว เผยแพร่ application `5467eef` สำเร็จทั้ง Railway/Vercel และตรวจ DB ไม่เปลี่ยนทั้ง26ตาราง ณ12:39:33น. ดู [รายงาน release](docs/reviews/2026-10-12-payin-integrity-production-release.md). ข้อความรอcommit/อนุมัติด้านล่างเป็นประวัติการมอบงาน 9 ต.ค.
+
 > **ผู้วิเคราะห์/เจ้าของ spec:** Claude Code (เจ้าภาพหลัก) — วิเคราะห์จากโค้ดจริง 2026-10-09
 > **ผู้ลงมือ:** Codex | **ผู้รีวิวก่อน push:** Claude Code + owner
 > **Local baseline ที่ตรวจจริง:** `598f2bb` (`f367d88` ในบันทึกมอบงานเป็น commit เก่า ไม่ใช่ HEAD) ต้องยืนยัน deployed revision ก่อนกำหนด production rollback

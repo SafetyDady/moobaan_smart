@@ -4,7 +4,10 @@
 **สถานะรวม:** 🟢 active deployed (Vercel `moobaan-smart` / Railway backend) — อยู่ใน maintenance + เพิ่ม feature ย่อย
 **หลักนำทาง:** ของที่ deploy แล้ว **ห้ามพัง** · owner รีวิว + deploy เอง อย่า push/commit โดยไม่ถาม
 
-## งานปัจจุบัน — PayIn Match Integrity Phase 1: preflight ผ่าน กำลังเผยแพร่ตาม owner อนุมัติ
+## สถานะปัจจุบัน — PayIn Match Integrity Phase 1: deployed และตรวจหลังเผยแพร่ผ่าน
+
+- **12 ต.ค. 2026 เวลา12:39น.ไทย:** Commit `5467eefe02811c5207efd396892ab5cf0ca4f238` RailwayและVercelSUCCESSตรงrevision; health/ready200, ทั้งสองfrontendโดเมนให้bundleใหม่ (CSSตรงLocalทุกbyte, JSตรงหลังแทนค่าตั้งLINEloginระหว่างLocal/ProductionและnormalizeCRLF). Anonymous GET15จุดรวมPayIn/detail/slip/candidates/invoicesได้401ครบ
+- **ตรวจDBหลังdeployแบบread-only:** 26ตารางจำนวนแถว/hashตรงfreshbackupก่อนpushทุกตาราง ไม่มีข้อมูลเปลี่ยน ณ12:39:33น. ไม่ได้ทดลองกดรับเงินจริงเพื่อทดสอบ ผลจำกัดตามเวลาตรวจ ไม่รับรองธุรกรรมในอนาคต. รายงาน releaseด้านล่างเก็บผลและข้อจำกัดครบ
 
 - **12 ต.ค. 2026:** Owner อนุมัติให้ตรวจแล้ว push หากไม่มีข้อบล็อก จึงดำเนินการ release ตามคำอนุมัติล่าสุด ไม่ได้อ้างว่ามีผล Auditor รอบใหม่ ทดสอบซ้ำ backend141 + Chrome11 + build ผ่าน หลักฐาน `C:\Users\sanch\moobaan-local-tests\payin-integrity-20261012`. ใช้ container แยก `moobaan-integrity-release-20261012` พอร์ต55443 เพราะพอร์ต55442มีงานอื่นใช้อยู่
 - **Preflight ผ่าน 12:35 น. ไทย:** Railway SUCCESS ที่ `598f2bb` ตรง origin/master, seed/reset flags=false, health/ready/frontend200. DB backup `payin-integrity-release-20261012T053519Z` SHA256 `92822dbf82e594fbea45986f6e2d4b9bd85bd455480b9c1fe7cfb029d7ed01a8` ทดลองกู้คืน Local และเทียบ26ตารางจำนวนแถว/hashครบ ไม่มี production write/migration; backupมีobject keysแต่ไม่รวมbytesรูปR2. รายละเอียด [release report](docs/reviews/2026-10-12-payin-integrity-production-release.md)
@@ -17,7 +20,8 @@
 - **ผล Local รอบสุดท้าย:** backend **141 tests ผ่าน** (PostgreSQL114 + unit/export27; integrityใหม่40 รวม12 blocking races); browser **11 scenarios ผ่าน** บนChrome ขนาด1280/390 เวลาเครื่องNew_York/Tokyo ด้วยAPI/สลิปสังเคราะห์และบล็อกremote requests; frontend build ผ่าน; git diff --check ผ่านหลังเก็บ whitespace
 - PostgreSQL17 เฉพาะงาน `moobaan-integrity-local-20261009`, loopback55442, DB `moobaan_credit_test`, schemaสุ่มและล้างเฉพาะschemaทดสอบ. หลักฐานlocal `C:\Users\sanch\moobaan-local-tests\payin-integrity-20261009` (backend-results.json, results.json, desktop/mobile/tokyo.png). Browserเป็นmockAPI; HTTP handler testsใช้LocalDBจริง ไม่อ้างว่า browser ต่อDBจริง end-to-end หรือทดสอบSafari/มือถือจริง
 - **Local baseline 598f2bb**; f367d88 ในเอกสารมอบงานเดิมเป็นcommitเก่า ได้แก้specแล้ว ก่อนreleaseต้องตรวจdeployedrevisionและfreshbackup/restoreอีกครั้ง ไม่มีการนำbackupเก่ามาทับรายการใหม่
-- **ขั้นถัดไปตามอนุมัติ 12 ต.ค.:** ปิด preflight/backup → commit/push → ตรวจ deployment และอ่านเทียบข้อมูลหลังเผยแพร่. Phase2 EasySlip/SlipOK/OCRยังไม่อนุมัติ ไม่สมัคร/ส่งสลิปภายนอก ยังไม่อ่านความแท้ของรูปเองอัตโนมัติหรือกวาดแก้ประวัติ
+- **งานถัดไปที่ยังไม่อนุมัติ:** Phase2 EasySlip/SlipOK/OCR. Phase1applicationเผยแพร่และตรวจแล้ว ไม่สมัคร/ส่งสลิปภายนอก ยังไม่อ่านความแท้ของรูปเองอัตโนมัติหรือกวาดแก้ประวัติ
+- รอบrelease12ต.ค.ปิดLocalVite5176และหยุดcontainerของรอบนี้ที่55443แล้ว เก็บDBrestore/หลักฐานไว้ ไม่หยุดcontainerงานอื่นที่55442
 - ปิดLocalVite5176และหยุดเฉพาะcontainerทดสอบของงานนี้หลังจบ เก็บcontainer/หลักฐานไว้ รันทดสอบซ้ำเริ่มด้วย `docker start moobaan-integrity-local-20261009` ไม่ได้หยุดDockerทั้งหมดหรือแตะบริการอื่น
 
 ## ผลแก้ล่าสุด — 9 ต.ค. 2026 เวลา 15:42–15:43 ไทย

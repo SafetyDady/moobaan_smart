@@ -31,7 +31,17 @@ Private execution evidence: `C:\Users\sanch\moobaan-local-tests\payin-integrity-
 
 ## Publication status
 
-Preflight complete; commit/push and post-deployment verification are the next steps. Actual commit/deployment results will be appended after observing them.
+Commit `5467eefe02811c5207efd396892ab5cf0ca4f238` pushed successfully to master. Railway deployment `545e281a-0843-4e97-ae1b-08ea320fb22c` is SUCCESS at that exact revision; Vercel commit status is success.
+
+Post-deployment checks at **12:39 Bangkok on 12 October 2026**:
+
+- Railway health/readiness and both frontend domains return200.
+- Both frontend domains serve `/assets/index-Cfx8yZvc.js` and `/assets/index-DNzWVUYb.css`. CSS matches the verified Local build byte-for-byte. JavaScript matches after explicitly substituting the two existing LINE-login public environment URLs and normalizing escaped Windows/Linux line endings; it is not a claim of raw byte equality. Public bundle SHA256 `3bfbf447d5443db322f6dce2a86510e63786297529767864c80fe6c29ad5a0f0`.
+- Fifteen anonymous GET checks across backend and both frontend proxies return401, covering PayIn list/detail/slip, matching candidates, and invoices.
+- Read-only database comparison at12:39:33: all26 table counts and content hashes equal the pre-push snapshot; changed tables=0. No financial or evidence rows changed during this observed interval.
+- No real production receipt was matched/posted as a test. Local HTTP/PostgreSQL lifecycle tests and mocked-browser tests remain separate evidence, with the limitations stated above.
+
+Evidence files: `deployment-latest.json`, `public-verification.json`, `postcheck.json`, and private post-deployment table fingerprints in the Local evidence directory. This documentation follow-up contains no application changes; its publication can trigger the normal deployment pipeline again.
 
 ## Operational limits
 
